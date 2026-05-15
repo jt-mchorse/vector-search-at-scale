@@ -54,3 +54,44 @@ Strategic decisions for this repo, with reasoning. Append-only — superseded de
 **Reversibility:** Cheap. Tags are module variables; clustering is a module-level rewrite but the modules are small.
 
 **Related issues:** #1
+
+## D-005 — Backend is a Protocol with `ingest` + `query`, lazy SDK imports per extra (2026-05-15)
+**Decision:** `vector_bench.types.Backend` is a runtime-checkable Protocol with `name`, `ingest(vectors, ids)`, `query(vector, k)`, and `close()`. Each real engine adapter (`pgvector`, `qdrant`, `weaviate`) lives in its own module under `src/vector_bench/backends/` and lazy-imports its SDK, with a clear `BackendError` message pointing at the missing pip extra.
+
+**Why:** Same single-method-protocol pattern as `eval-harness.Backend`, `rag-production-kit.{Embedder,Reranker,Generator}`, and `embedding-model-shootout.Embedder`. The harness can score any backend the same way; tests don't need a real engine.
+
+**Alternatives considered:**
+- Abstract base class — rejected: Python `Protocol` is structural so test stubs don't need to inherit.
+- Single concrete class with branching — rejected: makes the swappable-backends story muddier as engines are added.
+- LangChain-style chain — rejected: heavy dep tree for a two-method contract.
+
+**Reversibility:** Cheap. New backends are net-adds; the Protocol grows kwargs without breaking existing implementers.
+
+**Related issues:** #2
+
+## D-006 — Stub backend ships in base install for hermetic CI (2026-05-15)
+**Decision:** `StubBackend` is a pure-numpy backend that IS the ground truth (by construction it uses the same cosine similarity the harness uses for the ground-truth top-k). Recall@k on the stub is 1.0 by design. It's the default in CI and serves as a sanity baseline for real engines.
+
+**Why:** Same hermetic-CI rationale as `rag-production-kit`'s `LexicalOverlapReranker` (D-006 in that repo) and `eval-harness`'s deterministic judge stub. The harness needs to be exercisable end-to-end without AWS bring-up; the stub does that. Real engines should approach recall@k = 1.0 as their HNSW parameters are tuned up — useful as a calibration target.
+
+**Alternatives considered:**
+- Require AWS for any test — rejected: makes CI brittle, slow, and expensive.
+- Mock engine clients in each test file — rejected: spreads the mock surface across tests instead of concentrating it in one well-documented backend.
+
+**Reversibility:** Cheap. The stub stays even after real engines land; it's the recall ceiling.
+
+**Related issues:** #2
+
+## D-007 — One JSON file per `run_id` under `results/`, refuse overwrite without `--force` (2026-05-15)
+**Decision:** `run_benchmark(..., run_id=R, results_dir=results)` writes `results/<run_id>.json`. If the file exists, the harness raises `FileExistsError` unless `force=True` (CLI: `--force`). No per-run history database, no append-only JSONL.
+
+**Why:** Idempotency by filesystem, not by parsing a prior JSON. Catches the most common operator typo (re-using an old `run_id`) loudly rather than silently overwriting. Two backends comparing the same workload differ only by `run_id`, so the operator's mental model is "one file per backend × workload × scale × revision."
+
+**Alternatives considered:**
+- SQLite history (cf. `eval-harness`) — rejected: overkill for the per-engine workload this harness exercises, and the `eval-harness` use case is per-row diffing which doesn't apply here.
+- Append-only JSONL — rejected: per-run atomicity is harder to argue for; partial writes pollute the history.
+- No persistence — rejected: the issue requires structured JSON output as an acceptance criterion.
+
+**Reversibility:** Cheap. Output format is a pure-function of `BenchmarkResult.to_json()`.
+
+**Related issues:** #2, #3, #4, #5
