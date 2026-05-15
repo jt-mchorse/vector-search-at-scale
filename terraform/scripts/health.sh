@@ -35,9 +35,9 @@ check_wv() {
 
 while true; do
   pg_ok=0; qd_ok=0; wv_ok=0
-  check_pg && pg_ok=1 || true
-  check_qd && qd_ok=1 || true
-  check_wv && wv_ok=1 || true
+  if check_pg; then pg_ok=1; fi
+  if check_qd; then qd_ok=1; fi
+  if check_wv; then wv_ok=1; fi
 
   if [ "$pg_ok$qd_ok$wv_ok" = "111" ]; then
     echo "all healthy: pgvector=$PG_IP:5432 qdrant=$QD_IP:6333 weaviate=$WV_IP:8080"
