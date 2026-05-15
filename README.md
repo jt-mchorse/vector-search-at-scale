@@ -78,12 +78,53 @@ make down SCALE=1m
 The `Makefile` is the operator surface; the underlying Terraform lives in
 `terraform/envs/benchmark/`.
 
+### Benchmark harness (`vector-bench run`)
+
+The Python package layered on top of the infra runs the same workload
+against any of the three backends and writes structured JSON per run.
+Hermetic flow (no AWS, no SDKs, runs in a couple seconds):
+
+```bash
+python3 -m venv .venv && source .venv/bin/activate
+pip install -e '.[dev]'
+pytest                                    # 23 hermetic tests pass
+vector-bench run --backend stub \
+  --n 1000 --dim 64 --queries 50 --top-k 10 \
+  --run-id smoke-001
+# → writes results/smoke-001.json (deterministic; mean_recall_at_k = 1.0)
+```
+
+Real-backend flow (assumes `make up SCALE=1m` is up and the operator has
+set the per-engine env vars):
+
+```bash
+pip install -e '.[pgvector,qdrant,weaviate]'
+
+PGVECTOR_DSN=postgresql://... \
+  vector-bench run --backend pgvector --n 1000000 --dim 768 \
+                   --queries 200 --top-k 10 --run-id pgvector-1m-001
+
+QDRANT_URL=http://... \
+  vector-bench run --backend qdrant   --n 1000000 --dim 768 \
+                   --queries 200 --top-k 10 --run-id qdrant-1m-001
+
+WEAVIATE_HOST=... \
+  vector-bench run --backend weaviate --n 1000000 --dim 768 \
+                   --queries 200 --top-k 10 --run-id weaviate-1m-001
+```
+
+The harness records every workload field on the result, so apples-to-apples
+comparison between backends is just diffing the JSON.
+
 ## Benchmarks / Results
 
-Pending. This PR ships the infra layer (issue #1). Real numbers come from
-issues #2 (harness), #3 (HNSW tuning), #4 (latency under load), and #5 (cost
-per query). When those land, this section gets a real Pareto frontier — not
-before, per the project's no-fabricated-benchmarks rule.
+The harness (issue #2) is shipped and exercised hermetically in CI. **Real
+numbers from the three live backends are pending the operator running
+`make up SCALE=1m` followed by the per-engine `vector-bench run` commands
+above** — per the project's no-fabricated-benchmarks rule, this section
+stays empty until those JSONs exist. Once they do, issue #3 (HNSW tuning),
+#4 (latency under load), and #5 (cost per query) compose the harness to
+produce the Pareto frontier.
 
 ## Demo
 

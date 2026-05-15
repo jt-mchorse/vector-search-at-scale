@@ -11,6 +11,10 @@ build/
 *.log
 logs/
 .pytest_cache/
+*.egg-info/
+
+# vector-bench operator runs; commit only fixtures explicitly.
+results/
 
 # Terraform
 .terraform/

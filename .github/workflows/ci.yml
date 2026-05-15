@@ -51,6 +51,20 @@ jobs:
           # files only and rely on `terraform validate` to catch templatefile errors.
           shellcheck terraform/scripts/*.sh
 
+  python:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: install dev extras
+        run: pip install -e '.[dev]'
+      - name: ruff lint
+        run: ruff check src/ tests/
+      - name: pytest
+        run: pytest
+
   memory-check:
     runs-on: ubuntu-latest
     steps:
