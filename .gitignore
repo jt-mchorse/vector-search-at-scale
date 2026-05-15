@@ -11,3 +11,22 @@ build/
 *.log
 logs/
 .pytest_cache/
+
+# Terraform
+.terraform/
+.terraform.lock.hcl
+terraform.tfstate
+terraform.tfstate.*
+*.tfstate
+*.tfstate.*
+crash.log
+crash.*.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+.terraformrc
+terraform.rc
+**/terraform.tfvars
+!**/terraform.tfvars.example
+

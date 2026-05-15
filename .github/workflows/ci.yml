@@ -7,19 +7,49 @@ on:
     branches: [main]
 
 jobs:
-  lint:
+  fmt:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      # Add language-specific lint setup per repo (ruff for Python, eslint for TS)
-      - run: echo "Configure lint for this repo's stack"
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.15.3"
+          terraform_wrapper: false
+      - name: terraform fmt -check -recursive
+        run: terraform fmt -check -recursive terraform
 
-  test:
+  validate:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      # Add test runner per repo (pytest, vitest, jest)
-      - run: echo "Configure tests for this repo's stack"
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.15.3"
+          terraform_wrapper: false
+      - name: terraform validate (every module + env)
+        run: |
+          set -euo pipefail
+          for dir in terraform/modules/* terraform/envs/* ; do
+            echo "==> $dir"
+            (
+              cd "$dir"
+              terraform init -backend=false -input=false >/dev/null
+              terraform validate
+            )
+          done
+
+  shellcheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: shellcheck
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y shellcheck
+          # The .tftpl user-data scripts contain ${var} interpolations from terraform's
+          # templatefile(); shellcheck doesn't know about those, so lint the static .sh
+          # files only and rely on `terraform validate` to catch templatefile errors.
+          shellcheck terraform/scripts/*.sh
 
   memory-check:
     runs-on: ubuntu-latest

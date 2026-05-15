@@ -1,0 +1,17 @@
+# Copy to terraform.tfvars and edit. terraform.tfvars is .gitignored.
+
+scale_tier        = "1m"
+region            = "us-east-1"
+availability_zone = "us-east-1a"
+name_prefix       = "vss-bench"
+
+# Optional: SSH access. Empty list = no SSH ingress at all.
+# ssh_ingress_cidrs = ["YOUR.PUBLIC.IP/32"]
+# key_name          = "your-ec2-keypair"
+
+# Optional: pin the AMI for reproducibility instead of resolving the latest Ubuntu 22.04.
+# ami_id = "ami-0abcdef1234567890"
+
+tags = {
+  Owner = "jt-mchorse"
+}

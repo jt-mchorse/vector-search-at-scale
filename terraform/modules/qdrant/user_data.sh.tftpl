@@ -1,0 +1,52 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+DATA_DEV=/dev/nvme1n1
+for i in $(seq 1 30); do
+  if [ -b "$${DATA_DEV}" ]; then break; fi
+  sleep 2
+done
+
+if [ ! -b "$${DATA_DEV}" ]; then
+  echo "data volume $${DATA_DEV} did not attach in 60s" >&2
+  exit 1
+fi
+
+if ! blkid "$${DATA_DEV}" >/dev/null 2>&1; then
+  mkfs.ext4 -L qdrantdata "$${DATA_DEV}"
+fi
+
+mkdir -p /qdrant/storage
+mount "$${DATA_DEV}" /qdrant/storage
+echo "LABEL=qdrantdata /qdrant/storage ext4 defaults,nofail 0 2" >> /etc/fstab
+
+apt-get update
+apt-get install -y ca-certificates curl gnupg
+install -m 0755 -d /etc/apt/keyrings
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+chmod a+r /etc/apt/keyrings/docker.gpg
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo "$${VERSION_CODENAME}") stable" \
+  > /etc/apt/sources.list.d/docker.list
+apt-get update
+apt-get install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
+
+systemctl enable --now docker
+
+# Qdrant: REST 6333, gRPC 6334. We expose both inside the VPC (security group restricts).
+docker run -d \
+  --name qdrant \
+  --restart unless-stopped \
+  -p 6333:6333 \
+  -p 6334:6334 \
+  -v /qdrant/storage:/qdrant/storage \
+  qdrant/qdrant:${image_tag}
+
+# Wait for the readiness endpoint.
+for i in $(seq 1 60); do
+  if curl -sf http://localhost:6333/readyz >/dev/null 2>&1; then
+    break
+  fi
+  sleep 2
+done
+
+echo "qdrant ready on ports 6333/6334" > /var/log/benchmark-ready

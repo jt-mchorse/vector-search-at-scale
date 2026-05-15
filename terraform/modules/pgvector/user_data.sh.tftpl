@@ -1,0 +1,57 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Wait for the data volume to attach.
+DATA_DEV=/dev/nvme1n1
+for i in $(seq 1 30); do
+  if [ -b "$${DATA_DEV}" ]; then break; fi
+  sleep 2
+done
+
+if [ ! -b "$${DATA_DEV}" ]; then
+  echo "data volume $${DATA_DEV} did not attach in 60s" >&2
+  exit 1
+fi
+
+# Format on first boot only.
+if ! blkid "$${DATA_DEV}" >/dev/null 2>&1; then
+  mkfs.ext4 -L pgdata "$${DATA_DEV}"
+fi
+
+mkdir -p /var/lib/postgresql
+mount "$${DATA_DEV}" /var/lib/postgresql
+echo "LABEL=pgdata /var/lib/postgresql ext4 defaults,nofail 0 2" >> /etc/fstab
+
+# Docker Engine via apt (Ubuntu 22.04).
+apt-get update
+apt-get install -y ca-certificates curl gnupg
+install -m 0755 -d /etc/apt/keyrings
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+chmod a+r /etc/apt/keyrings/docker.gpg
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo "$${VERSION_CODENAME}") stable" \
+  > /etc/apt/sources.list.d/docker.list
+apt-get update
+apt-get install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
+
+systemctl enable --now docker
+
+docker run -d \
+  --name pgvector \
+  --restart unless-stopped \
+  -p 5432:5432 \
+  -e POSTGRES_PASSWORD='${postgres_password}' \
+  -e POSTGRES_DB=bench \
+  -v /var/lib/postgresql:/var/lib/postgresql/data \
+  pgvector/pgvector:${image_tag}
+
+# Wait for Postgres to accept connections, then enable the pgvector extension.
+for i in $(seq 1 60); do
+  if docker exec pgvector pg_isready -U postgres -d bench >/dev/null 2>&1; then
+    break
+  fi
+  sleep 2
+done
+
+docker exec pgvector psql -U postgres -d bench -c 'CREATE EXTENSION IF NOT EXISTS vector;'
+
+echo "pgvector ready on port 5432" > /var/log/benchmark-ready

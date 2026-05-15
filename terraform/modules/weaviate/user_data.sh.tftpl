@@ -1,0 +1,56 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+DATA_DEV=/dev/nvme1n1
+for i in $(seq 1 30); do
+  if [ -b "$${DATA_DEV}" ]; then break; fi
+  sleep 2
+done
+
+if [ ! -b "$${DATA_DEV}" ]; then
+  echo "data volume $${DATA_DEV} did not attach in 60s" >&2
+  exit 1
+fi
+
+if ! blkid "$${DATA_DEV}" >/dev/null 2>&1; then
+  mkfs.ext4 -L weaviatedata "$${DATA_DEV}"
+fi
+
+mkdir -p /var/lib/weaviate
+mount "$${DATA_DEV}" /var/lib/weaviate
+echo "LABEL=weaviatedata /var/lib/weaviate ext4 defaults,nofail 0 2" >> /etc/fstab
+
+apt-get update
+apt-get install -y ca-certificates curl gnupg
+install -m 0755 -d /etc/apt/keyrings
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+chmod a+r /etc/apt/keyrings/docker.gpg
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo "$${VERSION_CODENAME}") stable" \
+  > /etc/apt/sources.list.d/docker.list
+apt-get update
+apt-get install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
+
+systemctl enable --now docker
+
+# Weaviate: REST 8080, gRPC 50051. AUTHENTICATION_ANONYMOUS_ACCESS_ENABLED=true is fine for
+# a benchmark-only ephemeral instance behind a VPC-internal security group.
+docker run -d \
+  --name weaviate \
+  --restart unless-stopped \
+  -p 8080:8080 \
+  -p 50051:50051 \
+  -e AUTHENTICATION_ANONYMOUS_ACCESS_ENABLED=true \
+  -e PERSISTENCE_DATA_PATH=/var/lib/weaviate \
+  -e DEFAULT_VECTORIZER_MODULE=none \
+  -e CLUSTER_HOSTNAME=node1 \
+  -v /var/lib/weaviate:/var/lib/weaviate \
+  semitechnologies/weaviate:${image_tag}
+
+for i in $(seq 1 60); do
+  if curl -sf http://localhost:8080/v1/.well-known/ready >/dev/null 2>&1; then
+    break
+  fi
+  sleep 2
+done
+
+echo "weaviate ready on ports 8080/50051" > /var/log/benchmark-ready
