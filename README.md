@@ -122,9 +122,37 @@ The harness (issue #2) is shipped and exercised hermetically in CI. **Real
 numbers from the three live backends are pending the operator running
 `make up SCALE=1m` followed by the per-engine `vector-bench run` commands
 above** — per the project's no-fabricated-benchmarks rule, this section
-stays empty until those JSONs exist. Once they do, issue #3 (HNSW tuning),
-#4 (latency under load), and #5 (cost per query) compose the harness to
-produce the Pareto frontier.
+stays empty until those JSONs exist. Once they do, issue #3 (HNSW tuning)
+and #5 (cost per query) compose the harness to produce the Pareto frontier.
+
+### Latency under load (#4)
+
+`vector-bench load --backend <b> --n <N> --concurrency 1,10,100 --run-id <id>`
+ingests once and queries at each concurrency level using `ThreadPoolExecutor`,
+writing one JSON per cell + a `matrix.json` summary under
+`results/load/<id>/`. `scripts/plot_latency.py` reads one or more
+`matrix.json` files and emits a markdown table plus optional PNG charts
+(matplotlib is lazy-imported; degrades to "chart skipped" if absent).
+
+The committed `results/load/stub-10k/matrix.json` is a real
+in-process numpy run (10 000 corpus vectors × 64 dims × 500 queries, M-series
+Mac, Python 3.11, recall@10 = 1.0 by construction):
+
+| concurrency | stub p50 ms | stub p95 ms | stub p99 ms |
+| --- | --- | --- | --- |
+| 1   | 0.612 | 0.675 | 0.730 |
+| 10  | 0.844 | 1.320 | 2.143 |
+| 100 | 1.740 | 4.297 | 5.472 |
+
+The shape ("p99 walks up faster than p50 as concurrency grows") is the
+GIL-bound stub showing thread contention on a numpy matmul; live engines
+will follow a different curve dominated by the network and the engine's
+internal HNSW search work — that's the comparison the per-backend
+`docs/latency-under-load/` PNGs will surface once the operator runs the
+real engines. The k6/locust formulation in the original issue body was
+re-scoped to ThreadPoolExecutor-over-`Backend`-Protocol (D-008) so the
+same load script works against all three backends; see decision for the
+deliberation.
 
 ## Demo
 
