@@ -43,3 +43,19 @@ Chronological log of work sessions. Most recent first below the divider.
 **Open questions / blockers:** None. Real numbers still pending the operator's cost-bearing `make up` + `vector-bench run` — that's documented in `docs/benchmarks.md`.
 
 **Next session:** Issue #4 (latency-under-load study) is the highest-leverage next step; #3 (HNSW tuning) also unblocked.
+
+## 2026-05-16 — Issue #4: Latency-under-load study (1, 10, 100 concurrent)
+**Duration:** ~45 min · **Branch:** `session/2026-05-16-1527-issue-4`
+
+- Shipped `src/vector_bench/load.py` with `run_under_load(backend, workload, concurrency_levels)`: ingests once, then drives queries through `ThreadPoolExecutor` at each requested concurrency level, capturing per-cell p50/p95/p99/max + throughput + recall. One JSON per cell plus a `matrix.json` index under `results/load/<run_id>/`, preserving D-007 idempotency (refuses to overwrite without `force=True`).
+- New `vector-bench load` CLI subcommand uses the same env contract as `vector-bench run`; `--concurrency` is a comma-separated list of ints (defaults to `1,10,100` matching the issue's three levels). `--render-table` appends a markdown latency table to the JSON output.
+- `scripts/plot_latency.py` reads one or more `matrix.json` files, prints a unified markdown table, and (if matplotlib is installed) emits one PNG line chart per backend × scale showing p50/p95/p99 vs concurrency on a log-x axis. Matplotlib is lazy-imported so a fresh CI box without the chart dep degrades to "chart skipped" without breaking the table.
+- 11 new hermetic tests cover per-cell aggregation under concurrency, idempotency + force overwrite, concurrency input validation (empty list rejected, non-positive rejected), the CLI subcommand (good path + bad concurrency string), table rendering shape, and `write_json=False` skipping filesystem entirely. Full suite is 34/34 pass; ruff clean.
+- README "Benchmarks / Results" grows a "Latency under load (#4)" subsection with a real measured stub-10k table (10 000 corpus vectors × 64 dims × 500 queries, recall@10 = 1.0 by construction) and the reproducer command. The shape ("p99 walks up faster than p50 as concurrency grows") is the GIL-bound stub showing thread contention on a numpy matmul — honest interpretation; the live-engine curves will land when the operator runs `make up`.
+- D-008 lands: re-scopes the issue's "k6/locust" criterion to ThreadPoolExecutor-over-the-`Backend`-Protocol. k6 is HTTP-only but pgvector talks the PostgreSQL wire protocol; driving load through the same Protocol the rest of the package uses keeps the apples-to-apples comparison intact across all three backends and removes a translation layer.
+
+**Why this work, this session:** Issue #2 (the benchmark harness) merged earlier this session unblocked #4. The latency-under-load story is the highest-leverage next study because all three downstream issues (#3 HNSW tuning, #5 cost per query) reuse the per-concurrency latency numbers; landing the load module here means those issues compose it directly. The k6 → ThreadPoolExecutor swap is the only deliberate scope adjustment.
+
+**Open questions / blockers:** None blocking. Real-engine load numbers require the operator's cost-bearing `make up SCALE=1m` + per-backend `vector-bench load --backend <b> --run-id <id>`; the harness, script, and JSON schema are all shipped, so the operator's session is the one-line `vector-bench load ...` cycle followed by `scripts/plot_latency.py`. `results/` is gitignored, so the only committed view of any run is the README table (regenerable from a fresh clone via the CLI).
+
+**Next session:** Issue #3 (HNSW parameter tuning study) reuses `run_under_load` directly — sweep `ef_search` per backend at fixed concurrency, plot p95 vs recall. Issue #5 (cost per query) reads the same per-cell JSONs and multiplies through the per-tier instance cost from `docs/infra.md` to produce the dollar curve.

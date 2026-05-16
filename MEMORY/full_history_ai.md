@@ -59,3 +59,31 @@ decisions_made: []
 followups: []
 ---
 
+
+---
+session: 2026-05-16T15:27Z
+duration_min: 45
+issue: 4
+focus: latency_under_load_study_threadpoolexecutor_over_backend_protocol
+delta:
+  files_added: 3  # load.py, plot_latency.py, test_load.py
+  files_changed: 3  # cli.py, README, decisions
+  tests_added: 11
+  test_pass_rate: "34/34 hermetic"
+  benchmarks:
+    stub_n_10000_dim_64_queries_500_concurrency_1_p95_ms: 0.675
+    stub_n_10000_dim_64_queries_500_concurrency_10_p95_ms: 1.320
+    stub_n_10000_dim_64_queries_500_concurrency_100_p95_ms: 4.297
+    recall_at_10: 1.0
+context_for_next_session:
+  - load_module_run_under_load_ingests_once_queries_per_concurrency_via_threadpoolexecutor
+  - one_json_per_cell_plus_matrix_json_under_results_load_run_id
+  - cli_load_subcommand_takes_comma_separated_concurrency_default_1_10_100
+  - plot_latency_script_uses_matplotlib_lazy_import_degrades_to_table_only
+  - readme_latency_under_load_subsection_has_real_stub_10k_table
+  - d_008_re_scopes_k6_locust_to_threadpoolexecutor_over_backend_protocol
+  - real_engine_load_numbers_pending_operator_make_up_then_vector_bench_load_per_backend
+  - results_dir_is_gitignored_committed_run_lives_only_in_readme_table
+decisions_made: [D-008]
+followups: []
+---

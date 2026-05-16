@@ -63,3 +63,12 @@
   reversibility: cheap
   related_issues: [#2, #3, #4, #5]
   superseded_by: null
+
+- id: D-008
+  date: 2026-05-16
+  decision: latency_under_load_driven_by_threadpoolexecutor_over_backend_protocol_not_k6_locust
+  rationale: k6_is_http_only_but_pgvector_speaks_postgres_wire_protocol_threadpoolexecutor_over_backend_keeps_apples_to_apples_across_all_three_backends_with_zero_translation_layer
+  alternatives_rejected: [k6_with_http_shim_for_pgvector, locust_with_two_separate_drivers_per_protocol_family, asyncio_based_driver_when_sdks_are_sync]
+  reversibility: cheap
+  related_issues: [#4]
+  superseded_by: null

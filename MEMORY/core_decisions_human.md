@@ -95,3 +95,19 @@ Strategic decisions for this repo, with reasoning. Append-only — superseded de
 **Reversibility:** Cheap. Output format is a pure-function of `BenchmarkResult.to_json()`.
 
 **Related issues:** #2, #3, #4, #5
+
+## D-008 — Latency-under-load driven by ThreadPoolExecutor over the `Backend` Protocol, not k6/locust (2026-05-16)
+**Decision:** The latency-under-load study (#4) drives concurrent queries via Python's `ThreadPoolExecutor` against the existing `Backend` Protocol (D-005), at concurrency levels `1, 10, 100`. Output is one JSON per concurrency cell plus a `matrix.json` index, under `results/load/<run_id>/`. The k6/locust formulation in the issue body is re-scoped to this equivalent Python driver.
+
+**Why:** k6 (the issue body's first suggestion) is HTTP-only, but **`pgvector` talks the PostgreSQL wire protocol** — driving load to it through k6 would require an HTTP shim, which is a translation layer that itself introduces latency and is not part of the production query path. Locust would work, but a second top-level Python tool that talks through a different abstraction than the harness already uses means two different views on "is this run idempotent" / "is this workload deterministic." Running through the `Backend` Protocol keeps the abstraction count at one across `vector-bench run` (per-backend single-thread) and `vector-bench load` (per-backend concurrent) — apples-to-apples across all three backends with zero translation.
+
+The three backend SDKs we adapter against (`psycopg2` for pgvector, `qdrant-client`, `weaviate-client`) are sync clients. Threads are the natural concurrency primitive; `asyncio.to_thread` would buy nothing over `ThreadPoolExecutor` and would add an extra layer to debug.
+
+**Alternatives considered:**
+- k6 + HTTP shim for pgvector — rejected; adds latency and an extra surface to maintain, and the shim itself becomes a benchmark target.
+- Locust with two separate drivers (Postgres + REST) — rejected; loses the single-abstraction story and doubles the per-engine maintenance surface.
+- asyncio-based driver — rejected; the SDKs are sync, so this just means `asyncio.to_thread` under the hood; no concurrency win, more debugging surface.
+
+**Reversibility:** Cheap. The load module (`src/vector_bench/load.py`) is ~250 lines; replacing it with k6 + a shim is a swap-out, not a refactor. The output `matrix.json` schema is stable and downstream consumers (the `plot_latency.py` script, downstream issues #3 / #5) don't care how the cells were produced.
+
+**Related issues:** #4
