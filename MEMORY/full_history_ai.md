@@ -87,3 +87,36 @@ context_for_next_session:
 decisions_made: [D-008]
 followups: []
 ---
+
+---
+session: 2026-05-17T00:55Z
+duration_min: 55
+issue: 3
+focus: hnsw_parameter_tuning_grid_with_simulation_backend_plus_frontier_plot
+delta:
+  files_added: 5  # backends/hnsw_sim.py, scripts/hnsw_grid.py, scripts/plot_hnsw_frontier.py, tests/test_hnsw_sim.py, tests/test_hnsw_grid.py
+  files_changed: 2  # backends/__init__.py registers hnsw-sim, README.md adds HNSW subsection
+  tests_added: 19
+  test_pass_rate: "53/53"
+  benchmarks:
+    hnsw_sim_grid_size: 36
+    hnsw_sim_workload: "n_vectors=2000, dim=64, n_queries=200"
+    knee_M: 32
+    knee_ef_construction: 100
+    knee_ef_search: 128
+    knee_recall_at_10: 0.998
+    knee_p95_ms: 2.02
+    frontier_size_simulation: 14
+context_for_next_session:
+  - hnsw_sim_is_pure_numpy_simulation_not_real_hnsw_explicit_in_module_docstring_d_009
+  - ingest_picks_neighbor_lists_via_top_m_over_ef_construction_random_candidates_per_node
+  - query_does_beam_search_starts_at_m_div_2_entry_points_expands_through_neighbors_keeps_ef_search_candidates
+  - grid_script_at_scripts_hnsw_grid_py_default_grid_8_16_32_x_50_100_200_x_16_32_64_128_36_cells
+  - frontier_plot_script_at_scripts_plot_hnsw_frontier_py_matplotlib_lazy_imported_degrades_to_table
+  - recommended_defaults_at_recall_floor_95_pct_m_32_efc_100_efs_128_p95_2_02_ms_recall_998_on_simulation
+  - committed_docs_hnsw_frontier_png_svg_grid_run_with_seed_1
+  - scripts_reusable_on_real_backends_via_backend_arg_pass_backend_qdrant_when_bring_up_done
+  - results_dir_gitignored_so_grid_jsons_local_only_recommendation_lives_in_readme_table
+decisions_made: [D-009]
+followups: []
+---

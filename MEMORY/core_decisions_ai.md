@@ -72,3 +72,12 @@
   reversibility: cheap
   related_issues: [#4]
   superseded_by: null
+
+- id: D-009
+  date: 2026-05-17
+  decision: hnsw_sim_backend_is_pure_numpy_simulation_of_recall_latency_tradeoff_not_a_real_hnsw_implementation
+  rationale: parameter_grid_study_runs_in_hermetic_ci_without_qdrant_weaviate_pgvector_bring_up_same_scripts_apply_to_real_backends_via_backend_arg_simulation_produces_qualitatively_correct_curve_shape_real_engines_diverge_in_absolute_numbers_but_shape_is_what_tuning_study_cares_about
+  alternatives_rejected: [require_aws_for_any_grid_run_breaks_dep_free_default, vendor_hnswlib_as_required_dep_adds_a_c_extension_for_a_demo, leave_to_operator_with_no_baseline_curve_makes_grid_script_untestable]
+  reversibility: cheap
+  related_issues: [#3]
+  superseded_by: null

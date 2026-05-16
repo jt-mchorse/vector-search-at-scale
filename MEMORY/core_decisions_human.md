@@ -111,3 +111,17 @@ The three backend SDKs we adapter against (`psycopg2` for pgvector, `qdrant-clie
 **Reversibility:** Cheap. The load module (`src/vector_bench/load.py`) is ~250 lines; replacing it with k6 + a shim is a swap-out, not a refactor. The output `matrix.json` schema is stable and downstream consumers (the `plot_latency.py` script, downstream issues #3 / #5) don't care how the cells were produced.
 
 **Related issues:** #4
+
+## D-009 — `HnswSimBackend` is a pure-numpy *simulation* of HNSW's tradeoff, not a real HNSW implementation (2026-05-17)
+**Decision:** The HNSW parameter-tuning study (#3) is exercised in CI against a pure-numpy backend named `HnswSimBackend` that *simulates* the recall/latency behavior of the three canonical HNSW parameters (`M`, `ef_construction`, `ef_search`). The module docstring and the README "HNSW parameter tuning" section are explicit that this is a simulation: it produces a qualitatively correct curve (low ef_search → low recall + low latency, monotone increase, plateau near 1.0 recall at large ef_search) so the grid + frontier script are testable hermetically; the same scripts apply unchanged to real engines (qdrant / weaviate / pgvector) via `--backend` when the AWS bring-up is done.
+
+**Why:** Three reasons compose. (1) The acceptance criteria asks for "grid script runnable" and "frontier plot committed" — both of those need a backend with HNSW knobs that runs without external infra. The real engines need `make up SCALE=1m` per D-004, which is operator-cost-bearing and out of scope for a single session. (2) Vendoring `hnswlib` adds a C extension to a portfolio meant to be `pip install -e .` clean; the simulation gives us the same parameter behavior without the dependency. (3) The simulation produces *real* numbers from a transparent model — the curves are reproducible, the math is one ~120-line module, and the framing is honest. A reader can see exactly why ef_search=128 gives ~99% recall vs ef_search=16 giving ~10% on this workload.
+
+**Alternatives considered:**
+- Require AWS bring-up for any HNSW grid run — rejected; breaks dep-free default, makes the script untestable in CI, and locks the study behind operator dollars before the script is even validated.
+- Vendor `hnswlib` as a required dep — rejected; adds a C extension for a demo repo; the absolute numbers it produces only matter when the real engines are also running, at which point we're using `--backend qdrant` anyway.
+- Leave the script to operate against real engines only — rejected; no baseline curve means the script's correctness can't be unit-tested, and a reader without AWS access has nothing to look at.
+
+**Reversibility:** Cheap. `HnswSimBackend` is one module (~120 lines); the grid + plot scripts call it via the same `Backend` protocol every other backend uses, so swapping in `hnswlib` later is one new file plus a registration in `backends/__init__.py`.
+
+**Related issues:** #3
