@@ -34,23 +34,30 @@ def main(argv: list[str] | None = None) -> int:
     sub = parser.add_subparsers(dest="command", required=True)
 
     run_p = sub.add_parser("run", help="Run a benchmark and write results JSON.")
-    run_p.add_argument("--backend", required=True, choices=["stub", "pgvector", "qdrant", "weaviate"])
+    run_p.add_argument(
+        "--backend", required=True, choices=["stub", "pgvector", "qdrant", "weaviate"]
+    )
     run_p.add_argument("--n", type=int, required=True, help="Number of corpus vectors.")
     run_p.add_argument("--dim", type=int, default=64)
     run_p.add_argument("--queries", type=int, default=50)
     run_p.add_argument("--top-k", type=int, default=10)
     run_p.add_argument("--concurrency", type=int, default=1)
     run_p.add_argument("--seed", type=int, default=1)
-    run_p.add_argument("--run-id", required=True, help="Unique id; results land at results/<run_id>.json.")
+    run_p.add_argument(
+        "--run-id", required=True, help="Unique id; results land at results/<run_id>.json."
+    )
     run_p.add_argument("--results-dir", default="results")
-    run_p.add_argument("--force", action="store_true",
-                       help="Overwrite an existing results/<run_id>.json.")
+    run_p.add_argument(
+        "--force", action="store_true", help="Overwrite an existing results/<run_id>.json."
+    )
 
     load_p = sub.add_parser(
         "load",
         help="Run a latency-under-load study across multiple concurrency levels (#4).",
     )
-    load_p.add_argument("--backend", required=True, choices=["stub", "pgvector", "qdrant", "weaviate"])
+    load_p.add_argument(
+        "--backend", required=True, choices=["stub", "pgvector", "qdrant", "weaviate"]
+    )
     load_p.add_argument("--n", type=int, required=True, help="Number of corpus vectors.")
     load_p.add_argument("--dim", type=int, default=64)
     load_p.add_argument("--queries", type=int, default=200)
@@ -62,10 +69,15 @@ def main(argv: list[str] | None = None) -> int:
         default="1,10,100",
         help="Comma-separated concurrency levels (default: 1,10,100).",
     )
-    load_p.add_argument("--run-id", required=True, help="Unique id; results land at results/load/<run_id>/.")
+    load_p.add_argument(
+        "--run-id", required=True, help="Unique id; results land at results/load/<run_id>/."
+    )
     load_p.add_argument("--results-dir", default="results/load")
-    load_p.add_argument("--force", action="store_true",
-                       help="Overwrite an existing matrix at results/load/<run_id>/.")
+    load_p.add_argument(
+        "--force",
+        action="store_true",
+        help="Overwrite an existing matrix at results/load/<run_id>/.",
+    )
     load_p.add_argument(
         "--render-table",
         action="store_true",

@@ -40,9 +40,7 @@ class PgVectorBackend:
         self._psycopg = psycopg
         self._conninfo = conninfo or os.environ.get("PGVECTOR_DSN")
         if not self._conninfo:
-            raise BackendError(
-                "PgVectorBackend: pass conninfo or set PGVECTOR_DSN"
-            )
+            raise BackendError("PgVectorBackend: pass conninfo or set PGVECTOR_DSN")
         self._index_method = index_method
         self._hnsw_m = hnsw_m
         self._hnsw_ef_construction = hnsw_ef_construction

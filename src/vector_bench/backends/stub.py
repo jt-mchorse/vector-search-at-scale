@@ -26,9 +26,7 @@ class StubBackend:
 
     def ingest(self, vectors: np.ndarray, ids: Sequence[str]) -> None:
         if len(ids) != vectors.shape[0]:
-            raise ValueError(
-                f"ingest mismatch: {vectors.shape[0]} vectors but {len(ids)} ids"
-            )
+            raise ValueError(f"ingest mismatch: {vectors.shape[0]} vectors but {len(ids)} ids")
         if self._vectors is None:
             self._vectors = vectors.astype(np.float32, copy=False)
             self._ids = list(ids)

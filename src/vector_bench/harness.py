@@ -55,9 +55,13 @@ class Workload:
     concurrency: int = 1
 
     def __post_init__(self) -> None:
-        for name, value in [("n_vectors", self.n_vectors), ("dim", self.dim),
-                            ("n_queries", self.n_queries), ("top_k", self.top_k),
-                            ("concurrency", self.concurrency)]:
+        for name, value in [
+            ("n_vectors", self.n_vectors),
+            ("dim", self.dim),
+            ("n_queries", self.n_queries),
+            ("top_k", self.top_k),
+            ("concurrency", self.concurrency),
+        ]:
             if value <= 0:
                 raise ValueError(f"{name} must be positive, got {value}")
         if self.top_k > self.n_vectors:
@@ -168,15 +172,20 @@ def _percentile(values: list[float], pct: float) -> float:
 
 def _utc_now_iso() -> str:
     from datetime import UTC, datetime
+
     return datetime.now(tz=UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 def _git_sha() -> str | None:
     import subprocess
+
     try:
         out = subprocess.run(
             ["git", "rev-parse", "HEAD"],
-            capture_output=True, check=False, text=True, timeout=2,
+            capture_output=True,
+            check=False,
+            text=True,
+            timeout=2,
         )
     except (FileNotFoundError, subprocess.SubprocessError):
         return None
@@ -240,7 +249,9 @@ def run_benchmark(
         backend=backend.name,
         workload=workload,
         ingest_seconds=ingest_seconds,
-        ingest_rows_per_sec=workload.n_vectors / ingest_seconds if ingest_seconds > 0 else float("inf"),
+        ingest_rows_per_sec=workload.n_vectors / ingest_seconds
+        if ingest_seconds > 0
+        else float("inf"),
         query_latency=latency_stats,
         mean_recall_at_k=sum(recalls) / len(recalls) if recalls else 0.0,
         started_at=started_at,
@@ -251,6 +262,8 @@ def run_benchmark(
     if write_json:
         out_path.parent.mkdir(parents=True, exist_ok=True)
         os.makedirs(out_path.parent, exist_ok=True)
-        out_path.write_text(json.dumps(result.to_json(), indent=2, sort_keys=True), encoding="utf-8")
+        out_path.write_text(
+            json.dumps(result.to_json(), indent=2, sort_keys=True), encoding="utf-8"
+        )
 
     return result

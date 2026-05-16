@@ -82,7 +82,9 @@ class WeaviateBackend:
 
     def query(self, vector: np.ndarray, k: int) -> list[tuple[str, float]]:
         coll = self._client.collections.get(self._collection_name)
-        res = coll.query.near_vector(near_vector=vector.tolist(), limit=k, return_metadata=["distance"])
+        res = coll.query.near_vector(
+            near_vector=vector.tolist(), limit=k, return_metadata=["distance"]
+        )
         out: list[tuple[str, float]] = []
         for obj in res.objects:
             orig_id = obj.properties.get("orig_id")

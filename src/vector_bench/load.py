@@ -206,9 +206,7 @@ def run_under_load(
     finally:
         backend.close()
 
-    matrix = LoadMatrix(
-        run_id=run_id, backend=backend.name, workload=workload, cells=tuple(cells)
-    )
+    matrix = LoadMatrix(run_id=run_id, backend=backend.name, workload=workload, cells=tuple(cells))
 
     if write_json:
         out_dir.mkdir(parents=True, exist_ok=True)

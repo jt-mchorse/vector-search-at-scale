@@ -154,6 +154,45 @@ re-scoped to ThreadPoolExecutor-over-`Backend`-Protocol (D-008) so the
 same load script works against all three backends; see decision for the
 deliberation.
 
+### HNSW parameter tuning (#3)
+
+![HNSW Pareto frontier on hnsw-sim](docs/hnsw/frontier.png)
+
+`scripts/hnsw_grid.py` grids over the three canonical HNSW knobs (`M`,
+`ef_construction`, `ef_search`) and writes one `BenchmarkResult` JSON
+per cell plus an aggregated `grid.json`. `scripts/plot_hnsw_frontier.py`
+loads the grid, picks the non-dominated cells on
+(p95 latency, recall@10), and renders PNG + SVG with the frontier in red.
+
+The committed plot is **real** on the `hnsw-sim` simulation backend
+(2 000 unit-Gaussian vectors × 64 dims × 200 queries, 36 grid cells).
+`HnswSimBackend` is a pure-numpy *simulation* of HNSW's recall/latency
+tradeoff — not a real HNSW implementation; see
+[`src/vector_bench/backends/hnsw_sim.py`](src/vector_bench/backends/hnsw_sim.py)
+for the model. The same scripts work against the real engines when
+their bring-up lands — pass `--backend qdrant` (or `pgvector` /
+`weaviate`) and the grid + plot regenerate against measured numbers.
+
+**Recommended defaults** (knee at recall ≥ 0.95, picked from the
+committed simulation grid):
+
+| M | ef_construction | ef_search | recall@10 | p95 (ms) |
+|--:|---:|---:|---:|---:|
+| 32 | 100 | 128 | 0.998 | 2.02 |
+
+Reproduce:
+
+```bash
+python scripts/hnsw_grid.py \
+    --M 8,16,32 --ef-construction 50,100,200 --ef-search 16,32,64,128 \
+    --out-dir results/hnsw-grid
+python scripts/plot_hnsw_frontier.py results/hnsw-grid/grid.json \
+    --out-png docs/hnsw/frontier.png --out-svg docs/hnsw/frontier.svg \
+    --recall-floor 0.95
+```
+
+D-009 records the simulation-not-real-implementation framing.
+
 ## Demo
 
 60-second demo pending until the harness (#2) ships.
