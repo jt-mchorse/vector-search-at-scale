@@ -193,6 +193,46 @@ python scripts/plot_hnsw_frontier.py results/hnsw-grid/grid.json \
 
 D-009 records the simulation-not-real-implementation framing.
 
+### Cost per query (#5)
+
+`scripts/cost_table.py` combines the per-tier infra sizing from
+[`terraform/envs/benchmark/main.tf`](terraform/envs/benchmark/main.tf)
+with the documented AWS us-east-1 list-price snapshot in
+[`src/vector_bench/prices.py`](src/vector_bench/prices.py) and the
+measured `throughput_qps` from
+`results/load/<run_id>/c001.json` to write
+[`docs/cost_per_query.md`](docs/cost_per_query.md) with the per-tier
+table. The cost model itself lives in
+[`src/vector_bench/cost.py`](src/vector_bench/cost.py) and accepts a
+caller-supplied `PriceTable` so operators with contracted rates
+(Reserved, Spot, EDP) compute the same table against their own
+numbers without editing repo state.
+
+Headline figure from the committed snapshot (`stub-10k` throughput
+≈ 1623 qps used as a simulated stand-in for real-engine numbers at
+10M / 100M scale — the `(simulated)` annotation in the table makes
+this explicit):
+
+| Scale | Instance | Monthly $ | $/M queries |
+|---|---|---:|---:|
+| 1m | `m6i.large`  | $74.08 | $0.02 |
+| 10m | `r6i.xlarge`  | $219.96 | $0.05 |
+| 100m | `r6i.4xlarge` | $915.84 | $0.21 |
+
+The monthly cost is identical across the three engines because they
+share the same instance + EBS sizing per tier (D-010); the
+cost-per-query differences between engines therefore come from
+*throughput* differences, not hardware differences. The amortization
+assumes a 24/7 sustained workload; bursty production workloads
+multiply the per-query number by `24 / avg_active_hours_per_day`.
+
+```bash
+# Refresh after editing Terraform sizing or the price snapshot.
+python scripts/cost_table.py --dry --out docs/cost_per_query.md
+```
+
+D-010 records the snapshot-prices-with-override posture.
+
 ## Demo
 
 60-second demo pending until the harness (#2) ships.

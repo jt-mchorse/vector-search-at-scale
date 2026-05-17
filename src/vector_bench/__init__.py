@@ -15,6 +15,19 @@ network access or the heavyweight client SDKs.
 """
 
 from vector_bench.backends.stub import StubBackend
+from vector_bench.cost import (
+    HOURS_PER_MONTH,
+    SECONDS_PER_MONTH,
+    CostBreakdown,
+    CostPerQuery,
+    EbsGp3Price,
+    InfraSpec,
+    InstancePrice,
+    PriceTable,
+    UnknownInstanceTypeError,
+    cost_per_query,
+    monthly_cost,
+)
 from vector_bench.harness import (
     BenchmarkResult,
     LatencyStats,
@@ -25,18 +38,32 @@ from vector_bench.harness import (
     recall_at_k,
     run_benchmark,
 )
+from vector_bench.prices import aws_us_east_1_snapshot
 from vector_bench.types import Backend, BackendError
 
 __all__ = [
     "Backend",
     "BackendError",
     "BenchmarkResult",
+    # Cost-per-query layer (#5)
+    "CostBreakdown",
+    "CostPerQuery",
+    "EbsGp3Price",
+    "HOURS_PER_MONTH",
+    "InfraSpec",
+    "InstancePrice",
     "LatencyStats",
+    "PriceTable",
     "QueryHit",
+    "SECONDS_PER_MONTH",
     "StubBackend",
+    "UnknownInstanceTypeError",
     "Workload",
+    "aws_us_east_1_snapshot",
+    "cost_per_query",
     "generate_corpus",
     "ground_truth_topk",
+    "monthly_cost",
     "recall_at_k",
     "run_benchmark",
 ]
