@@ -125,3 +125,17 @@ The three backend SDKs we adapter against (`psycopg2` for pgvector, `qdrant-clie
 **Reversibility:** Cheap. `HnswSimBackend` is one module (~120 lines); the grid + plot scripts call it via the same `Backend` protocol every other backend uses, so swapping in `hnswlib` later is one new file plus a registration in `backends/__init__.py`.
 
 **Related issues:** #3
+
+## D-010 — Cost model ships a documented AWS us-east-1 list-price snapshot with caller override (2026-05-17)
+**Decision:** `src/vector_bench/cost.py` accepts a `PriceTable` on every callsite. The default `PriceTable` comes from `src/vector_bench/prices.aws_us_east_1_snapshot()`, which carries a `snapshot_date`, a `source_url`, and three instance entries (m6i.large, r6i.xlarge, r6i.4xlarge) plus gp3 EBS pricing. Unknown instance types raise with the known list and a pointer at the override path — never silently use a fabricated price.
+
+**Why:** Three constraints. **First**, the no-fabricated-numbers rule (portfolio handoff §10) extends to prices the same way it extends to benchmark figures — if the table says "$0.05/M queries at 10M scale", the operator needs to be able to verify each input that produced that number. The snapshot's `source_url` and `snapshot_date` let a reviewer click through and confirm. **Second**, the cost table has to regenerate in CI, which means the prices have to live somewhere the build can read — wiring prices on every callsite would make `scripts/cost_table.py` non-runnable without an environment variable, which would break the "the README is what the script produced" property the rest of the repo enforces. **Third**, operators with real contracts (Reserved Instances, Spot, EDP, non-us-east-1 regions) have different rates — they should be able to compute the same table against their own prices without editing repo state. Caller override on every cost function gives them that without touching the snapshot defaults.
+
+**Alternatives considered:**
+- Ship no defaults; require operator to wire prices every run — rejected. CI can't regenerate the table without prices, which means the committed `docs/cost_per_query.md` would either go stale silently or have to be hand-maintained.
+- Build pricing into the model code (constants inline) — rejected. Loses `snapshot_date` and `source_url` visibility; an inline `0.0960` doesn't tell a reviewer when it was true or where to verify.
+- Online price lookup against AWS's pricing API — rejected. CI DNS flakes; rates move slowly enough (months between meaningful changes) that an offline snapshot with a documented bump procedure is the honest answer; the operator owns the bump on a deliberate PR.
+
+**Reversibility:** Cheap. The snapshot is one file with a dict + a date string. Bumping it is "edit the file, bump `SNAPSHOT_DATE`, re-run `scripts/cost_table.py`, commit both"; the bump procedure ships in the script's module docstring and the README.
+
+**Related issues:** #5

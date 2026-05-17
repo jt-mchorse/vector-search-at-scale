@@ -81,3 +81,12 @@
   reversibility: cheap
   related_issues: [#3]
   superseded_by: null
+
+- id: D-010
+  date: 2026-05-17
+  decision: cost_model_ships_documented_aws_us_east_1_list_price_snapshot_with_caller_override_via_pricetable
+  rationale: snapshot_dated_and_url_d_so_table_is_reviewable_caller_override_lets_operators_with_reserved_spot_edp_or_non_us_east_1_compute_same_table_without_editing_repo_state_unknown_instance_types_raise_so_table_never_silently_uses_fabricated_price_mirrors_llm_cost_optimizer_d_003_posture
+  alternatives_rejected: [ship_no_defaults_table_cant_be_regenerated_by_ci_operator_wires_prices_every_run, build_pricing_into_model_code_snapshot_date_and_source_url_lose_visibility, online_price_lookup_against_aws_api_ci_dns_flakes_and_rates_move_slowly_enough_that_offline_snapshot_is_honest]
+  reversibility: cheap
+  related_issues: [5]
+  superseded_by: null

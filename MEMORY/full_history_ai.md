@@ -120,3 +120,38 @@ context_for_next_session:
 decisions_made: [D-009]
 followups: []
 ---
+
+---
+session: 2026-05-17T23:50Z
+duration_min: 40
+issue: 5
+focus: cost_per_query_model_plus_scripts_cost_table_plus_aws_us_east_1_snapshot
+delta:
+  files_added: 5  # src/vector_bench/cost.py, src/vector_bench/prices.py, scripts/cost_table.py, tests/test_cost.py, tests/test_cost_table.py (+ docs/cost_per_query.md)
+  files_changed: 2  # README.md, src/vector_bench/__init__.py
+  tests_added: 32
+  test_pass_rate: "83/83"
+  benchmarks:
+    snapshot_date: "2026-05-17"
+    monthly_usd_1m_per_engine: 74.08
+    monthly_usd_10m_per_engine: 219.96
+    monthly_usd_100m_per_engine: 915.84
+    throughput_qps_stub_10k: 1623.5
+    usd_per_million_queries_1m: 0.02
+    usd_per_million_queries_10m: 0.05
+    usd_per_million_queries_100m: 0.21
+context_for_next_session:
+  - cost_model_at_src_vector_bench_cost_dep_free_dataclasses_instance_price_ebs_gp3_price_price_table_infra_spec_cost_breakdown_cost_per_query
+  - aws_us_east_1_snapshot_at_src_vector_bench_prices_three_instances_m6i_large_r6i_xlarge_r6i_4xlarge_gp3_ebs_dated_2026_05_17_with_source_url
+  - scripts_cost_table_py_parses_terraform_envs_benchmark_main_tf_for_per_tier_sizing_reads_results_load_run_id_c001_json_for_throughput_writes_docs_cost_per_query_md
+  - amortization_basis_730_hours_per_month_aws_billing_convention_2628000_seconds_per_month
+  - infra_bill_identical_across_three_engines_per_tier_by_design_because_terraform_locals_share_instance_ebs_per_tier_engine_differences_come_from_throughput_only
+  - committed_table_uses_stub_10k_throughput_marked_simulated_real_engine_numbers_pending_operator_make_up_and_load_harness_runs
+  - d_010_documented_snapshot_prices_with_caller_override_mirrors_llm_cost_optimizer_d_003
+  - public_surface_widened_to_export_new_cost_layer_from_vector_bench_top_level
+  - parser_is_focused_regex_for_terraform_locals_block_not_general_hcl_implementation
+  - test_cost_table_doc_matches_committed_via_main_round_trip_against_real_repo_files
+  - remaining_priority_med_open_in_this_repo_zero_after_5_closes
+decisions_made: [D-010]
+followups: []
+---
