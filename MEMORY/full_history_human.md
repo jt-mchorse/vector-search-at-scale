@@ -92,3 +92,16 @@ Chronological log of work sessions. Most recent first below the divider.
 **Open questions / blockers:** None. Real-engine throughput numbers at 10M / 100M require `make up` + the load harness; the script is wired for that — the operator points `--results-dir` at their real `results/load/<run_id>/` and the table regenerates against measured qps. CI keeps using `stub-10k` until the operator commits real numbers.
 
 **Next session:** This repo has no more `priority:med` open. Loop to another portfolio repo.
+
+## 2026-05-18 — Issue #5 (continuation): Unblock PR #10 fixture
+**Duration:** ~12 min · **Branch:** `session/2026-05-17-2325-issue-5` · **PR:** [#10](https://github.com/jt-mchorse/vector-search-at-scale/pull/10) (awaiting CI re-run)
+
+- The two failing cost-table tests on PR #10's CI were calling `scripts/cost_table.py` in `--dry` mode, which reads `results/load/stub-10k/c001.json` as the single-client throughput basis. The file existed locally on the author host but `results/` was excluded in `.gitignore`, so CI saw `FileNotFoundError` even though the local pre-flight passed.
+- Re-included the stub-10k subdirectory in `.gitignore` (layer-by-layer because git can't re-include past a parent-excluded directory) and committed the four load-harness artifacts that the run emits. The pattern still excludes every other operator run — `git check-ignore results/hnsw-grid/x.json` confirms.
+- `pytest -q` is 83/83 (was 79 passing, 2 failing).
+
+**Why this work, this session:** Phase A auto-review left this PR commented with a clear blocker; the small fix gets a working PR over the merge line, same posture as the embedding-model-shootout lint fix earlier this session.
+
+**Open questions / blockers:** None — pending CI re-run.
+
+**Next session:** All in-flight PRs from earlier sessions are now unblocked (either merged, or pushed-fix awaiting CI). Loop to fresh repos: chunking-strategies-lab is next in §8 build sequence with zero open issues.

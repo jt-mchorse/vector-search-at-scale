@@ -155,3 +155,23 @@ context_for_next_session:
 decisions_made: [D-010]
 followups: []
 ---
+
+---
+session: 2026-05-18T15:38Z
+duration_min: 12
+issue: 5
+focus: unblock_pr_10_commit_stub_10k_fixtures
+delta:
+  files_changed: 1  # .gitignore
+  files_added: 4   # results/load/stub-10k/{c001,c010,c100,matrix}.json
+  tests_added: 0
+  test_pass_rate: "83/83 (was failing 2/81)"
+context_for_next_session:
+  - gitignore_now_layered_results_star_results_load_results_load_stub_10k_star_with_re_includes_so_only_stub_10k_fixtures_track
+  - cant_re_include_past_parent_excluded_dir_is_the_gitignore_gotcha_documented_inline
+  - committed_four_load_harness_artifacts_c001_c010_c100_matrix_dot_json
+  - reproducible_via_python_dash_m_vector_bench_dot_load_dash_run_dash_id_stub_dash_10k_dash_backend_stub
+  - hnsw_grid_and_other_operator_runs_still_excluded_git_check_ignore_confirmed
+decisions_made: []
+followups: []
+---
