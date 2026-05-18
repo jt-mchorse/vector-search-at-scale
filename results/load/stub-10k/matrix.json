@@ -1,0 +1,86 @@
+{
+  "backend": "stub",
+  "cells": [
+    {
+      "backend": "stub",
+      "concurrency": 1,
+      "git_sha": "4cce200712ed21a9f93aa7b4adaf990c16b3a6c3",
+      "ingest_seconds": 7.312512025237083e-05,
+      "mean_recall_at_k": 1.0,
+      "query_latency": {
+        "max_ms": 2.4861248675733805,
+        "p50_ms": 0.6119374884292483,
+        "p95_ms": 0.6751762586645782,
+        "p99_ms": 0.7300180592574179
+      },
+      "run_id": "stub-10k",
+      "started_at": "2026-05-16T15:31:26Z",
+      "throughput_qps": 1623.487521709964,
+      "workload": {
+        "concurrency": 100,
+        "dim": 64,
+        "n_queries": 500,
+        "n_vectors": 10000,
+        "seed": 1,
+        "top_k": 10
+      }
+    },
+    {
+      "backend": "stub",
+      "concurrency": 10,
+      "git_sha": "4cce200712ed21a9f93aa7b4adaf990c16b3a6c3",
+      "ingest_seconds": 7.312512025237083e-05,
+      "mean_recall_at_k": 1.0,
+      "query_latency": {
+        "max_ms": 2.472582971677184,
+        "p50_ms": 0.8444370469078422,
+        "p95_ms": 1.319656276609748,
+        "p99_ms": 2.1434802887961264
+      },
+      "run_id": "stub-10k",
+      "started_at": "2026-05-16T15:31:26Z",
+      "throughput_qps": 11042.96274047821,
+      "workload": {
+        "concurrency": 100,
+        "dim": 64,
+        "n_queries": 500,
+        "n_vectors": 10000,
+        "seed": 1,
+        "top_k": 10
+      }
+    },
+    {
+      "backend": "stub",
+      "concurrency": 100,
+      "git_sha": "4cce200712ed21a9f93aa7b4adaf990c16b3a6c3",
+      "ingest_seconds": 7.312512025237083e-05,
+      "mean_recall_at_k": 1.0,
+      "query_latency": {
+        "max_ms": 6.888333009555936,
+        "p50_ms": 1.7398959025740623,
+        "p95_ms": 4.2967451387085,
+        "p99_ms": 5.472082730848339
+      },
+      "run_id": "stub-10k",
+      "started_at": "2026-05-16T15:31:26Z",
+      "throughput_qps": 49225.257655476045,
+      "workload": {
+        "concurrency": 100,
+        "dim": 64,
+        "n_queries": 500,
+        "n_vectors": 10000,
+        "seed": 1,
+        "top_k": 10
+      }
+    }
+  ],
+  "run_id": "stub-10k",
+  "workload": {
+    "concurrency": 100,
+    "dim": 64,
+    "n_queries": 500,
+    "n_vectors": 10000,
+    "seed": 1,
+    "top_k": 10
+  }
+}

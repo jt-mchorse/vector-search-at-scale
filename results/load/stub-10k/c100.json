@@ -1,0 +1,24 @@
+{
+  "backend": "stub",
+  "concurrency": 100,
+  "git_sha": "4cce200712ed21a9f93aa7b4adaf990c16b3a6c3",
+  "ingest_seconds": 7.312512025237083e-05,
+  "mean_recall_at_k": 1.0,
+  "query_latency": {
+    "max_ms": 6.888333009555936,
+    "p50_ms": 1.7398959025740623,
+    "p95_ms": 4.2967451387085,
+    "p99_ms": 5.472082730848339
+  },
+  "run_id": "stub-10k",
+  "started_at": "2026-05-16T15:31:26Z",
+  "throughput_qps": 49225.257655476045,
+  "workload": {
+    "concurrency": 100,
+    "dim": 64,
+    "n_queries": 500,
+    "n_vectors": 10000,
+    "seed": 1,
+    "top_k": 10
+  }
+}

@@ -14,7 +14,19 @@ logs/
 *.egg-info/
 
 # vector-bench operator runs; commit only fixtures explicitly.
-results/
+# (gitignore re-includes can't cross a parent-excluded directory, so
+# everything is excluded layer-by-layer down to the fixture path, with
+# `!`-rules promoting the intermediate dirs.)
+results/*
+!results/load/
+results/load/*
+!results/load/stub-10k/
+results/load/stub-10k/*
+!results/load/stub-10k/*.json
+# stub-10k fixtures (c001.json / c010.json / c100.json / matrix.json)
+# are the dry-mode cost table's data source. Tests read them from the
+# repo; the load harness regenerates them deterministically with
+# `python -m vector_bench.load --run-id stub-10k --backend stub`.
 
 # Terraform
 .terraform/
