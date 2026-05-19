@@ -175,3 +175,23 @@ context_for_next_session:
 decisions_made: []
 followups: []
 ---
+
+---
+session: 2026-05-19T06:10Z
+duration_min: 25
+issue: 11
+focus: drop_this_pr_issue_n_plus_pending_until_ships_framing_plus_snapshot
+delta:
+  files_changed: 1   # README.md
+  files_added: 1     # tests/test_readme_snapshot.py
+  tests_added: 5
+  test_pass_rate: "88/88"
+context_for_next_session:
+  - readme_what_this_is_third_paragraph_rewritten_past_tense_no_this_pr_anchor
+  - demo_section_replaces_bare_pending_until_2_ships_with_two_command_hermetic_demo
+  - snapshot_test_locks_5_invariants_including_no_pending_until_no_this_pr_issue_n
+  - capture_followup_filed_as_issue_12
+  - tamper_verified_reinjecting_pending_until_ships_fires_snapshot
+decisions_made: []
+followups: ["#12"]
+---

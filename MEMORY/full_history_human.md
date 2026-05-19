@@ -4,6 +4,19 @@ Chronological log of work sessions. Most recent first below the divider.
 
 ---
 
+## 2026-05-19 — Issue #11: drop drift framing + snapshot test
+**Duration:** ~25 min · **Branch:** `session/2026-05-19-issue-11`
+
+- Rewrote `What this is` third paragraph past-tense: dropped `this PR, issue #1` anchor, cited every closed issue (#1..#5) plainly.
+- Demo section: replaced "60-second demo pending until the harness (#2) ships." with today's two-command hermetic demo (`vector-bench run --backend stub` + `scripts/cost_table.py --dry`) plus the captured-asset follow-up filed as #12.
+- `tests/test_readme_snapshot.py` (5 tests) locks: all five `(#N)` refs present, no `pending until ... ships` framing, no `this PR, issue #N` framing, Demo section is honest about today's runnable surface, every relative file reference resolves.
+
+**Why this work, this session:** Sister to the portfolio-wide drift-lock pattern; vector-search-at-scale still carried the two stale fragments after the 2026-05-18 cycle.
+
+**Open questions / blockers:** None.
+
+**Next session:** Continues with Phase A; #12 is priority:low demo capture.
+
 ## 2026-05-15 — Issue #1: terraform infra for 3 backends × 3 scales
 **Duration:** ~75 min · **Branch:** `session/2026-05-15-0913-issue-01`
 
