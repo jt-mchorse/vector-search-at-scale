@@ -219,3 +219,25 @@ context_for_next_session:
 decisions_made: []
 followups: []
 ---
+
+---
+session: 2026-05-19T19:50Z
+duration_min: 35
+issue: 14
+focus: redesign_hnsw_recommended_defaults_snapshot_for_cross_platform_stability
+delta:
+  files_changed: 1   # tests/test_hnsw_recommended_defaults_snapshot.py
+  tests_added: 0     # net (replaced 3 brittle tests with 3 stable tests)
+  test_pass_rate: "91/91"
+context_for_next_session:
+  - pr15_failed_ci_with_min_p95_knee_selection_was_inherently_wall_clock_flaky
+  - root_cause_compounded_float32_dot_blas_variance_across_platforms_perturbs_recall_by_0_001_0_002_plus_microsecond_p95_differences_flip_argmin
+  - replaced_three_tests_with_more_robust_design_readme_row_anchor_plus_recall_at_exact_readme_cell_within_5e_3_plus_pareto_family_membership
+  - did_not_touch_hnsw_sim_backend_kept_float32_internal_no_d_change_to_d_009
+  - did_not_pin_numpy_in_ci_test_level_fix_suffices_for_snapshot_pattern_intent
+  - tamper_verified_3_of_3_readme_row_mutation_recall_expected_900_family_min_recall_to_9999
+  - all_91_tests_pass_local_ruff_check_clean_format_clean
+  - pushed_to_existing_session_branch_for_issue_14_pr_15_should_now_pass_ci
+decisions_made: []
+followups: []
+---

@@ -132,3 +132,16 @@ Chronological log of work sessions. Most recent first below the divider.
 **Open questions / blockers:** None — pending CI re-run.
 
 **Next session:** All in-flight PRs from earlier sessions are now unblocked (either merged, or pushed-fix awaiting CI). Loop to fresh repos: chunking-strategies-lab is next in §8 build sequence with zero open issues.
+
+## 2026-05-19 — Issue #14: Fix PR #15 cross-platform CI flake
+**Duration:** ~35 min · **Branch:** `session/2026-05-19-1526-issue-14` · **PR:** [#15](https://github.com/jt-mchorse/vector-search-at-scale/pull/15) (ready, re-running CI)
+
+- PR #15's three snapshot tests were green on the author host (Mac ARM, Python 3.14) but red on Linux x86_64 CI (Python 3.11/3.12). Both pure-numpy, seed=1 — but cross-platform OpenBLAS variance in float32 dot products perturbs simulated `recall@10` by ~0.001–0.002, and the `min(p95_ms)` knee selection adds a microsecond-scale wall-clock criterion on top. Compounded: CI picked `(M=32, ef_construction=200, ef_search=128, recall=0.999)`, local picks `(32, 100, 128, 0.998)`.
+- Redesigned the snapshot to lock what's actually stable across platforms: (1) literal README row anchor (no live grid, catches rewrites), (2) recall@10 at the README's exact parameter triple within `abs=5e-3` (was 5e-4, absorbs BLAS noise), (3) README's row sits in the Pareto-front family `{M=32, ef_search=128, recall ≥ 0.99}`. Dropped the `min(p95_ms)` selection entirely — wall-clock is the wrong axis for a snapshot.
+- Tamper-verified each test: README cell mutation fires the row-anchor test; `EXPECTED_RECALL_AT_10 = 0.900` fires the recall-at-cell test with the live recall in the message; `RECOMMENDED_FAMILY_MIN_RECALL = 0.9999` fires the family-membership test.
+
+**Why this work, this session:** Phase A's PR review pass left PR #15 commented as the only blocked PR; fixing it both closes issue #14 (which the PR addresses) and unblocks JT from a noisy CI signal. No new core decision — D-009 (HnswSimBackend is pure-numpy simulation) still governs.
+
+**Open questions / blockers:** None — pushed; awaiting CI re-run.
+
+**Next session:** Loop to another repo. vector-search-at-scale has zero `priority:high` and only one remaining `priority:low` (the 60-sec demo capture, #12), which is gated on real-engine bring-up.
