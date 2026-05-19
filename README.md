@@ -20,12 +20,12 @@ spills off-RAM and the engines diverge sharply on how gracefully they
 degrade. This repo lets you see that divergence with your own eyes against
 real EC2 instances, not vendor-published numbers.
 
-The benchmark is built in three layers, each its own GitHub issue, each
-reusing the layer below: **infra** (this PR, issue #1) → **harness** (#2) →
-**per-axis studies** (#3 HNSW tuning, #4 latency under load, #5 cost per
-query). The infra layer is the foundation; everything downstream re-uses
-exactly the resources defined here so the numbers across studies are
-apples-to-apples by construction.
+The benchmark is built in three layers, each its own (now-closed)
+GitHub issue, each reusing the layer below: **infra** (#1) →
+**harness** (#2) → **per-axis studies** (#3 HNSW tuning, #4 latency
+under load, #5 cost per query). The infra layer is the foundation;
+everything downstream re-uses exactly the resources defined here so the
+numbers across studies are apples-to-apples by construction.
 
 ## Architecture
 
@@ -235,7 +235,24 @@ D-010 records the snapshot-prices-with-override posture.
 
 ## Demo
 
-60-second demo pending until the harness (#2) ships.
+Today's hermetic demo is two commands on a fresh clone — both run
+without an AWS account against the stub backend, which is the same
+path CI exercises:
+
+```bash
+# Run the harness in stub mode (no Docker, no AWS) at a small scale.
+vector-bench run --backend stub --n 1000 --dim 768 --queries 100 --k 10
+
+# Reproduce the on-demand cost-per-query markdown table.
+python scripts/cost_table.py --dry --out /tmp/cost_per_query.md
+```
+
+The first prints the same JSON shape that drives the real-backend
+studies (recall@k, p50/p95/p99 latency, build time); the second writes
+the cost-per-query markdown that's committed under
+`docs/cost_per_query.md`. A captured 60-second GIF/video walking
+through both plus a `make validate` of the Terraform modules is
+tracked in **#12**.
 
 ## Why these decisions
 
