@@ -4,6 +4,20 @@ Chronological log of work sessions. Most recent first below the divider.
 
 ---
 
+## 2026-05-19 — Issue #14: snapshot test for HNSW Recommended-defaults row
+**Duration:** ~30 min · **Branch:** `session/2026-05-19-1526-issue-14` · **PR:** #15
+
+- Added `tests/test_hnsw_recommended_defaults_snapshot.py` (3 tests, module-scoped grid fixture). Imports `scripts/hnsw_grid.py` via `importlib.util.spec_from_file_location` so the test doesn't depend on the script being on PYTHONPATH, runs the default 36-cell grid (`n_vectors=2000, n_queries=200, dim=64, top_k=10, seed=1`), picks the knee at `recall ≥ 0.95` by min `p95_ms`, and asserts (a) the parameter triple is `(32, 100, 128)`, (b) `mean_recall_at_k` matches `0.998` within `abs=5e-4`, and (c) the README literally contains the row anchor `| 32 | 100 | 128 | 0.998 |` so a README rewrite that drops the row fails loudly.
+- `p95_ms` is intentionally **not** locked — the README's `2.02 ms` is the operator's first-measurement reference, and wall-clock latency varies across machines and Python versions, so asserting it would make the test a CI flake. The selection-logic determinism is what gets snapshotted; the docstring documents this exclusion.
+- A live grid re-run on this machine produced `p95=1.89ms`, confirming the wall-clock drift is real even on the same logical machine; the parameter triple + recall stayed exactly where the README quotes them, validating the snapshot's design.
+- Tamper-verified by editing the README cell `0.998 → 0.999`; the row-anchor assertion fired with the regen hint pointing at `scripts/hnsw_grid.py`. Reverted to green.
+
+**Why this work, this session:** Continuation of the portfolio-wide drift-lock pattern. The HNSW Recommended-defaults row is the most concrete recommendation this repo's README makes; without the lock, a future tweak to `HnswSimBackend` or the grid axes could silently desync the README from the script's actual output. Pairs well with the existing `test_readme_snapshot.py` (other README invariants) and `test_cost_table.py` (cost-table doc).
+
+**Open questions / blockers:** None — PR ready for review.
+
+**Next session:** Three drift-locks now in place across this repo (README invariants, cost table, HNSW recommended defaults). Continue the multi-issue loop into the next portfolio repo (python-async-llm-pipelines is next in §8).
+
 ## 2026-05-19 — Issue #11: drop drift framing + snapshot test
 **Duration:** ~25 min · **Branch:** `session/2026-05-19-issue-11`
 
