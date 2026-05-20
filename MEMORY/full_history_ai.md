@@ -241,3 +241,24 @@ context_for_next_session:
 decisions_made: []
 followups: []
 ---
+
+---
+session: 2026-05-20T03:36Z
+duration_min: 20
+issue: 16
+focus: public_surface_snapshot_test_locks_vector_bench_top_level_init
+delta:
+  files_added: 1   # tests/test_public_surface.py
+  files_changed: 0   # __version__ already present in __init__.py
+  tests_added: 10   # 4 standalone + 1 dotted-path + 5 submodule anchors
+  test_pass_rate: "101/101"
+context_for_next_session:
+  - first_absolute_import_variant_in_may_2026_pattern_series_ast_filter_module_startswith_vector_bench_dot
+  - package_docstring_imports_axis_locks_8_names_quoted_lines_5_9_of_init
+  - console_script_dotted_path_axis_locks_pyproject_vector_bench_cli_main
+  - five_submodule_anchors_backends_dot_stub_cost_harness_prices_types
+  - tamper_verified_four_axes_bad_version_drop_workload_inproc_delete_cli_main_alias_rename_run_benchmark
+  - portfolio_pattern_now_nine_strikes_all_eight_python_packages_with_init_py_covered_plus_one_more_planned
+decisions_made: []
+followups: []
+---

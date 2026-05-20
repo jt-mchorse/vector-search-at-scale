@@ -145,3 +145,17 @@ Chronological log of work sessions. Most recent first below the divider.
 **Open questions / blockers:** None — pushed; awaiting CI re-run.
 
 **Next session:** Loop to another repo. vector-search-at-scale has zero `priority:high` and only one remaining `priority:low` (the 60-sec demo capture, #12), which is gated on real-engine bring-up.
+
+## 2026-05-20 — Issue #16: lock vector_bench public surface
+**Duration:** ~20 min · **Branch:** `session/2026-05-20-0336-issue-16`
+
+- Added `tests/test_public_surface.py` (4 standalone + 1 dotted-path + 5 submodule anchors = 10 test items). First variant in the May 2026 pattern series to use the absolute-import AST filter (`module.startswith("vector_bench.")`); the prior five repos used relative imports (`level >= 1`). Six axes: semver, all-bound, all-matches-absolute, package-docstring (8 names from lines 5-9 of `__init__.py`), console-script `vector_bench.cli.main`, five submodule anchors.
+- No `__version__` companion change — the package already publishes `__version__ = "0.0.1"` at `__init__.py:71`.
+- Tamper-verified four axes: bad version, drop `"Workload"` from `__all__`, in-process delete of `cli.main` (proves the console-script entry-point is guarded), alias-rename `run_benchmark as run_benchmark_v2` (fires three axes simultaneously).
+- Full suite 101/101 (was 91; +10 new).
+
+**Why this work, this session:** Ninth strike of the portfolio-wide public-surface hygiene pattern. This repo was skipped during the original five-target sweep (DAY session report named it as already-handled via the `test_hnsw_recommended_defaults_snapshot.py` bug fix), but that bug fix was orthogonal — the public surface still wasn't locked. This PR closes that gap.
+
+**Open questions / blockers:** None — PR ready for review.
+
+**Next session:** Continue the night-session loop into the remaining un-locked Python packages or pivot to a different hygiene surface.
