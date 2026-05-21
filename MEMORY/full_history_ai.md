@@ -262,3 +262,25 @@ context_for_next_session:
 decisions_made: []
 followups: []
 ---
+
+---
+session: 2026-05-21T19:23Z
+duration_min: 22
+issue: 12
+focus: scripts_capture_demo_sh_two_surface_60s_driver_plus_smoke_test_plus_readme_flag_fix
+delta:
+  files_added: 2   # scripts/capture_demo.sh, tests/test_capture_demo_smoke.py
+  files_changed: 1 # README.md (Demo flag fix --k 10 → --top-k 10 + capture paragraph)
+  tests_added: 3
+  test_pass_rate: "104/104"
+context_for_next_session:
+  - seventh_repo_to_land_capture_demo_sh_pattern_this_week
+  - two_surfaces_vector_bench_stub_run_then_cost_table_dry_chosen_for_under_one_second_hermetic_runtime
+  - vector_bench_invocation_requires_top_k_not_k_plus_run_id_plus_results_dir_readme_had_stale_k_flag_fixed_inline
+  - force_flag_used_so_re_records_dont_need_manual_cleanup_per_run_tempdir_eliminates_collisions
+  - smoke_test_pins_json_keys_mean_recall_at_k_query_latency_p50_p95_p99_run_id_top_k_plus_every_tier_engine_row_in_cost_table
+  - terraform_make_validate_third_surface_deliberately_excluded_terraform_not_a_ci_dep
+  - no_new_d_entry_pure_glue_around_existing_clis
+decisions_made: []
+followups: []
+---

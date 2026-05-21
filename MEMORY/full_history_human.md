@@ -159,3 +159,16 @@ Chronological log of work sessions. Most recent first below the divider.
 **Open questions / blockers:** None — PR ready for review.
 
 **Next session:** Continue the night-session loop into the remaining un-locked Python packages or pivot to a different hygiene surface.
+
+## 2026-05-21 — Issue #12: 60-second demo capture script
+**Duration:** ~22 min · **Branch:** `session/2026-05-21-1923-issue-12` · **PR:** #18
+
+- Added `scripts/capture_demo.sh` driving the two surfaces from the README's Demo section: `vector-bench run --backend stub` (with `--force` and a per-run tempdir so re-records don't need cleanup) then `python scripts/cost_table.py --dry` followed by `sed -n '1,30p'` of the rendered file so the markdown table is on camera. `CAPTURE_PACE_SECONDS` honored (default 2, 0 for CI). `CAPTURE_DEMO_N` and `CAPTURE_DEMO_QUERIES` let the operator vary takes.
+- Added `tests/test_capture_demo_smoke.py` (3 tests) that runs the script with `PACE=0` and asserts: vector-bench's JSON-output load-bearing keys (`mean_recall_at_k`, `query_latency` with p50/p95/p99 sub-keys, `run_id=demo-capture`, `top_k=10`); the cost table markdown header signature matches what `test_cost_table.py` locks separately; every tier × engine row (1m/10m/100m × pgvector/qdrant/weaviate) appears; script exists and is executable.
+- Fixed the README Demo block's stale `--k 10` flag to the actual CLI's `--top-k 10` and added the required `--run-id` / `--results-dir`. The capture script forced the question of what the real invocation is and shipping a working capture while the README docs were broken would be silly. Added a paragraph pointing at the new capture script and smoke test. 104/104 tests pass, ruff clean.
+
+**Why this work, this session:** Seventh repo to land the `scripts/capture_demo.sh` pattern this week. Issue #12 was the explicit owner of the README's "pending 60s demo" claim and was sitting at `priority:low` — closing it cleanly closes the last quality-bar gap in this repo's v0.1 story.
+
+**Open questions / blockers:** None. The Terraform `make validate` third surface is deliberately out of scope; the smoke test can't assume Terraform is installed, and the capture script's epilogue points the operator at that command for local pre-record validation.
+
+**Next session:** Continue the multi-issue loop on the remaining stale repos. python-async-llm-pipelines #14 is the next in §8 build order.
