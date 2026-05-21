@@ -241,7 +241,8 @@ path CI exercises:
 
 ```bash
 # Run the harness in stub mode (no Docker, no AWS) at a small scale.
-vector-bench run --backend stub --n 1000 --dim 768 --queries 100 --k 10
+vector-bench run --backend stub --n 1000 --dim 768 --queries 100 \
+  --top-k 10 --run-id demo --results-dir /tmp/vsc-demo
 
 # Reproduce the on-demand cost-per-query markdown table.
 python scripts/cost_table.py --dry --out /tmp/cost_per_query.md
@@ -250,9 +251,13 @@ python scripts/cost_table.py --dry --out /tmp/cost_per_query.md
 The first prints the same JSON shape that drives the real-backend
 studies (recall@k, p50/p95/p99 latency, build time); the second writes
 the cost-per-query markdown that's committed under
-`docs/cost_per_query.md`. A captured 60-second GIF/video walking
-through both plus a `make validate` of the Terraform modules is
-tracked in **#12**.
+`docs/cost_per_query.md`. For the deterministic 60-second recording,
+`bash scripts/capture_demo.sh` runs both surfaces in sequence with a
+per-run tempdir and the right flags — see [#12], and the smoke test at
+`tests/test_capture_demo_smoke.py` that pins each surface's distinctive
+output so the demo can't bitrot.
+
+[#12]: https://github.com/jt-mchorse/vector-search-at-scale/issues/12
 
 ## Why these decisions
 
