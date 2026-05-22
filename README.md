@@ -116,6 +116,17 @@ WEAVIATE_HOST=... \
 The harness records every workload field on the result, so apples-to-apples
 comparison between backends is just diffing the JSON.
 
+**`run` is single-shot serial; `load` is the concurrent matrix.**
+`vector-bench run` always executes queries one at a time and records
+`workload.concurrency = 1` on the JSON. Passing `--concurrency N > 1`
+to `run` raises `ValueError` immediately (D-011) — a latency stat that
+lies about its concurrency is exactly the credibility leak this repo's
+"the kind of doc you'd cite in an architecture review" premise can't
+afford. Concurrency studies go through `vector-bench load`, which
+sweeps a list of concurrency levels and writes per-cell latency under
+`results/load/<run-id>/` (see the [Latency under load](#latency-under-load-4)
+section below).
+
 ## Benchmarks / Results
 
 The harness (issue #2) is shipped and exercised hermetically in CI. **Real

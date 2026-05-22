@@ -1,7 +1,7 @@
 """`vector-bench` CLI.
 
 Subcommands:
-- `run`  — one workload, one concurrency, one JSON.
+- `run`  — one workload, single-shot serial, one JSON (D-011).
 - `load` — one workload, a list of concurrencies, one matrix.json (#4).
 
 Backend selection is by name (`--backend stub|pgvector|qdrant|weaviate`); each
@@ -41,7 +41,15 @@ def main(argv: list[str] | None = None) -> int:
     run_p.add_argument("--dim", type=int, default=64)
     run_p.add_argument("--queries", type=int, default=50)
     run_p.add_argument("--top-k", type=int, default=10)
-    run_p.add_argument("--concurrency", type=int, default=1)
+    run_p.add_argument(
+        "--concurrency",
+        type=int,
+        default=1,
+        help=(
+            "Reserved. `run` is single-shot serial (D-011); values > 1 are "
+            "refused — use `vector-bench load` for concurrency studies."
+        ),
+    )
     run_p.add_argument("--seed", type=int, default=1)
     run_p.add_argument(
         "--run-id", required=True, help="Unique id; results land at results/<run_id>.json."

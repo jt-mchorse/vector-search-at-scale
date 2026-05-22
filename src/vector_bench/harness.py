@@ -212,7 +212,25 @@ def run_benchmark(
     force: bool = False,
     write_json: bool = True,
 ) -> BenchmarkResult:
-    """Run one benchmark: ingest, query, score, write JSON. Idempotent by `run_id`."""
+    """Run one benchmark: ingest, query, score, write JSON. Idempotent by `run_id`.
+
+    `workload.concurrency` must be 1 (D-011). `run_benchmark` is the
+    single-shot serial entry point; concurrency studies live in
+    `vector_bench.load.run_under_load`, which sweeps a list of
+    concurrency levels and records per-cell latency. Allowing
+    `workload.concurrency > 1` here would silently produce a results
+    JSON whose recorded concurrency disagrees with the actual
+    execution mode — a latency stat that lies about its concurrency
+    is exactly the credibility leak this repo's premise can't afford.
+    """
+    if workload.concurrency != 1:
+        raise ValueError(
+            f"run_benchmark requires workload.concurrency == 1; got {workload.concurrency}. "
+            "Concurrency studies go through vector_bench.load.run_under_load "
+            "(or `vector-bench load` on the CLI), which sweeps a list of "
+            "concurrency levels and records per-cell latency. "
+            "(D-011 — see MEMORY/core_decisions_human.md.)"
+        )
     out_path = Path(results_dir) / f"{run_id}.json"
     if not force and out_path.exists():
         raise FileExistsError(

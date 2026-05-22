@@ -121,3 +121,46 @@ class TestRunBenchmarkAgainstStub:
         )
         assert not (tmp_path / "nowrite.json").exists()
         assert result.run_id == "nowrite"
+
+
+# ----------------------------------------------------------------------
+# D-011: run_benchmark refuses workload.concurrency > 1
+# ----------------------------------------------------------------------
+
+
+class TestRunBenchmarkConcurrencyGate:
+    """Single-shot `run_benchmark` must reject misconfigured workloads
+    instead of silently recording the wrong concurrency on the JSON.
+    Concurrency studies go through `run_under_load` (#4, D-008)."""
+
+    def test_concurrency_one_still_passes(self, tmp_path: Path) -> None:
+        w = Workload(n_vectors=20, dim=4, n_queries=5, top_k=3, seed=1, concurrency=1)
+        result = run_benchmark(StubBackend(), w, run_id="c1", results_dir=tmp_path)
+        assert result.workload.concurrency == 1
+        assert result.mean_recall_at_k == pytest.approx(1.0)
+
+    def test_concurrency_gt_one_raises(self, tmp_path: Path) -> None:
+        w = Workload(n_vectors=20, dim=4, n_queries=5, top_k=3, seed=1, concurrency=4)
+        with pytest.raises(ValueError, match="run_benchmark requires workload.concurrency == 1"):
+            run_benchmark(StubBackend(), w, run_id="c4", results_dir=tmp_path)
+
+    def test_concurrency_gate_message_points_at_run_under_load_and_d011(
+        self, tmp_path: Path
+    ) -> None:
+        # Caller without docs in hand should be able to find the alternative
+        # from the message alone.
+        w = Workload(n_vectors=10, dim=4, n_queries=3, top_k=2, seed=1, concurrency=2)
+        with pytest.raises(ValueError, match="run_under_load") as exc_info:
+            run_benchmark(StubBackend(), w, run_id="c2", results_dir=tmp_path)
+        assert "D-011" in str(exc_info.value)
+
+    def test_concurrency_gate_runs_before_filesystem_check(self, tmp_path: Path) -> None:
+        # If the workload is invalid, the harness should refuse before
+        # touching the filesystem — otherwise a misconfigured caller
+        # would leave a stale results path locked for a future
+        # `force=False` retry.
+        w = Workload(n_vectors=10, dim=4, n_queries=3, top_k=2, seed=1, concurrency=8)
+        out_path = tmp_path / "c8.json"
+        with pytest.raises(ValueError, match="concurrency"):
+            run_benchmark(StubBackend(), w, run_id="c8", results_dir=tmp_path)
+        assert not out_path.exists()
