@@ -139,3 +139,14 @@ The three backend SDKs we adapter against (`psycopg2` for pgvector, `qdrant-clie
 **Reversibility:** Cheap. The snapshot is one file with a dict + a date string. Bumping it is "edit the file, bump `SNAPSHOT_DATE`, re-run `scripts/cost_table.py`, commit both"; the bump procedure ships in the script's module docstring and the README.
 
 **Related issues:** #5
+
+## D-011 — `run_benchmark` refuses `workload.concurrency != 1`
+
+- **Date.** 2026-05-22
+- **Decision.** `run_benchmark` raises `ValueError` immediately when `workload.concurrency != 1`, with an error message that points the caller at `vector_bench.load.run_under_load` (or `vector-bench load` on the CLI). `Workload.concurrency` remains a field — the load module uses it per cell — but the single-shot serial entry point will not run with concurrency > 1.
+- **Why.** `run_benchmark` executed queries serially in a `for i in range(workload.n_queries)` loop but recorded `workload.concurrency` on the output JSON verbatim. Calling `vector-bench run --concurrency 8 ...` produced a results JSON whose `workload.concurrency == 8` and whose `query_latency.p95_ms` was a single-threaded number. For a repo whose tagline is "the kind of doc you'd cite in an architecture review", a latency stat that lies about its concurrency is the credibility leak to close. The fix is the same shape as `chunking-strategies-lab`'s D-011 (which also closed today): documented-only constraints fail silently, so promote them to runtime enforcement. Closes #19.
+- **Alternatives considered.**
+  - *Make `run_benchmark` actually parallelize.* Rejected: duplicates `vector_bench.load`'s ThreadPoolExecutor logic and confuses the two-subcommand surface. `load` is the well-shaped concurrent entry point (D-008); routing concurrency there is the right contract.
+  - *Remove `Workload.concurrency` entirely.* Rejected: the `load` module's `LoadCell` records the per-cell concurrency on its output, and the `Workload` field is the structural bridge between the matrix runner and the per-cell harness. Removing it breaks that.
+  - *Document-only enforcement.* Rejected: the same shape as the bug we're closing. Documented constraints fail silently in operator code.
+- **Reversibility.** Cheap. If a future caller wants to deliberately produce a serial run that records `workload.concurrency = N`, an explicit `allow_misreport=True` flag can be added — but YAGNI.

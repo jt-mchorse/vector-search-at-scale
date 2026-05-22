@@ -284,3 +284,25 @@ context_for_next_session:
 decisions_made: []
 followups: []
 ---
+
+---
+session: 2026-05-22T03:30Z
+duration_min: 30
+issue: 19
+focus: run_benchmark_refuses_workload_concurrency_gt_1_d_011
+delta:
+  files_changed: 3   # harness.py, cli.py, README.md
+  files_modified_tests: 1  # test_harness.py (appended class)
+  tests_added: 4
+  test_pass_rate: "112/112"
+decisions_made: [D-011]
+context_for_next_session:
+  - silent_lying_latency_stat_when_vector_bench_run_concurrency_8_run_benchmark_was_serial_but_recorded_concurrency_8
+  - same_shape_as_chunking_strategies_lab_d_011_just_closed_documented_constraints_must_be_promoted_to_runtime_enforcement
+  - gate_runs_before_filesystem_check_so_misconfigured_caller_doesnt_leave_stale_results_path
+  - cli_concurrency_help_reworded_to_say_reserved_values_gt_1_refused_use_load_subcommand
+  - readme_benchmark_harness_section_gets_one_paragraph_explaining_run_vs_load_split
+  - test_class_runbenchmarkconcurrencygate_in_test_harness_py_four_cases_passes_raises_message_filesystem_isolation
+  - portfolio_pattern_third_post_v0_1_honesty_fix_after_emb_shootout_word_bigrams_and_chunking_lab_late_embedder_consistency_today
+followups: []
+---

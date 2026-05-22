@@ -172,3 +172,13 @@ Chronological log of work sessions. Most recent first below the divider.
 **Open questions / blockers:** None. The Terraform `make validate` third surface is deliberately out of scope; the smoke test can't assume Terraform is installed, and the capture script's epilogue points the operator at that command for local pre-record validation.
 
 **Next session:** Continue the multi-issue loop on the remaining stale repos. python-async-llm-pipelines #14 is the next in §8 build order.
+
+## 2026-05-22 — `vector-bench run` refuses concurrency > 1 (#19, D-011)
+
+**Duration:** ~30 min. **Issue:** [#19](https://github.com/jt-mchorse/vector-search-at-scale/issues/19). **PR:** TBD.
+
+The `run` subcommand accepted `--concurrency N` and propagated it through to `Workload`. The harness recorded the value on the output JSON. But `run_benchmark` executed queries serially in a tight loop — `workload.concurrency > 1` was silently ignored. A reader of the resulting JSON would assume the recorded `query_latency` percentiles reflected the recorded concurrency level. They did not. For a repo whose tagline is "the kind of doc you'd cite in an architecture review", a latency stat that lies about its concurrency was the credibility leak to close.
+
+The fix mirrors the shape of `chunking-strategies-lab`'s D-011, closed earlier today: promote a documented-only constraint to runtime enforcement. `run_benchmark` now raises `ValueError` immediately when `workload.concurrency != 1`, with a message that names `run_under_load` (the concurrent entry point, D-008) and references D-011. The gate fires before the filesystem-existence check, so a misconfigured call doesn't leave behind a stale results path that traps a future retry. The CLI's `--concurrency` help text on the `run` subcommand is reworded to say "reserved; values > 1 are refused — use `vector-bench load` for concurrency studies". The README's Benchmark-harness section gets a one-paragraph note explaining the split.
+
+Why prioritized: this was the third post-v0.1 silent-numerical-bug fix today (after embedding-model-shootout #17 word-bigrams and chunking-strategies-lab #19 late-chunking embedder consistency). Closing them in sequence is bracing the portfolio against exactly the failure mode the handoff §10 spends its longest rule on: "do not invent benchmark numbers". A stat that's silently wrong is functionally identical to a fabricated one. Open questions / followups: none. An explicit `allow_misreport=True` opt-out can be wired up later if a curious caller wants it, but YAGNI.

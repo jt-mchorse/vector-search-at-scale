@@ -90,3 +90,12 @@
   reversibility: cheap
   related_issues: [5]
   superseded_by: null
+
+- id: D-011
+  date: 2026-05-22
+  decision: run_benchmark_refuses_concurrency_gt_1_use_run_under_load
+  rationale: run_benchmark_executed_queries_serially_but_recorded_workload_concurrency_field_verbatim_so_a_misconfigured_caller_got_a_results_json_whose_latency_stats_disagreed_with_recorded_concurrency_silent_numerical_quality_bug_load_module_already_exists_as_well_shaped_concurrent_entry_point
+  alternatives_rejected: [make_run_benchmark_parallelize_silently_duplicates_load_module_logic, remove_workload_concurrency_field_breaks_load_module_which_uses_it_per_cell, document_only_no_runtime_enforcement_same_drift_pattern_chunking_lab_d_011_just_closed]
+  reversibility: cheap
+  related_issues: [19]
+  superseded_by: null
