@@ -331,3 +331,23 @@ context_for_next_session:
 decisions_made: []
 followups: []
 ---
+
+---
+session: 2026-05-23T15:35Z
+duration_min: 22
+issue: 23
+focus: arch_doc_active_decision_range_axis_caught_d_002_through_d_010_uncited
+decisions_made: []
+delta:
+  files_changed: 2
+  files_added: 0
+  tests_added: 3
+  test_pass_rate: "118/118"
+context_for_next_session:
+  - seventh_repo_in_portfolio_to_ship_active_decision_range_axis_after_llm_eval_harness_emb_shootout_today_plus_four_repos_this_week
+  - real_drift_caught_only_d_011_was_cited_prior_d_002_through_d_010_uncited_despite_governing_every_layer_of_the_substrate
+  - backfill_inline_at_layer_d_002_singleaz_d_003_weaviate_oss_d_004_pinned_node_d_005_backend_protocol_d_006_stub_recall_one_d_007_one_json_per_run_d_008_threadpool_not_k6_d_009_hnsw_sim_numpy_d_010_aws_us_east_1_pricetable
+  - added_two_new_path_tokens_to_doc_hnsw_sim_py_and_prices_py_both_resolve_on_disk_path_token_test_still_green
+  - sister_repo_targets_remaining_prompt_regression_suite_agent_orchestration_platform
+followups: []
+---

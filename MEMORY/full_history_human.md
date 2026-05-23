@@ -200,3 +200,15 @@ Thirteenth post-v0.1 drift fix in the portfolio pattern, fourth architecture-doc
 **Open questions / blockers:** None — PR opened ready for review.
 
 **Next session:** Loop forward if pace allows; `prompt-regression-suite` or `llm-eval-harness` are candidates if their `docs/architecture.md` (where present) has similar drift. Otherwise wrap session within the cap.
+
+## 2026-05-23 — Architecture-doc active-decision-range axis + 9-decision backfill (#23)
+
+**Duration:** ~22 min. **Issue:** [#23](https://github.com/jt-mchorse/vector-search-at-scale/issues/23). **PR:** [#24](https://github.com/jt-mchorse/vector-search-at-scale/pull/24).
+
+Seventh of twelve repos to ship the active-decision-range upper-bound axis on its architecture-doc lock (sister to `llm-eval-harness` PR #32 and `embedding-model-shootout` PR #22 earlier today, plus four repos this week). Of 11 active D-NNN entries in `MEMORY/core_decisions_ai.md`, **only D-011 was cited** in `docs/architecture.md` before this PR — D-002 through D-010 were all silently missing despite governing every load-bearing posture choice in the substrate. Backfilled inline at the layer each governs: D-002 single-AZ + D-003 Weaviate-OSS + D-004 single-node-pinned-tags (Layer 1), D-005 Backend Protocol + D-006 stub-recall=1 + D-007 one-JSON-per-run + D-008 ThreadPoolExecutor-not-k6 + D-009 hnsw_sim-pure-numpy (Layer 2), D-010 AWS us-east-1 PriceTable (Layer 3). Tamper-verified three axes.
+
+**Why this work, this session:** Third issue in today's multi-issue loop after `llm-eval-harness` PR #32 and `embedding-model-shootout` PR #22. Vector-search-at-scale had the **largest backfill gap** in the portfolio so far for this pattern — 9 uncited active decisions in a doc that should be the canonical layer-by-layer reference.
+
+**Open questions / blockers:** none — PR ready for review.
+
+**Next session:** Apply same pattern to `prompt-regression-suite` and `agent-orchestration-platform` (last two arch-doc tests lacking the D-axis).
