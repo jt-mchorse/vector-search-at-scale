@@ -230,3 +230,16 @@ The docstring's Modes section was rewritten to match the implementation. Same sh
 **Open questions / blockers:** none — PR ready for review.
 
 **Next session:** Continue to build-sequence #8 (`python-async-llm-pipelines`).
+
+## 2026-05-25 — Issue #27: operator-supplied dataclasses validate fields in __post_init__
+**Duration:** ~20 min · **Branch:** `session/2026-05-24-issue-27`
+
+- Three frozen dataclasses in `src/vector_bench/cost.py` (`InstancePrice`, `EbsGp3Price`, `InfraSpec`) accepted negative rates, negative counts, and empty strings without raising. A negative `usd_per_hour` flowed through `monthly_cost` at line 194 (`instance.usd_per_hour * HOURS_PER_MONTH`) and silently inverted the sign of `total_usd_month` — the published `docs/costs.md` would have shown the vector DB **paying the operator** to run. The `max(0, ...)` clamps at lines 196 and 198 made the harm worse for `provisioned_iops` and `provisioned_throughput_mibps`: a negative input silently rounds to zero, omitting a real cost line.
+- Added `__post_init__` on each of the three dataclasses raising `ValueError(f"{field} ...")` with the offending field named and the violated bound shown. Zero accepted on rate fields (free-tier / test fixture is meaningful). Source comments document the D-010 anchor and the `max(0, ...)` clamp interaction.
+- Twenty new collected cases in `tests/test_cost.py` under a `#27` block, plus three `_valid_x_kwargs()` test helpers that centralize the fixtures so each negative test only mutates the field under test. Covers: 5 InstancePrice numeric × bad-value, 2 InstancePrice empty-string, 3 EbsGp3Price rate × bad-value, 2 EbsGp3Price baseline × bad-value, 1 EbsGp3Price empty-region, 3 InfraSpec numeric × bad-value, 3 InfraSpec empty-string, plus one inclusive-zero acceptance test across all three dataclasses. Full suite 143/143 (was 123 after #25).
+
+**Why this work, this session:** Direct mirror of three sister fixes shipped today: `llm-cost-optimizer` #34 PR #35 (`ModelPricing.__post_init__`), `rag-production-kit` #36 PR #37 (`ModelPrice.__post_init__`), `embedding-model-shootout` #29 PR #30 (`SweepResult.__post_init__`). All four cost-aware repos in the portfolio now defend their published cost dashboards consistently. D-010 anchors the contract — it already mirrored `llm-cost-optimizer` D-003's "unknown raises" posture; this extends it to "negative raises" on the rate fields.
+
+**Open questions / blockers:** none — PR ready for review.
+
+**Next session:** Sixth Phase B+C target of today's 180-min day session. Build sequence #8 (`python-async-llm-pipelines`) is the natural next pickup if time remains before the 15-min cleanup buffer.
