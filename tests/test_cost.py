@@ -188,6 +188,148 @@ def test_default_snapshot_has_terraform_tier_instance_types():
         assert required in snap.instances, f"snapshot missing {required}"
 
 
+# Issue #27: InstancePrice / EbsGp3Price / InfraSpec validate field bounds
+# in __post_init__. D-010 prevents silent-zero via UnknownInstanceTypeError;
+# this extends to silent-negative across all three operator-supplied dataclasses.
+# Same harm class as the three sister fixes today: llm-cost-optimizer #34 PR #35,
+# rag-production-kit #36 PR #37, embedding-model-shootout #29 PR #30.
+
+
+def _valid_instance_kwargs() -> dict:
+    return dict(
+        instance_type="m6i.large",
+        region="us-east-1",
+        usd_per_hour=0.10,
+        vcpus=2,
+        memory_gib=8.0,
+    )
+
+
+@pytest.mark.parametrize(
+    "field,bad_value,bound_pattern",
+    [
+        ("usd_per_hour", -0.01, r"usd_per_hour must be >= 0\.0"),
+        ("usd_per_hour", -100.0, r"usd_per_hour must be >= 0\.0"),
+        ("vcpus", 0, r"vcpus must be >= 1"),
+        ("vcpus", -1, r"vcpus must be >= 1"),
+        ("memory_gib", -0.1, r"memory_gib must be >= 0\.0"),
+    ],
+)
+def test_instance_price_rejects_invalid_numeric(field: str, bad_value: float, bound_pattern: str):
+    kwargs = _valid_instance_kwargs()
+    kwargs[field] = bad_value
+    with pytest.raises(ValueError, match=bound_pattern):
+        InstancePrice(**kwargs)
+
+
+@pytest.mark.parametrize("field", ["instance_type", "region"])
+def test_instance_price_rejects_empty_string_field(field: str):
+    kwargs = _valid_instance_kwargs()
+    kwargs[field] = ""
+    with pytest.raises(ValueError, match=f"{field} must be a non-empty string"):
+        InstancePrice(**kwargs)
+
+
+def _valid_ebs_kwargs() -> dict:
+    return dict(
+        region="us-east-1",
+        usd_per_gb_month=0.08,
+        usd_per_iops_month_over_baseline=0.005,
+        usd_per_mibps_month_over_baseline=0.04,
+    )
+
+
+@pytest.mark.parametrize(
+    "field,bad_value",
+    [
+        ("usd_per_gb_month", -0.01),
+        ("usd_per_iops_month_over_baseline", -0.01),
+        ("usd_per_mibps_month_over_baseline", -0.01),
+    ],
+)
+def test_ebs_gp3_price_rejects_negative_rate(field: str, bad_value: float):
+    kwargs = _valid_ebs_kwargs()
+    kwargs[field] = bad_value
+    with pytest.raises(ValueError, match=rf"{field} must be >= 0\.0"):
+        EbsGp3Price(**kwargs)
+
+
+@pytest.mark.parametrize(
+    "field,bad_value",
+    [
+        ("included_iops", -1),
+        ("included_throughput_mibps", -1),
+    ],
+)
+def test_ebs_gp3_price_rejects_negative_baseline(field: str, bad_value: int):
+    kwargs = _valid_ebs_kwargs()
+    kwargs[field] = bad_value
+    with pytest.raises(ValueError, match=rf"{field} must be >= 0"):
+        EbsGp3Price(**kwargs)
+
+
+def test_ebs_gp3_price_rejects_empty_region():
+    kwargs = _valid_ebs_kwargs()
+    kwargs["region"] = ""
+    with pytest.raises(ValueError, match="region must be a non-empty string"):
+        EbsGp3Price(**kwargs)
+
+
+def _valid_infra_kwargs() -> dict:
+    return dict(
+        scale_tier="1m",
+        engine="pgvector",
+        instance_type="m6i.large",
+        data_volume_gb=100,
+        provisioned_iops=3000,
+        provisioned_throughput_mibps=125,
+    )
+
+
+@pytest.mark.parametrize(
+    "field,bad_value",
+    [
+        ("data_volume_gb", -1),
+        ("provisioned_iops", -1),
+        ("provisioned_throughput_mibps", -1),
+    ],
+)
+def test_infra_spec_rejects_negative_numeric(field: str, bad_value: int):
+    kwargs = _valid_infra_kwargs()
+    kwargs[field] = bad_value
+    with pytest.raises(ValueError, match=rf"{field} must be >= 0"):
+        InfraSpec(**kwargs)
+
+
+@pytest.mark.parametrize("field", ["scale_tier", "engine", "instance_type"])
+def test_infra_spec_rejects_empty_string_field(field: str):
+    kwargs = _valid_infra_kwargs()
+    kwargs[field] = ""
+    with pytest.raises(ValueError, match=f"{field} must be a non-empty string"):
+        InfraSpec(**kwargs)
+
+
+def test_dataclass_zero_rates_accepted():
+    # Zero is meaningful for rate fields (free-tier / test fixture). Pin the
+    # inclusive bound on each so a future contract revision doesn't tighten
+    # to strictly positive without an explicit decision.
+    InstancePrice(instance_type="x", region="r", usd_per_hour=0.0, vcpus=1, memory_gib=0.0)
+    EbsGp3Price(
+        region="r",
+        usd_per_gb_month=0.0,
+        usd_per_iops_month_over_baseline=0.0,
+        usd_per_mibps_month_over_baseline=0.0,
+    )
+    InfraSpec(
+        scale_tier="x",
+        engine="x",
+        instance_type="x",
+        data_volume_gb=0,
+        provisioned_iops=0,
+        provisioned_throughput_mibps=0,
+    )
+
+
 def test_default_snapshot_carries_date_and_source_url():
     snap = aws_us_east_1_snapshot()
     assert snap.snapshot_date == SNAPSHOT_DATE

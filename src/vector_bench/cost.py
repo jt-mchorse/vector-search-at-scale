@@ -62,6 +62,22 @@ class InstancePrice:
     vcpus: int
     memory_gib: float
 
+    def __post_init__(self) -> None:
+        # D-010 prevents silent-zero via UnknownInstanceTypeError; this guard
+        # extends the same posture to silent-negative. A negative usd_per_hour
+        # flows through monthly_cost() at line 194 and inverts the sign of
+        # total_usd_month in the published cost table.
+        if not self.instance_type:
+            raise ValueError("instance_type must be a non-empty string")
+        if not self.region:
+            raise ValueError("region must be a non-empty string")
+        if self.usd_per_hour < 0.0:
+            raise ValueError(f"usd_per_hour must be >= 0.0; got {self.usd_per_hour}")
+        if self.vcpus < 1:
+            raise ValueError(f"vcpus must be >= 1; got {self.vcpus}")
+        if self.memory_gib < 0.0:
+            raise ValueError(f"memory_gib must be >= 0.0; got {self.memory_gib}")
+
 
 @dataclass(frozen=True)
 class EbsGp3Price:
@@ -78,6 +94,25 @@ class EbsGp3Price:
     usd_per_mibps_month_over_baseline: float
     included_iops: int = 3000
     included_throughput_mibps: int = 125
+
+    def __post_init__(self) -> None:
+        # See InstancePrice.__post_init__ — same D-010 sign-flip guard,
+        # applied to the storage-side cost surface.
+        if not self.region:
+            raise ValueError("region must be a non-empty string")
+        for name, value in (
+            ("usd_per_gb_month", self.usd_per_gb_month),
+            ("usd_per_iops_month_over_baseline", self.usd_per_iops_month_over_baseline),
+            ("usd_per_mibps_month_over_baseline", self.usd_per_mibps_month_over_baseline),
+        ):
+            if value < 0.0:
+                raise ValueError(f"{name} must be >= 0.0; got {value}")
+        if self.included_iops < 0:
+            raise ValueError(f"included_iops must be >= 0; got {self.included_iops}")
+        if self.included_throughput_mibps < 0:
+            raise ValueError(
+                f"included_throughput_mibps must be >= 0; got {self.included_throughput_mibps}"
+            )
 
 
 @dataclass(frozen=True)
@@ -128,6 +163,22 @@ class InfraSpec:
     data_volume_gb: int
     provisioned_iops: int
     provisioned_throughput_mibps: int
+
+    def __post_init__(self) -> None:
+        # `max(0, ...)` clamps at monthly_cost() lines 196 and 198 silently
+        # turn a negative provisioned_iops or provisioned_throughput into a
+        # zero cost line — omitting a real line item without raising. Guard
+        # at the spec construction site instead.
+        for name, value in (("scale_tier", self.scale_tier), ("engine", self.engine), ("instance_type", self.instance_type)):
+            if not value:
+                raise ValueError(f"{name} must be a non-empty string")
+        for name, value in (
+            ("data_volume_gb", self.data_volume_gb),
+            ("provisioned_iops", self.provisioned_iops),
+            ("provisioned_throughput_mibps", self.provisioned_throughput_mibps),
+        ):
+            if value < 0:
+                raise ValueError(f"{name} must be >= 0; got {value}")
 
 
 @dataclass(frozen=True)
