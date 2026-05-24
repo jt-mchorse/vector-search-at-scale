@@ -351,3 +351,26 @@ context_for_next_session:
   - sister_repo_targets_remaining_prompt_regression_suite_agent_orchestration_platform
 followups: []
 ---
+
+---
+session: 2026-05-24T03:55Z
+duration_min: 30
+issue: 25
+focus: cost_table_dry_unread_and_load_results_documented_but_unwired
+delta:
+  files_changed: 2   # scripts/cost_table.py, tests/test_cost_table.py
+  tests_added: 5
+  test_pass_rate: "123_passed"
+decisions_made: []
+context_for_next_session:
+  - cost_table_script_shipped_dry_flag_that_was_never_read_and_docstring_promised_load_results_per_tier_flag_that_didnt_exist_on_parser
+  - every_tier_row_was_hardcoded_simulated_marker_regardless_of_args_dry
+  - fix_dry_to_booleanoptionalaction_default_true_simulated_marker_now_real_label_dropped_under_no_dry
+  - new_load_results_tier_eq_path_repeatable_per_tier_override_overridden_tiers_labeled_real_regardless_of_dry
+  - tier_validation_manual_against_scale_tiers_so_unknown_tier_error_lists_inventory_on_stderr_malformed_entries_exit_2
+  - docstring_modes_section_rewritten_to_match_implementation_finally
+  - test_helper_table_row_lines_filters_to_per_tier_rows_via_stub_10k_or_real_path_substring_so_label_tests_dont_false_positive_on_explanatory_prose
+  - seventh_in_night_session_loop_first_non_pure_parity_fix_this_is_actual_doc_impl_gap_closure
+  - same_pattern_as_llm_cost_optimizer_30_real_api_guard_revival_just_richer_surface_per_tier_overrides_not_just_flag_flip
+followups: []
+---

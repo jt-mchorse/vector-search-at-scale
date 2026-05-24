@@ -212,3 +212,21 @@ Seventh of twelve repos to ship the active-decision-range upper-bound axis on it
 **Open questions / blockers:** none — PR ready for review.
 
 **Next session:** Apply same pattern to `prompt-regression-suite` and `agent-orchestration-platform` (last two arch-doc tests lacking the D-axis).
+
+## 2026-05-24 — Issue #25: `cost_table.py` --dry/--no-dry + --load-results
+
+**Duration:** ~30 min. **Issue:** [#25](https://github.com/jt-mchorse/vector-search-at-scale/issues/25). **Branch:** `session/2026-05-24-0349-issue-25`.
+
+`scripts/cost_table.py` shipped a `--dry` flag the rest of the script never read, and its docstring promised a `--load-results PATH` per-tier flag that didn't exist on the parser at all. Every tier row in the rendered `docs/cost_per_query.md` was hardcoded `(simulated)` regardless of inputs — the docstring's clear intent (real vs simulated marker per tier) wasn't implemented.
+
+Fixed in two parts. `--dry` now uses `argparse.BooleanOptionalAction` (default True); `--dry` labels non-overridden rows `(simulated)` and `--no-dry` drops the marker. New `--load-results TIER=PATH` (repeatable) per-tier override reads that tier's `c001.json` from the override dir and labels the row `(real)` regardless of `--dry`. Manual tier validation against `SCALE_TIERS` so unknown tier exits 2 with the inventory on stderr; malformed entries (missing `=`, empty path) likewise exit 2.
+
+Five new tests cover the per-row simulated marker under default `--dry`, `--no-dry` dropping the marker from rows, the override happy path (one tier real + others stay simulated), the unknown-tier exit-2 stderr-inventory path, and the malformed-entry exit-2 path. A small `_table_row_lines` test helper filters the rendered markdown to per-tier rows via substring (the explanatory prose paragraph also mentions `(simulated)` as documentation; the helper avoids false positives). The existing snapshot tests pass unchanged — default `--dry` output is byte-identical to the prior committed `docs/cost_per_query.md`.
+
+The docstring's Modes section was rewritten to match the implementation. Same shape as `llm-cost-optimizer` #30 earlier this session (revived an unreachable real-API guard), just with a richer surface — per-tier overrides instead of just a flag flip.
+
+**Why this work, this session:** Seventh issue in the night-session multi-issue loop. First non-pure-parity fix tonight — this closed an actual doc/impl mismatch (docstring lied about `--load-results`), not just added a flag.
+
+**Open questions / blockers:** none — PR ready for review.
+
+**Next session:** Continue to build-sequence #8 (`python-async-llm-pipelines`).
