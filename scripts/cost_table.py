@@ -22,9 +22,13 @@ Modes:
 - `--dry` (default): runs against the committed `results/load/stub-10k`
   numbers for every tier, marked clearly as `(simulated)` so the table
   doesn't claim real-engine $/query at 10M/100M scales. This is the
-  CI-safe path.
-- `--load-results PATH` per tier: the operator points at their real
-  load-test results dir for the tier and the row uses real qps.
+  CI-safe path. `--no-dry` drops the `(simulated)` marker on
+  non-overridden tiers.
+- `--load-results TIER=PATH` (repeatable) per-tier override: the
+  operator points at their real load-test results dir for a specific
+  tier and that row uses real qps; the row is labeled `(real)`
+  regardless of `--dry`. Mix-and-match — overridden tiers go real,
+  the rest stay on the `--run-id` defaults.
 
 The script is reusable from tests as `build_rows()` (pure-function over
 sizing + prices + qps) and `render_markdown()` (pure-function over rows).
@@ -293,13 +297,41 @@ _tier_to_instance: dict[str, str] = {}
 # ----------------------------------------------------------------------
 
 
+def _parse_load_results_overrides(raw: list[str] | None) -> dict[str, Path]:
+    """Parse `--load-results TIER=PATH` arguments into a {tier: dir} mapping.
+
+    Raises ValueError on malformed entries or unknown tier so `main` can
+    surface a clear error + the known-tier inventory on stderr.
+    """
+    out: dict[str, Path] = {}
+    for raw_entry in raw or ():
+        if "=" not in raw_entry:
+            raise ValueError(f"--load-results entry {raw_entry!r}: expected TIER=PATH; got no '='")
+        tier, _, path_str = raw_entry.partition("=")
+        tier = tier.strip()
+        path_str = path_str.strip()
+        if tier not in SCALE_TIERS:
+            raise ValueError(
+                f"--load-results entry {raw_entry!r}: unknown tier {tier!r}. "
+                f"Known: {', '.join(SCALE_TIERS)}"
+            )
+        if not path_str:
+            raise ValueError(f"--load-results entry {raw_entry!r}: empty path")
+        out[tier] = Path(path_str)
+    return out
+
+
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument(
         "--dry",
-        action="store_true",
+        action=argparse.BooleanOptionalAction,
         default=True,
-        help="Use the committed stub-10k throughput for every tier (default, CI-safe).",
+        help=(
+            "Controls the per-row 'simulated' marker. Default `--dry` labels each "
+            "row `(simulated)` so the table doesn't pretend it's real engine numbers. "
+            "`--no-dry` drops the marker on tiers without a `--load-results` override."
+        ),
     )
     p.add_argument(
         "--tf-main",
@@ -314,7 +346,19 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument(
         "--run-id",
         default="stub-10k",
-        help="Default run_id used for all tiers in --dry mode.",
+        help="Default run_id used for tiers without a `--load-results` override.",
+    )
+    p.add_argument(
+        "--load-results",
+        action="append",
+        default=None,
+        metavar="TIER=PATH",
+        help=(
+            "Per-tier override: read that tier's `c001.json` from <PATH> instead of "
+            f"the default --run-id directory. TIER must be one of {{{', '.join(SCALE_TIERS)}}}. "
+            "Repeatable; each invocation adds one mapping. Overridden tiers are "
+            "labeled `(real)` regardless of --dry."
+        ),
     )
     p.add_argument(
         "--out",
@@ -323,6 +367,12 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = p.parse_args(argv)
 
+    try:
+        load_overrides = _parse_load_results_overrides(args.load_results)
+    except ValueError as exc:
+        print(str(exc), file=sys.stderr)
+        return 2
+
     tf_text = Path(args.tf_main).read_text(encoding="utf-8")
     tiers = parse_terraform_tiers(tf_text)
 
@@ -330,9 +380,17 @@ def main(argv: list[str] | None = None) -> int:
     qps_source: dict[str, str] = {}
     results_dir = Path(args.results_dir)
     for tier in SCALE_TIERS:
-        qps = load_throughput_qps(results_dir / args.run_id)
-        qps_by_tier[tier] = qps
-        qps_source[tier] = f"`results/load/{args.run_id}/c001.json` (simulated)"
+        if tier in load_overrides:
+            override_dir = load_overrides[tier]
+            qps = load_throughput_qps(override_dir)
+            qps_by_tier[tier] = qps
+            qps_source[tier] = f"`{override_dir}/c001.json` (real)"
+        else:
+            qps = load_throughput_qps(results_dir / args.run_id)
+            qps_by_tier[tier] = qps
+            marker = "(simulated)" if args.dry else ""
+            label = f"`results/load/{args.run_id}/c001.json`"
+            qps_source[tier] = f"{label} {marker}".strip()
 
     prices = aws_us_east_1_snapshot()
 

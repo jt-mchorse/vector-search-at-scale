@@ -242,3 +242,115 @@ def test_main_dry_reproduces_known_monthly_costs(tmp_path: Path):
         assert f"${total:.2f}" in text, (
             f"expected monthly {total:.2f} for tier {tier_name} in the markdown, got:\n{text[:500]}"
         )
+
+
+# ----- --dry/--no-dry labeling + --load-results per-tier overrides (#25) -----
+
+
+def _seed_load_results_dir(dest: Path, qps: float) -> Path:
+    """Write a minimal c001.json with the given throughput_qps so a
+    --load-results override has something to read."""
+    dest.mkdir(parents=True, exist_ok=True)
+    (dest / "c001.json").write_text(
+        json.dumps({"throughput_qps": qps, "p95_latency_ms": 1.0}),
+        encoding="utf-8",
+    )
+    return dest
+
+
+def _table_row_lines(md: str) -> list[str]:
+    """Extract the per-tier table rows from the rendered markdown.
+
+    Lets the labeling tests below check the row-level Throughput source
+    column without false positives from the explanatory prose paragraph
+    that mentions `(simulated)` as documentation."""
+    return [
+        line
+        for line in md.splitlines()
+        if line.startswith("| ")
+        and "stub-10k" in line
+        or (line.startswith("| ") and "real_1m_run" in line)
+    ]
+
+
+def test_main_default_dry_labels_every_row_simulated(tmp_path: Path):
+    out_path = tmp_path / "out.md"
+    rc = main(["--out", str(out_path)])
+    assert rc == 0
+    rows = _table_row_lines(out_path.read_text(encoding="utf-8"))
+    assert rows, "expected per-tier table rows in the markdown"
+    for row in rows:
+        assert "(simulated)" in row, f"row missing (simulated) marker under default --dry: {row}"
+        assert "(real)" not in row
+
+
+def test_main_no_dry_drops_simulated_marker_from_rows(tmp_path: Path):
+    out_path = tmp_path / "out.md"
+    rc = main(["--no-dry", "--out", str(out_path)])
+    assert rc == 0
+    rows = _table_row_lines(out_path.read_text(encoding="utf-8"))
+    assert rows, "expected per-tier table rows in the markdown"
+    for row in rows:
+        assert "(simulated)" not in row, (
+            f"row should not carry (simulated) under --no-dry without override: {row}"
+        )
+        assert "(real)" not in row
+
+
+def test_main_load_results_override_labels_tier_real(tmp_path: Path):
+    override_dir = _seed_load_results_dir(tmp_path / "real_1m_run", qps=2500.0)
+    out_path = tmp_path / "out.md"
+    rc = main(
+        [
+            "--out",
+            str(out_path),
+            "--load-results",
+            f"1m={override_dir}",
+        ]
+    )
+    assert rc == 0
+    rows = _table_row_lines(out_path.read_text(encoding="utf-8"))
+    real_rows = [r for r in rows if "real_1m_run" in r]
+    other_rows = [r for r in rows if "real_1m_run" not in r]
+    assert real_rows, "expected at least one row pointing at the override dir"
+    for row in real_rows:
+        assert "(real)" in row, f"override-rule row missing (real) marker: {row}"
+    for row in other_rows:
+        assert "(simulated)" in row, (
+            f"non-overridden row should remain (simulated) under default --dry: {row}"
+        )
+
+
+def test_main_load_results_unknown_tier_exits_2_and_lists_known(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+):
+    rc = main(
+        [
+            "--out",
+            str(tmp_path / "out.md"),
+            "--load-results",
+            f"made-up-tier={tmp_path}",
+        ]
+    )
+    captured = capsys.readouterr()
+    assert rc == 2
+    assert "unknown tier" in captured.err
+    for known in SCALE_TIERS:
+        assert known in captured.err
+    assert not (tmp_path / "out.md").exists()
+
+
+def test_main_load_results_malformed_entry_exits_2(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+):
+    rc = main(
+        [
+            "--out",
+            str(tmp_path / "out.md"),
+            "--load-results",
+            "no-equals-sign-here",
+        ]
+    )
+    captured = capsys.readouterr()
+    assert rc == 2
+    assert "expected TIER=PATH" in captured.err
