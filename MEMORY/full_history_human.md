@@ -243,3 +243,16 @@ The docstring's Modes section was rewritten to match the implementation. Same sh
 **Open questions / blockers:** none — PR ready for review.
 
 **Next session:** Sixth Phase B+C target of today's 180-min day session. Build sequence #8 (`python-async-llm-pipelines`) is the natural next pickup if time remains before the 15-min cleanup buffer.
+
+## 2026-05-25 — Issue #29: Workload and recall_at_k isinstance(int) guards
+**Duration:** ~25 min · **Branch:** `session/2026-05-24-issue-29`
+
+- Two existing sign-only checks accepted non-int (float, NaN, +Infinity, bool, str). `Workload.__post_init__` looped five integer-typed count fields (`n_vectors`, `dim`, `n_queries`, `top_k`, `concurrency`) with `<= 0` comparison — NaN passes (NaN comparisons always false), fractional silently truncates via `range(int(x))` in the load loop, bool subclasses int and flattens operator intent. `recall_at_k(k)` had the same sign-only shape; non-int k silently miscounts via set/list slicing.
+- Tightened both to require `isinstance(x, int)` (bool excluded explicitly since Python's bool subclasses int and a count field's operator intent is never a boolean). Workload keeps the existing per-field "must be positive" message; the new isinstance check fires with "must be an int" before reaching it. `recall_at_k` message tightened from "must be positive" to "must be a positive integer"; one pre-existing test pinning the old message updated in place.
+- 26 new parametrized tests in `tests/test_harness.py` under a `#29` block: `field × bad_value` matrix for the five Workload fields (5 × 5 = 25 cases) + boundary acceptance regression; per-bad-value rejection for `recall_at_k`. Test count 173.
+
+**Why this work, this session:** Eleventh Phase B+C target in the 360-min night session. Second PR in vector-search-at-scale tonight; the first was via the Phase A fixup-merge of #28 (cost dataclass `__post_init__` sign-only validation). The two together cover both the benchmark surface and the cost surface.
+
+**Open questions / blockers:** none — PR ready for review.
+
+**Next session:** Continue the loop. Remaining unvisited-tonight-for-second-iteration: `python-async-llm-pipelines`. After that, all twelve repos will have received at least one Phase B+C iteration tonight (or have a second one).

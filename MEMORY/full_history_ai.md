@@ -399,3 +399,26 @@ context_for_next_session:
   - sixth_phase_bc_target_in_180_min_day_session_after_phase_a_5_pr_merge_plus_five_prior_phase_bc_targets
 followups: []
 ---
+
+---
+session: 2026-05-25T07:25Z
+duration_min: 25
+issue: 29
+focus: workload_and_recall_at_k_isinstance_int_guards_extend_sign_only
+delta:
+  files_changed: 2   # src/vector_bench/harness.py, tests/test_harness.py
+  files_added: 0
+  tests_added: 26   # 25 from the field x bad-value matrix + 1 acceptance regression
+  test_pass_rate: "173_passed"
+decisions_made: []
+context_for_next_session:
+  - second_pr_in_vector_search_tonight_first_via_phase_a_fixup_merge_of_28_cost_dataclass_post_init_sign_only
+  - workload_post_init_five_field_loop_sign_only_le_0_accepted_nan_via_nan_comparisons_false_and_fractional_silently_truncated_via_range_int_in_load_loop
+  - recall_at_k_same_sign_only_shape_non_int_silently_miscounts_via_set_list_slicing
+  - tightened_both_to_require_isinstance_x_int_with_explicit_bool_exclusion_python_bool_subclasses_int_count_field_intent_never_boolean
+  - workload_keeps_existing_per_field_must_be_positive_message_new_isinstance_check_fires_with_must_be_an_int_before_reaching_sign_comparison
+  - recall_at_k_message_tightened_must_be_positive_to_must_be_a_positive_integer_one_pre_existing_test_updated_in_place
+  - eleventh_phase_bc_target_in_360_min_night_session_now_two_phase_bc_prs_per_originally_unvisited_tonight_repo_plus_three_for_some_already_touched_repos_with_second_iteration
+  - portfolio_contract_tightening_sweep_eleven_prs_phase_bc_plus_seven_phase_a_fixups_eighteen_substantive_items_tonight
+followups: []
+---
