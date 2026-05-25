@@ -169,7 +169,11 @@ class InfraSpec:
         # turn a negative provisioned_iops or provisioned_throughput into a
         # zero cost line — omitting a real line item without raising. Guard
         # at the spec construction site instead.
-        for name, value in (("scale_tier", self.scale_tier), ("engine", self.engine), ("instance_type", self.instance_type)):
+        for name, value in (
+            ("scale_tier", self.scale_tier),
+            ("engine", self.engine),
+            ("instance_type", self.instance_type),
+        ):
             if not value:
                 raise ValueError(f"{name} must be a non-empty string")
         for name, value in (
