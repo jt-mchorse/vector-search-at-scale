@@ -55,6 +55,11 @@ class Workload:
     concurrency: int = 1
 
     def __post_init__(self) -> None:
+        # Integer guards (#29). Pre-#29 the sign-only `<= 0` check accepted
+        # NaN (NaN comparisons always false) and fractional floats (which
+        # silently truncated via range(int(x)) in the load loop). bool
+        # excluded explicitly since Python's bool subclasses int and the
+        # operator's intent for a count field is never a boolean.
         for name, value in [
             ("n_vectors", self.n_vectors),
             ("dim", self.dim),
@@ -62,6 +67,8 @@ class Workload:
             ("top_k", self.top_k),
             ("concurrency", self.concurrency),
         ]:
+            if not isinstance(value, int) or isinstance(value, bool):
+                raise ValueError(f"{name} must be an int, got {value!r}")
             if value <= 0:
                 raise ValueError(f"{name} must be positive, got {value}")
         if self.top_k > self.n_vectors:
@@ -147,8 +154,10 @@ def ground_truth_topk(
 
 def recall_at_k(predicted: list[str], truth: list[str], k: int) -> float:
     """Fraction of the top-k truth ids present anywhere in the top-k predicted."""
-    if k <= 0:
-        raise ValueError(f"k must be positive, got {k}")
+    # Integer guard (#29) — NaN passed sign-only and silently miscounted via
+    # set-slicing; fractional k truncated via list slicing.
+    if not isinstance(k, int) or isinstance(k, bool) or k <= 0:
+        raise ValueError(f"k must be a positive integer, got {k!r}")
     truth_set = set(truth[:k])
     pred_set = set(predicted[:k])
     if not truth_set:

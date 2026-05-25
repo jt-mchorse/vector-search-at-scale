@@ -58,7 +58,8 @@ class TestRecallAtK:
         assert recall_at_k(["x", "y"], ["a", "b"], 2) == pytest.approx(0.0)
 
     def test_rejects_non_positive_k(self) -> None:
-        with pytest.raises(ValueError, match="k must be positive"):
+        # Message tightened in #29 to "must be a positive integer".
+        with pytest.raises(ValueError, match="k must be a positive integer"):
             recall_at_k([], [], 0)
 
 
@@ -164,3 +165,39 @@ class TestRunBenchmarkConcurrencyGate:
         with pytest.raises(ValueError, match="concurrency"):
             run_benchmark(StubBackend(), w, run_id="c8", results_dir=tmp_path)
         assert not out_path.exists()
+
+
+# Issue #29: Workload integer-typed count fields rejected as `isinstance(int)`
+# so non-int (float, NaN, bool, str) is rejected at construction rather than
+# silently truncating downstream in `range(int(x))` or propagating into the
+# load loop as cryptic SDK-level TypeErrors. Same shape as
+# embedding-model-shootout #32 and chunking-strategies-lab #30.
+class TestWorkloadIntegerValidation:
+    @pytest.mark.parametrize(
+        "field",
+        ["n_vectors", "dim", "n_queries", "top_k", "concurrency"],
+    )
+    @pytest.mark.parametrize(
+        "bad",
+        [1.5, float("nan"), float("inf"), True, "5"],
+    )
+    def test_rejects_non_int_field(self, field: str, bad) -> None:
+        kwargs: dict = {"n_vectors": 10, "dim": 4, "n_queries": 3}
+        kwargs[field] = bad
+        with pytest.raises(ValueError, match=f"{field} must be an int"):
+            Workload(**kwargs)
+
+    def test_acceptance_regression_valid_ints_construct(self) -> None:
+        w = Workload(n_vectors=10, dim=8, n_queries=3, top_k=2, concurrency=1)
+        assert w.n_vectors == 10
+        assert w.concurrency == 1
+
+
+class TestRecallAtKIntegerValidation:
+    @pytest.mark.parametrize(
+        "bad",
+        [1.5, float("nan"), True, "5"],
+    )
+    def test_rejects_non_int_k(self, bad) -> None:
+        with pytest.raises(ValueError, match="k must be a positive integer"):
+            recall_at_k(["a"], ["a"], bad)
