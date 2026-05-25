@@ -206,7 +206,7 @@ def _valid_instance_kwargs() -> dict:
 
 
 @pytest.mark.parametrize(
-    "field,bad_value,bound_pattern",
+    ("field", "bad_value", "bound_pattern"),
     [
         ("usd_per_hour", -0.01, r"usd_per_hour must be >= 0\.0"),
         ("usd_per_hour", -100.0, r"usd_per_hour must be >= 0\.0"),
@@ -240,7 +240,7 @@ def _valid_ebs_kwargs() -> dict:
 
 
 @pytest.mark.parametrize(
-    "field,bad_value",
+    ("field", "bad_value"),
     [
         ("usd_per_gb_month", -0.01),
         ("usd_per_iops_month_over_baseline", -0.01),
@@ -255,7 +255,7 @@ def test_ebs_gp3_price_rejects_negative_rate(field: str, bad_value: float):
 
 
 @pytest.mark.parametrize(
-    "field,bad_value",
+    ("field", "bad_value"),
     [
         ("included_iops", -1),
         ("included_throughput_mibps", -1),
@@ -287,7 +287,7 @@ def _valid_infra_kwargs() -> dict:
 
 
 @pytest.mark.parametrize(
-    "field,bad_value",
+    ("field", "bad_value"),
     [
         ("data_volume_gb", -1),
         ("provisioned_iops", -1),
