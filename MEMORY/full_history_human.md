@@ -256,3 +256,16 @@ The docstring's Modes section was rewritten to match the implementation. Same sh
 **Open questions / blockers:** none — PR ready for review.
 
 **Next session:** Continue the loop. Remaining unvisited-tonight-for-second-iteration: `python-async-llm-pipelines`. After that, all twelve repos will have received at least one Phase B+C iteration tonight (or have a second one).
+
+## 2026-05-26 — Issue #31: HnswSimBackend completes the #29 sweep
+**Duration:** ~25 min · **Branch:** `session/2026-05-25-2300-issue-31`
+
+- `HnswSimBackend.__post_init__` at `src/vector_bench/backends/hnsw_sim.py:69-76` was the only remaining sign-only `<= 0` construction site in `src/vector_bench/` after #29's `Workload` + `recall_at_k` sweep. Tightened M / ef_construction / ef_search with `isinstance(value, int) + reject bool` above the existing `<= 0` check, inside the existing field-loop — adds one condition per iteration, no new branches in the file structure.
+- Closed five silent failure modes — most importantly the worst-harm-class one: `M=True` silently bound `self.M = True`, and `topk_local = argsort(-sims)[:self.M]` returned 1 neighbor instead of 16. **Recall silently collapsed; benchmark numbers looked fine but were wrong** — exactly the failure mode this repo exists to defend against. Also closed: `M=1.5` / `M=16.0` (silently bound, `[:1.5]` raised `TypeError` deep in ingest), `M=NaN/Inf` (silently bound, opaque numpy errors at query time), `ef_construction=True` (silently set `sample_size=1` per row → recall terrible, no error), `ef_search=True` (silently capped beam search frontier).
+- Three new parametrize blocks (one per field) over the existing `_BAD_INT = [1.5, NaN, +Inf, True, "16"]` shape from `tests/test_harness.py`, plus an acceptance pin over `[1, 8, 16, 32, 64]`. Added `# noqa: SIM300` to three acceptance asserts because ruff's Yoda-condition rule treats the `good` parametrize parameter name as a constant (codebase otherwise uses the standard `attr == value` shape). 20 new collected cases; full suite 173 → 193. Ruff clean.
+
+**Why this work, this session:** Fourth Phase B+C target in the 360-min night session, continuing the portfolio-wide validation sweep. Picked via build-sequence #7 among repos with un-swept constructors after `prompt-regression-suite#38` (#2) and `chunking-strategies-lab#32` (#3).
+
+**Open questions / blockers:** none — PR ready for review.
+
+**Next session:** Continue the loop. `python-async-llm-pipelines` (build #8) had only one Phase A fixup PR today and may have un-swept sites in its async core / benchmark dataclasses.
