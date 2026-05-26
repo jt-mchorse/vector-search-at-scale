@@ -280,3 +280,14 @@ Five production sites used `Path.write_text`: load.py's per-cell loop (most blas
 **Open questions / blockers:** none.
 
 **Next session:** Portfolio atomic-write arc is saturated. Future sessions should pivot to a different harm class (input-trust on external API responses, resource leaks on error paths, test-determinism guarantees) or to higher-level work (the operator-supplied 60-second demo capture remaining on three repos: llm-cost-optimizer#18, nextjs-streaming-ai-patterns, ai-app-integration-tests).
+
+## 2026-05-26 — Issue #35: README decision-range upper-bound lock
+**Duration:** ~6 min · **Branch:** `session/2026-05-26-2330-issue-35`
+
+- Added `tests/test_readme_decision_range.py`.
+- Added `D-002…D-012` citation under `## Architecture`.
+
+**Why this work, this session:** Propagation 6 of 10 of the cross-portfolio drift class.
+
+**Open questions / blockers:** none.
+**Next session:** Continue to python-async-llm-pipelines.
