@@ -131,6 +131,27 @@ embeds the same numbers and is locked to the scripts by
   live from `terraform/envs/benchmark/main.tf` so the cost doc and
   the infra layer can't drift.
 
+## Cross-cutting: atomic file writes (#33)
+
+`src/vector_bench/io_utils.py` exposes `atomic_write_text`, the
+package-level helper that every operator-facing writer
+(`src/vector_bench/load.py`, `src/vector_bench/harness.py`,
+`scripts/hnsw_grid.py`, `scripts/cost_table.py`) routes through when
+persisting JSON or NDJSON output. It writes to a `<dest>.tmp` sibling
+in the same directory, `fsync`s, then `os.replace`s into place —
+operators reading the committed result JSON never see a half-written
+benchmark from a `KeyboardInterrupt` mid-load.
+
+**Why these decisions.**
+
+- **D-012.** Helper lives at the package level rather than
+  file-private to each script, matching the cross-repo standard set
+  by `rag-production-kit`, `llm-eval-harness`,
+  `embedding-model-shootout`, `python-async-llm-pipelines`, and
+  `chunking-strategies-lab`. Centralizes the `os.replace` surface to
+  one monkey-patch target for the atomic-write test suite covering
+  five distinct call sites.
+
 ## What's still operator-supplied
 
 - **Real-backend benchmark runs.** `terraform apply` + AWS credit
