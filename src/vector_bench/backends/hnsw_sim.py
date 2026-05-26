@@ -67,11 +67,20 @@ class HnswSimBackend:
     name: str = "hnsw-sim"
 
     def __post_init__(self) -> None:
+        # Integer guards (#31). Pre-#31 the sign-only `<= 0` accepted `True`
+        # (silently bound `M=True`; `topk_local = argsort(-sims)[:True]` returned
+        # 1 neighbor instead of 16 — recall silently collapsed with no error),
+        # `1.5` / `16.0` (silently bound; `[:1.5]` raised `TypeError` deep in
+        # ingest), and `NaN` / `Inf` (silently bound; surfaced as opaque numpy
+        # errors far from the configuration site). Same harm class as
+        # `Workload` / `recall_at_k` in #29.
         for label, value in (
             ("M", self.M),
             ("ef_construction", self.ef_construction),
             ("ef_search", self.ef_search),
         ):
+            if not isinstance(value, int) or isinstance(value, bool):
+                raise ValueError(f"{label} must be an int, got {value!r}")
             if value <= 0:
                 raise ValueError(f"{label} must be positive, got {value}")
         self._vectors: np.ndarray | None = None

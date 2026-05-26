@@ -70,6 +70,39 @@ def test_rejects_nonpositive_params(bad):
         HnswSimBackend(ef_search=bad)
 
 
+# Issue #31: completes the #29 sweep (`Workload`, `recall_at_k`). Sign-only
+# accepted `True` (silently bound M=1 → recall silently collapsed), float
+# (silently bound, then numpy slice errors deep in ingest), and NaN/Inf
+# (silent type confusion surfacing as cryptic numpy errors).
+_BAD_INT = [1.5, float("nan"), float("inf"), True, "16"]
+
+
+@pytest.mark.parametrize("bad", _BAD_INT)
+def test_hnsw_sim_M_must_be_int(bad):
+    with pytest.raises(ValueError, match="M must be an int"):
+        HnswSimBackend(M=bad)
+
+
+@pytest.mark.parametrize("bad", _BAD_INT)
+def test_hnsw_sim_ef_construction_must_be_int(bad):
+    with pytest.raises(ValueError, match="ef_construction must be an int"):
+        HnswSimBackend(ef_construction=bad)
+
+
+@pytest.mark.parametrize("bad", _BAD_INT)
+def test_hnsw_sim_ef_search_must_be_int(bad):
+    with pytest.raises(ValueError, match="ef_search must be an int"):
+        HnswSimBackend(ef_search=bad)
+
+
+@pytest.mark.parametrize("good", [1, 8, 16, 32, 64])
+def test_hnsw_sim_accepts_valid_int_params(good):
+    backend = HnswSimBackend(M=good, ef_construction=good * 2, ef_search=good)
+    assert backend.M == good  # noqa: SIM300
+    assert backend.ef_construction == good * 2  # noqa: SIM300
+    assert backend.ef_search == good  # noqa: SIM300
+
+
 def test_ingest_mismatch_raises():
     backend = HnswSimBackend()
     vecs = np.zeros((5, 4), dtype=np.float32)
