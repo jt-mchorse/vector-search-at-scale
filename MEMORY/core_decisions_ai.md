@@ -99,3 +99,12 @@
   reversibility: cheap
   related_issues: [19]
   superseded_by: null
+
+- id: D-012
+  date: 2026-05-26
+  decision: atomic_write_helper_lives_in_package_level_vector_bench_io_utils_module_following_portfolio_standard
+  rationale: matches_rag_kit_eval_harness_emb_shootout_async_pipelines_chunking_lab_centralizes_test_surface_one_os_replace_to_monkey_patch_for_five_call_sites
+  alternatives_rejected: [file_private_per_module, inline_pattern_at_each_call_site]
+  reversibility: cheap
+  related_issues: [#33]
+  superseded_by: null

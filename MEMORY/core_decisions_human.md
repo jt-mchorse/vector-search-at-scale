@@ -150,3 +150,16 @@ The three backend SDKs we adapter against (`psycopg2` for pgvector, `qdrant-clie
   - *Remove `Workload.concurrency` entirely.* Rejected: the `load` module's `LoadCell` records the per-cell concurrency on its output, and the `Workload` field is the structural bridge between the matrix runner and the per-cell harness. Removing it breaks that.
   - *Document-only enforcement.* Rejected: the same shape as the bug we're closing. Documented constraints fail silently in operator code.
 - **Reversibility.** Cheap. If a future caller wants to deliberately produce a serial run that records `workload.concurrency = N`, an explicit `allow_misreport=True` flag can be added — but YAGNI.
+
+## D-012 — Atomic-write helper lives in `vector_bench/io_utils.py` (2026-05-26)
+**Decision:** Atomic-write helper at `src/vector_bench/io_utils.py`, exposing `atomic_write_text(path, text, encoding="utf-8")`. Matches the 2026-05-26 portfolio atomic-write standard.
+
+**Why:** Five production write sites needed atomicity: per-cell load matrix JSON loop (most blast-radius-y — partial state across cell files breaks the matrix-load reader silently), top-level matrix.json, per-backend benchmark result JSON in harness.py, hnsw grid sweep results, and the cost-table markdown that renders into the README front page. A single package-level helper covers all five and centralizes the test surface.
+
+**Alternatives considered:**
+- File-private per module — rejected; 5 sites across 4 files would mean 4 copies of ~25 lines that can drift.
+- Inline at each call site — rejected; same drift hazard.
+
+**Reversibility:** Cheap.
+
+**Related issues:** #33
