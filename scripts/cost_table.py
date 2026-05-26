@@ -55,6 +55,7 @@ from vector_bench.cost import (  # noqa: E402
     PriceTable,
     cost_per_query,
 )
+from vector_bench.io_utils import atomic_write_text  # noqa: E402
 from vector_bench.prices import aws_us_east_1_snapshot  # noqa: E402
 
 DEFAULT_TFVARS_PATH = _REPO_ROOT / "terraform/envs/benchmark/main.tf"
@@ -406,8 +407,7 @@ def main(argv: list[str] | None = None) -> int:
     md = render_markdown(rows, prices=prices, qps_source=qps_source)
 
     out_path = Path(args.out)
-    out_path.parent.mkdir(parents=True, exist_ok=True)
-    out_path.write_text(md, encoding="utf-8")
+    atomic_write_text(out_path, md)
 
     print(f"cost-table wrote {out_path}")
     for r in rows:

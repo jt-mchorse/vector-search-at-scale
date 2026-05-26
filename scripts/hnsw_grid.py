@@ -34,6 +34,7 @@ if str(_SRC) not in sys.path:
 
 from vector_bench.backends import make_backend  # noqa: E402
 from vector_bench.harness import Workload, run_benchmark  # noqa: E402
+from vector_bench.io_utils import atomic_write_text  # noqa: E402
 
 
 def _parse_int_list(s: str) -> list[int]:
@@ -101,7 +102,7 @@ def run_grid(
         "cells": cells,
     }
     grid_path = out_dir / "grid.json"
-    grid_path.write_text(json.dumps(grid_payload, indent=2, sort_keys=True), encoding="utf-8")
+    atomic_write_text(grid_path, json.dumps(grid_payload, indent=2, sort_keys=True))
     sys.stdout.write(f"\nwrote {grid_path}\n")
     return grid_payload
 

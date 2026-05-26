@@ -26,7 +26,6 @@ recorded in the output JSON.
 from __future__ import annotations
 
 import json
-import os
 import time
 from contextlib import contextmanager
 from dataclasses import asdict, dataclass, field
@@ -35,6 +34,7 @@ from typing import Any
 
 import numpy as np
 
+from vector_bench.io_utils import atomic_write_text
 from vector_bench.types import Backend
 
 
@@ -287,10 +287,6 @@ def run_benchmark(
     )
 
     if write_json:
-        out_path.parent.mkdir(parents=True, exist_ok=True)
-        os.makedirs(out_path.parent, exist_ok=True)
-        out_path.write_text(
-            json.dumps(result.to_json(), indent=2, sort_keys=True), encoding="utf-8"
-        )
+        atomic_write_text(out_path, json.dumps(result.to_json(), indent=2, sort_keys=True))
 
     return result

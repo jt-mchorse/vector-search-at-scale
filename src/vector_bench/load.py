@@ -24,7 +24,6 @@ See `MEMORY/core_decisions_human.md` D-008 for the deliberation.
 from __future__ import annotations
 
 import json
-import os
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import asdict, dataclass
@@ -43,6 +42,7 @@ from vector_bench.harness import (
     ground_truth_topk,
     recall_at_k,
 )
+from vector_bench.io_utils import atomic_write_text
 from vector_bench.types import Backend
 
 
@@ -209,14 +209,14 @@ def run_under_load(
     matrix = LoadMatrix(run_id=run_id, backend=backend.name, workload=workload, cells=tuple(cells))
 
     if write_json:
-        out_dir.mkdir(parents=True, exist_ok=True)
-        os.makedirs(out_dir, exist_ok=True)
         for cell in cells:
-            (out_dir / f"c{cell.concurrency:03d}.json").write_text(
-                json.dumps(cell.to_json(), indent=2, sort_keys=True, default=_json_default)
+            atomic_write_text(
+                out_dir / f"c{cell.concurrency:03d}.json",
+                json.dumps(cell.to_json(), indent=2, sort_keys=True, default=_json_default),
             )
-        matrix_path.write_text(
-            json.dumps(matrix.to_json(), indent=2, sort_keys=True, default=_json_default)
+        atomic_write_text(
+            matrix_path,
+            json.dumps(matrix.to_json(), indent=2, sort_keys=True, default=_json_default),
         )
 
     return matrix
