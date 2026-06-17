@@ -317,3 +317,16 @@ Five production sites used `Path.write_text`: load.py's per-cell loop (most blas
 **Open questions / blockers:** none — ready for review.
 
 **Next session:** Continue the night-session multi-repo loop. Remaining untouched-since-2026-05-27 candidates: `mcp-server-cookbook` (TS), `nextjs-streaming-ai-patterns`, `ai-app-integration-tests`. Each may have observability or validate parity opportunities; TS variant of the dump_*_json pattern is the natural extension.
+
+## 2026-06-17 — Issue #41: Workflow YAML-parseability lock
+**Duration:** ~7 min · **Branch:** `session/2026-06-17-1924-issue-41`
+
+Added `tests/test_workflows_yaml_parseable.py` (3 tests for `ci.yml`)
+and pulled `pyyaml>=6.0` into `dev` extras.
+
+**Why this work, this session:** Eighth hop of the `portfolio-ops#30`
+propagation arc.
+
+**Open questions / blockers:** none — PR #42 open.
+
+**Next session:** continue propagation to the remaining 4 repos.
