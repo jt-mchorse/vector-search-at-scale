@@ -349,3 +349,16 @@ suites from handoff §2 land, the policy ceiling should be revisited.
 **Next session:** continue propagation. Remaining repos with findings:
 python-async-llm-pipelines, agent-orchestration-platform (TS),
 mcp-server-cookbook (TS), ai-app-integration-tests (TS), portfolio-ops.
+
+## 2026-06-18 — Issue #45: concurrency guard + lock test
+**Duration:** ~8 min · **Branch:** `session/2026-06-18-1530-issue-45`
+
+- Added top-level `concurrency:` to `ci.yml`.
+- Copied lock test; docstring origin updated.
+
+**Why this work, this session:** eighth per-repo hop in the
+concurrency-lock arc.
+
+**Open questions / blockers:** none. Test count 238 → 245.
+
+**Next session:** continue propagation to remaining 4 repos.
