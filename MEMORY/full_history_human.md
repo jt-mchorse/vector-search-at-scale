@@ -330,3 +330,22 @@ propagation arc.
 **Open questions / blockers:** none — PR #42 open.
 
 **Next session:** continue propagation to the remaining 4 repos.
+
+## 2026-06-18 — Issue #43: timeout-minutes guard + lock test
+**Duration:** ~15 min · **Branch:** `session/2026-06-18-0326-issue-43`
+
+- Added `timeout-minutes` to every job in `ci.yml`: 15 for `fmt`,
+  `shellcheck`, `python`, `memory-check`; 20 for `validate` (terraform
+  init across every module + env on a cold provider cache).
+- Added `tests/test_workflows_timeout_minutes.py` — 16 new tests
+  (1 smoke + 5 jobs × 3 parametrized invariants).
+
+**Why this work, this session:** sixth hop in the portfolio-wide
+timeout-minutes propagation arc started by `llm-eval-harness` #63.
+
+**Open questions / blockers:** none. When the 1M/10M/100M benchmark
+suites from handoff §2 land, the policy ceiling should be revisited.
+
+**Next session:** continue propagation. Remaining repos with findings:
+python-async-llm-pipelines, agent-orchestration-platform (TS),
+mcp-server-cookbook (TS), ai-app-integration-tests (TS), portfolio-ops.

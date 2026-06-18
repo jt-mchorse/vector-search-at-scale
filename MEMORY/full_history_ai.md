@@ -546,3 +546,22 @@ context_for_next_session:
 decisions_made: []
 followups: []
 ---
+
+---
+session: 2026-06-18T03:26Z
+duration_min: 15
+issue: 43
+focus: workflow_timeout_minutes_lock_propagation_hop_6
+phase: night_session_phase_b_iteration_5
+delta:
+  files_added: 1   # tests/test_workflows_timeout_minutes.py
+  files_changed: 1 # .github/workflows/ci.yml
+  tests_added: 16  # 1 smoke + 5 jobs * 3 invariants
+context_for_next_session:
+  - sixth_propagation_hop_of_timeout_minutes_lock_repo_has_5_jobs_fmt_validate_shellcheck_python_memory_check
+  - validate_gets_20_min_terraform_init_across_every_module_plus_env_on_cold_provider_cache_is_the_longest_job_other_4_jobs_get_15_min
+  - doc_note_in_test_file_when_1m_10m_100m_benchmark_suites_from_handoff_section_2_actually_land_max_timeout_minutes_should_bump_with_per_job_comment_naming_the_workload
+  - audit_phase_a_py_will_drop_vector_search_at_scale_from_missing_timeout_finding_set_after_this_pr_merges
+decisions_made: []
+followups: []
+---
