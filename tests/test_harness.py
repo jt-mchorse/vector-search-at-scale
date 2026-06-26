@@ -213,6 +213,36 @@ class TestBenchmarkResultFinitenessGuard:
         assert _make_result(cost_per_query_usd=None).cost_per_query_usd is None
 
 
+class TestLatencyStatsFinitenessGuard:
+    """#59: LatencyStats is the nested result dataclass #55 missed. A non-finite
+    or negative p50/p95/p99/max flows through to_dict() -> json.dumps and
+    serializes as the invalid-JSON token NaN/Infinity. These pin the guard."""
+
+    def test_valid_latency_dumps_to_strict_json(self) -> None:
+        # The clean path round-trips a full BenchmarkResult through the *strict*
+        # JSON parser (json.loads, allow_nan defaults False), proving no
+        # Infinity/NaN token leaks from the nested latency block.
+        result = _make_result()
+        parsed = json.loads(json.dumps(result.to_dict(), indent=2, sort_keys=True))
+        assert parsed["query_latency"]["p99_ms"] == 3.0
+
+    @pytest.mark.parametrize(
+        "field", ["p50_ms", "p95_ms", "p99_ms", "max_ms"]
+    )
+    @pytest.mark.parametrize("bad", [float("inf"), float("-inf"), float("nan"), -1.0])
+    def test_rejects_non_finite_or_negative_field(self, field: str, bad: float) -> None:
+        kwargs = {"p50_ms": 1.0, "p95_ms": 2.0, "p99_ms": 3.0, "max_ms": 4.0}
+        kwargs[field] = bad
+        with pytest.raises(ValueError, match=rf"{field} must be a finite number >= 0"):
+            LatencyStats(**kwargs)
+
+    def test_zero_latency_is_accepted(self) -> None:
+        # 0.0 is a legitimate (if degenerate) measured latency; the guard is
+        # >= 0, not > 0, matching the ingest_seconds contract.
+        ls = LatencyStats(p50_ms=0.0, p95_ms=0.0, p99_ms=0.0, max_ms=0.0)
+        assert ls.max_ms == 0.0
+
+
 class TestRunBenchmarkDegenerateIngest:
     def test_non_positive_ingest_time_raises(self, tmp_path: Path, monkeypatch) -> None:
         # Force a non-positive ingest duration by pinning perf_counter to a
