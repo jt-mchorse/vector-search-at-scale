@@ -103,6 +103,27 @@ class LatencyStats:
     p99_ms: float
     max_ms: float
 
+    def __post_init__(self) -> None:
+        # Sibling of the BenchmarkResult guard (#55): LatencyStats is the nested
+        # result dataclass that guard missed. Its fields flow through
+        # `to_dict()` into `dump_benchmark_json`'s `json.dumps` (default
+        # `allow_nan=True`), so a non-finite p50/p95/p99/max serializes as the
+        # invalid-JSON token `NaN`/`Infinity` (rejected by jq/JS/Go) — a
+        # fabricated latency in a benchmark whose whole point is honest measured
+        # values (handoff §10). A negative latency is likewise nonsensical. The
+        # normal `run_benchmark` path computes these from finite `perf_counter`
+        # deltas; fail loud here so a hand-built or JSON-reconstructed instance
+        # can't smuggle corruption into the dump. Same shape as `BenchmarkResult`
+        # (#55), `Workload` (#29), the cost dataclasses (#53), and `LoadCell`.
+        for name, value in (
+            ("p50_ms", self.p50_ms),
+            ("p95_ms", self.p95_ms),
+            ("p99_ms", self.p99_ms),
+            ("max_ms", self.max_ms),
+        ):
+            if not math.isfinite(value) or value < 0:
+                raise ValueError(f"{name} must be a finite number >= 0, got {value!r}")
+
     def to_dict(self) -> dict[str, Any]:
         # Four-field contract (#39).
         return {

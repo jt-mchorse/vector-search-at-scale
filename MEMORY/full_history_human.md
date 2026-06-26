@@ -425,3 +425,15 @@ concurrency-lock arc.
 **Open questions / blockers:** none. `load.py`'s `LoadCell`/matrix dataclasses may share the missing-guard pattern — deferred follow-up.
 
 **Next session:** harness output is now finiteness-guarded; consider the load.py matrix dataclasses next time in this repo.
+
+## 2026-06-26 — Issue #59: LatencyStats finiteness guard (the nested dataclass #55 missed)
+**Duration:** ~20 min · **Branch:** `session/2026-06-26-2053-issue-59`
+
+- `#55` added a finiteness/range guard to `BenchmarkResult` because a non-finite field reaches `dump_benchmark_json`'s `json.dumps` (default `allow_nan=True`) and serializes as the invalid-JSON token `NaN`/`Infinity`. But `BenchmarkResult.query_latency` is a nested `LatencyStats` (`p50/p95/p99/max_ms`) — a public, frozen, directly-constructible dataclass with no `__post_init__`. #55 guarded the parent's direct numerics but not this nested sibling, so a non-finite/negative latency flows straight through to the dump. Reproduced: `LatencyStats(p95_ms=nan, p99_ms=inf, max_ms=-5)` constructs and dumps `{"p95_ms": NaN, "p99_ms": Infinity, ...}`, which a strict parser rejects.
+- Added `LatencyStats.__post_init__` rejecting non-finite/negative fields, same message shape as `BenchmarkResult` (#55), `Workload` (#29), the cost dataclasses (#53), and `LoadCell`. The normal `perf_counter`-driven path is unaffected. New `TestLatencyStatsFinitenessGuard` (valid dumps through the strict parser, per-field rejection, zero accepted). Suite → 313 passed, ruff clean.
+
+**Why this work, this session:** fifth issue of a multi-issue DAY run; a night-session lead flagged a `BenchmarkResult` gap that turned out already closed by #55 — but reading #55's own comment surfaced that it missed the nested `LatencyStats`, completing that finiteness-guard arc.
+
+**Open questions / blockers:** none.
+
+**Next session:** a percentile-monotonicity invariant (`p50 <= p95 <= p99 <= max`) on `LatencyStats` is the next candidate if a stronger result-integrity guard is wanted — deliberately out of scope here (separate from JSON validity).
