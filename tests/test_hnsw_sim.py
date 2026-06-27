@@ -173,3 +173,73 @@ def test_recall_non_decreasing_in_m(tiny_workload):
     # Non-decreasing across the M sweep (tiny tolerance for ties/plateau).
     for lo, hi in zip(recalls, recalls[1:], strict=False):
         assert hi >= lo - 1e-9, f"recall dropped as M increased: {recalls}"
+
+
+@pytest.fixture
+def order_sensitive_workload() -> tuple[np.ndarray, list[str], np.ndarray]:
+    """A workload where the pre-fix shared-RNG bug actually changes top-k.
+
+    `tiny_workload` is too small/connected — the beam converges to the same
+    top-k regardless of entry points, so it can't *discriminate* the bug. With
+    300 vectors in 24 dims at ef_search=20 the beam does not fully converge, so
+    the entry points (and therefore the result) genuinely depend on prior RNG
+    consumption under the old code. Verified: the pre-fix `query()` returns
+    different top-k for query 1 depending on whether query 0 ran first.
+    """
+    rng = np.random.default_rng(7)
+    vecs = rng.standard_normal((300, 24), dtype=np.float32)
+    vecs /= np.linalg.norm(vecs, axis=1, keepdims=True) + 1e-12
+    queries = rng.standard_normal((5, 24), dtype=np.float32)
+    queries /= np.linalg.norm(queries, axis=1, keepdims=True) + 1e-12
+    ids = [f"c{i:08d}" for i in range(300)]
+    return vecs, ids, queries
+
+
+def test_query_result_is_independent_of_issue_order(order_sensitive_workload):
+    """Regression for #65: a query's result must be a pure function of
+    (seed, params, vector) — NOT of how many queries ran before it.
+
+    Pre-fix, `query()` consumed the shared, ingest-advanced `self._rng`, so the
+    same query vector returned different top-k (and recall) depending on its
+    position in the issue sequence. Compare query index 1 issued *after* query 0
+    against the same query issued *first* on a fresh, identically seeded backend.
+    """
+    vecs, ids, queries = order_sensitive_workload
+
+    def fresh_backend() -> HnswSimBackend:
+        b = HnswSimBackend(M=8, ef_construction=40, ef_search=20, seed=42)
+        b.ingest(vecs, ids)
+        return b
+
+    after = fresh_backend()
+    after.query(queries[0], k=10)  # consume RNG with a prior query first
+    result_after = after.query(queries[1], k=10)
+
+    first = fresh_backend()
+    result_first = first.query(queries[1], k=10)  # same query, issued first
+
+    assert result_after == result_first
+
+
+def test_query_does_not_consume_shared_rng(tiny_workload):
+    """Root-cause guard for #65: `query()` must not advance the shared
+    `self._rng`. The bug *was* that it did, coupling each query's entry points
+    to prior consumption. This catches a regression even on workloads where the
+    beam happens to converge to the same top-k regardless of entry points."""
+    vecs, ids, queries = tiny_workload
+    backend = HnswSimBackend(M=8, ef_construction=40, ef_search=20, seed=42)
+    backend.ingest(vecs, ids)
+    state_before = backend._rng.bit_generator.state
+    backend.query(queries[0], k=10)
+    assert backend._rng.bit_generator.state == state_before
+
+
+def test_query_is_deterministic_across_backends(tiny_workload):
+    """Two independently-built backends with the same seed return identical
+    results for the same query (no hidden dependence on object identity)."""
+    vecs, ids, queries = tiny_workload
+    a = HnswSimBackend(M=8, ef_construction=40, ef_search=20, seed=42)
+    a.ingest(vecs, ids)
+    b = HnswSimBackend(M=8, ef_construction=40, ef_search=20, seed=42)
+    b.ingest(vecs, ids)
+    assert a.query(queries[2], k=10) == b.query(queries[2], k=10)

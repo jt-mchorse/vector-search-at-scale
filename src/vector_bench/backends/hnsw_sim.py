@@ -114,6 +114,25 @@ class HnswSimBackend:
         self._ids = list(ids)
         self._neighbors = neighbors
 
+    def _query_rng(self, vector: np.ndarray) -> np.random.Generator:
+        """Per-query RNG seeded from (seed, query-vector content).
+
+        Entry-point selection must be a pure function of `(seed, M, ..., vector)`
+        — NOT of how many queries ran before. `self._rng` is shared and stateful
+        (built in `__post_init__`, advanced by `ingest` and every prior query),
+        so consuming it inside `query()` made a query's result depend on its
+        position in the issue sequence, breaking the "pinned so the grid is
+        reproducible" contract above and racing under `run_under_load`'s threads.
+        Deriving a fresh generator from the vector's bytes keeps entry points
+        deterministic per query and independent of call order. `ingest` keeps
+        using `self._rng` (a one-time, order-independent build).
+        """
+        vec_words = np.frombuffer(
+            np.ascontiguousarray(vector, dtype=np.float32).tobytes(), dtype=np.uint32
+        )
+        seq = np.random.SeedSequence([self.seed, *(int(w) for w in vec_words)])
+        return np.random.default_rng(seq)
+
     def query(self, vector: np.ndarray, k: int) -> list[tuple[str, float]]:
         if self._vectors is None or not self._ids:
             return []
@@ -123,7 +142,7 @@ class HnswSimBackend:
         ef = min(self.ef_search, n)
         n_entry = min(max(1, self.M // 2), n)
         visited = set()
-        candidates = self._rng.choice(n, size=n_entry, replace=False).tolist()
+        candidates = self._query_rng(vector).choice(n, size=n_entry, replace=False).tolist()
         visited.update(candidates)
 
         # Iteratively expand. Bound iterations so worst-case stays linear in
