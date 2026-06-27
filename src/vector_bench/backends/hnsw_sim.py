@@ -127,8 +127,14 @@ class HnswSimBackend:
         visited.update(candidates)
 
         # Iteratively expand. Bound iterations so worst-case stays linear in
-        # ef_search even when the graph is highly connected.
-        max_iterations = max(2, ef // max(1, self.M))
+        # ef_search even when the graph is highly connected. The cap must NOT
+        # depend on M: dividing by M (the old `ef // M`) shrank the exploration
+        # budget as the graph got denser, so recall *fell* as M rose — the exact
+        # opposite of the documented "higher M = denser graph = better recall"
+        # contract (#61). Bounding by ef alone keeps the worst case linear in
+        # ef_search while letting a denser graph (more neighbors per node) reach
+        # more true neighbors per hop.
+        max_iterations = max(2, ef // 4)
         for _ in range(max_iterations):
             # Score current candidate set, keep top `ef`.
             cand_arr = np.array(sorted(visited), dtype=np.int64)

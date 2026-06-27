@@ -141,3 +141,35 @@ def test_recall_non_decreasing_in_ef_search(tiny_workload):
     # At ef_search ≈ n_vectors, recall is near-perfect — the simulation
     # collapses to brute force.
     assert high >= 0.7
+
+
+def test_recall_non_decreasing_in_m(tiny_workload):
+    """#61: a denser graph (higher M) must not *lower* recall.
+
+    The docstring contract is "Higher M = denser graph = better recall at
+    small ef_search." The old beam-search iteration cap `ef // M` shrank the
+    exploration budget as M grew, so recall fell when M rose (e.g. M=8 below
+    M=4) — the opposite of the contract. With the cap decoupled from M, recall
+    is non-decreasing in M. Held at a small, fixed ef_search where the dip was
+    most pronounced.
+    """
+    vecs, ids, queries = tiny_workload
+    sims_all = queries @ vecs.T
+    truth = np.argsort(-sims_all, axis=1)[:, :5]
+    truth_sets = [set(int(idx) for idx in row) for row in truth]
+    id_to_idx = {v: i for i, v in enumerate(ids)}
+
+    def measure(m: int) -> float:
+        backend = HnswSimBackend(M=m, ef_construction=80, ef_search=16, seed=1)
+        backend.ingest(vecs, ids)
+        recalls = []
+        for q_idx in range(len(queries)):
+            hits = backend.query(queries[q_idx], k=5)
+            hit_idxs = set(id_to_idx[hid] for hid, _ in hits)
+            recalls.append(len(hit_idxs & truth_sets[q_idx]) / 5.0)
+        return float(np.mean(recalls))
+
+    recalls = [measure(m) for m in (4, 8, 16, 32)]
+    # Non-decreasing across the M sweep (tiny tolerance for ties/plateau).
+    for lo, hi in zip(recalls, recalls[1:], strict=False):
+        assert hi >= lo - 1e-9, f"recall dropped as M increased: {recalls}"
