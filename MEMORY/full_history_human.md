@@ -461,3 +461,15 @@ concurrency-lock arc.
 **Open questions / blockers:** none.
 
 **Next session:** all four backends now refuse to fabricate a score; a missing/None `orig_id` guard remains out of scope.
+
+## 2026-06-27 — Issue #65: hnsw-sim per-query recall depended on issue order
+**Duration:** ~25 min · **Branch:** `session/2026-06-27-1540-issue-65`
+
+- `HnswSimBackend.query` drew beam-search entry points from the shared, stateful `self._rng` (built in `__post_init__`, advanced by `ingest` and every prior query), so a query's entry points — and its recall/latency — depended on how many queries ran before it. That contradicts the module's "pinned so the grid is reproducible" contract and makes the threaded `run_under_load` path racy. On a 300-vec/24-dim workload the same query returned a different top-10 (recall 0.9 vs 1.0) purely based on call order.
+- Fixed by deriving a per-query RNG from `(seed, query-vector bytes)` via `SeedSequence`; `ingest` keeps using `self._rng`. Added an order-independence test on a workload that actually manifests the bug, a root-cause guard that `query()` doesn't advance `self._rng`, and a same-seed cross-backend agreement test.
+
+**Why this work, this session:** fourth find of a multi-issue DAY run; the previously-unfiled shared-RNG runner-up flagged in earlier memory, now reproduced and fixed.
+
+**Open questions / blockers:** none. A gotcha worth remembering: the first order-test used `tiny_workload` and passed on the buggy code too (beam converged regardless of entry points) — the negative check caught it; switched to a larger discriminating workload + a state-based root-cause guard.
+
+**Next session:** all backends fail-loud and reproducible; consider whether `run_under_load` warrants its own determinism test now that the per-query RNG removes the shared-state race.
