@@ -88,7 +88,18 @@ class WeaviateBackend:
         out: list[tuple[str, float]] = []
         for obj in res.objects:
             orig_id = obj.properties.get("orig_id")
-            distance = obj.metadata.distance if obj.metadata is not None else 0.0
+            if obj.metadata is None or obj.metadata.distance is None:
+                # Fail loud instead of inventing a best-case score. The old
+                # `else 0.0` fallback made similarity = 1.0 - 0.0 = 1.0 (the
+                # maximum), silently ranking a metadata-less result as the top
+                # hit and emitting a fabricated benchmark number — which the
+                # repo's no-fabricated-numbers invariant forbids and the other
+                # three backends never do (#63).
+                raise BackendError(
+                    f"weaviate returned no distance metadata for object {orig_id!r}; "
+                    "ensure the query requests return_metadata=['distance']"
+                )
+            distance = obj.metadata.distance
             # Weaviate returns cosine *distance*; convert to similarity.
             similarity = 1.0 - float(distance)
             out.append((orig_id, similarity))
