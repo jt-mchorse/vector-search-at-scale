@@ -449,3 +449,15 @@ concurrency-lock arc.
 **Open questions / blockers:** process slip — I coded before filing the issue here, then filed #61 and corrected the guessed `#59` refs in the code/test; for future issues, file first then code. Note: this repo's Python CI is `ruff check src/ tests/` only (no `ruff format --check`; the `fmt` job is `terraform fmt`), so a pre-existing `test_harness.py` format discrepancy is not CI-gated. Two runners-up unfiled: `query()` shares one RNG across ingest + every query (per-query output depends on prior query count), and the docstring's "ef_search ≥ n_vectors → recall 1.0" exactness claim isn't enforced for sparse graphs.
 
 **Next session:** consider the shared-RNG-per-query determinism issue (a query's result shouldn't depend on how many queries ran before it).
+
+## 2026-06-27 — Issue #63: weaviate adapter fabricated a perfect similarity for missing metadata
+**Duration:** ~20 min · **Branch:** `session/2026-06-27-0452-issue-63`
+
+- `WeaviateBackend.query` used `distance = obj.metadata.distance if obj.metadata is not None else 0.0`, so a result object with absent distance metadata produced `similarity = 1.0 - 0.0 = 1.0` — the best-possible score, silently ranking a metadata-less result as the top hit. It was the only score-fabrication path among the four backends and violates the repo's no-fabricated-numbers invariant (handoff §10). Low severity (both consumers use only the returned order and discard the score, so recall is unaffected), and the adapter was entirely untested.
+- Fixed by raising `BackendError` when `obj.metadata is None or obj.metadata.distance is None` — fail loud instead of inventing a score. Added the first `tests/test_weaviate_backend.py` (fake client injected via `object.__new__`): happy-path distance→similarity + order, and both missing-metadata paths raising. Suite 314 → 317, ruff clean.
+
+**Why this work, this session:** sixteenth issue of a multi-issue NIGHT run; a second-pass dogfood hardening fix aligning the weaviate adapter with the other three backends' fail-loud posture.
+
+**Open questions / blockers:** none.
+
+**Next session:** all four backends now refuse to fabricate a score; a missing/None `orig_id` guard remains out of scope.
