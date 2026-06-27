@@ -437,3 +437,15 @@ concurrency-lock arc.
 **Open questions / blockers:** none.
 
 **Next session:** a percentile-monotonicity invariant (`p50 <= p95 <= p99 <= max`) on `LatencyStats` is the next candidate if a stronger result-integrity guard is wanted — deliberately out of scope here (separate from JSON validity).
+
+## 2026-06-27 — Issue #61: HNSW-sim recall decreases in M (inverted contract)
+**Duration:** ~25 min · **Branch:** `session/2026-06-27-0010-issue-61`
+
+- `HnswSimBackend.query` capped beam-search iterations at `ef // M` — inversely proportional to M. Because a denser graph (higher M) got fewer expansion hops, recall *fell* as M rose (mean recall@10 at ef_search=20: M=4 0.61, M=8 0.47), contradicting the docstring ("Higher M = denser graph = better recall at small ef_search") and the HNSW-paper curve shape the module cites.
+- Fixed by bounding iterations on `ef_search` alone (`max(2, ef // 4)`) — still worst-case linear in ef_search but no longer throttled by graph density. Recall is now non-decreasing in M (0.61 → 0.89 → 0.98 → 1.0) and ef_search-monotonicity is preserved. Added an M-monotonicity regression test (the existing one only swept ef_search). Suite 313 → 314, ruff check clean.
+
+**Why this work, this session:** seventh issue of a multi-issue DAY run. embedding-model-shootout dogfood came back clean (healthy repo, no fabricated work), so I fell through to vector-search-at-scale and filed #61 from a reproduced finding.
+
+**Open questions / blockers:** process slip — I coded before filing the issue here, then filed #61 and corrected the guessed `#59` refs in the code/test; for future issues, file first then code. Note: this repo's Python CI is `ruff check src/ tests/` only (no `ruff format --check`; the `fmt` job is `terraform fmt`), so a pre-existing `test_harness.py` format discrepancy is not CI-gated. Two runners-up unfiled: `query()` shares one RNG across ingest + every query (per-query output depends on prior query count), and the docstring's "ef_search ≥ n_vectors → recall 1.0" exactness claim isn't enforced for sparse graphs.
+
+**Next session:** consider the shared-RNG-per-query determinism issue (a query's result shouldn't depend on how many queries ran before it).
