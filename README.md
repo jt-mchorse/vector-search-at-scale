@@ -88,7 +88,7 @@ Hermetic flow (no AWS, no SDKs, runs in a couple seconds):
 ```bash
 python3 -m venv .venv && source .venv/bin/activate
 pip install -e '.[dev]'
-pytest                                    # 23 hermetic tests pass
+pytest                                    # hermetic tests pass (no network / API key)
 vector-bench run --backend stub \
   --n 1000 --dim 64 --queries 50 --top-k 10 \
   --run-id smoke-001

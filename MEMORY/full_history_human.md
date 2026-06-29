@@ -473,3 +473,15 @@ concurrency-lock arc.
 **Open questions / blockers:** none. A gotcha worth remembering: the first order-test used `tiny_workload` and passed on the buggy code too (beam converged regardless of entry points) — the negative check caught it; switched to a larger discriminating workload + a state-based root-cause guard.
 
 **Next session:** all backends fail-loud and reproducible; consider whether `run_under_load` warrants its own determinism test now that the per-query RNG removes the shared-state race.
+
+## 2026-06-29 — Issue #67: stale cost-artifact doc refs + README test count
+**Duration:** ~13 min · **Branch:** `session/2026-06-29-0347-stale-doc-refs`
+
+- `io_utils.py` and `test_io_utils_atomic_write.py` named `docs/cost.md` and the README's "Cost analysis" section, but `scripts/cost_table.py` writes `docs/cost_per_query.md` and the README heading is "Cost per query (#5)" — there is no `docs/cost.md` and no "Cost analysis" section. The test's scratch `--out` path echoed the wrong name too. Separately, the README claimed "23 hermetic tests" while the suite is 320.
+- Corrected the filename/section references in code + test, and replaced the README's hard-coded count with a count-agnostic comment (no count-lock test exists to keep an exact number honest). MEMORY history's historical mention left as-is (append-only).
+
+**Why this work, this session:** sixth issue of the night run. A parallel audit subagent swept this repo, found no logic bug (mature, 320 tests; ANN/recall/percentile/cost code verified correct), and surfaced these stale doc references — same doc-drift class as python-async #68, rag #100, emb-shootout #71.
+
+**Open questions / blockers:** none.
+
+**Next session:** code/test/README cost-artifact references now match the shipped `docs/cost_per_query.md`.

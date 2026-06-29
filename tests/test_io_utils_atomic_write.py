@@ -8,7 +8,7 @@ Until this PR, five production write sites in this repo used
   files breaks the matrix-load reader silently.
 - `harness.py` writes a per-backend result JSON.
 - `scripts/hnsw_grid.py` writes the grid sweep results.
-- `scripts/cost_table.py` writes `docs/cost.md` (front-page README).
+- `scripts/cost_table.py` writes `docs/cost_per_query.md` (front-page README).
 
 A signal between the implicit `open(..., "w")` truncate and `close()`
 flush leaves the destination zero-length or partial.
@@ -171,8 +171,8 @@ def test_cost_table_main_routes_through_atomic_helper(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """`scripts/cost_table.py:main()` must route the markdown write
-    through atomic_write_text. `docs/cost.md` is rendered into the
-    README's "Cost analysis" section on GitHub — a half-written file
+    through atomic_write_text. `docs/cost_per_query.md` is rendered into the
+    README's "Cost per query" section on GitHub — a half-written file
     is a front-page failure.
     """
     cost_table = _load_script("cost_table.py")
@@ -182,7 +182,7 @@ def test_cost_table_main_routes_through_atomic_helper(
 
     monkeypatch.setattr(io_utils_mod.os, "replace", boom)
 
-    out = tmp_path / "docs" / "cost.md"
+    out = tmp_path / "docs" / "cost_per_query.md"
     with pytest.raises(OSError, match="simulated rename failure"):
         cost_table.main(["--out", str(out)])
 
