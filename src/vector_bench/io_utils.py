@@ -6,8 +6,8 @@ Five production write sites in this repo emit benchmark artifacts:
   back to render the latency-under-load matrix.
 - `harness.py` writes a per-backend benchmark result JSON.
 - `scripts/hnsw_grid.py` writes the HNSW grid sweep results.
-- `scripts/cost_table.py` writes `docs/cost.md` — the README's "Cost
-  analysis" section renders from it on GitHub.
+- `scripts/cost_table.py` writes `docs/cost_per_query.md` — the README's
+  "Cost per query" section renders from it on GitHub.
 
 `Path.write_text` is not atomic: a signal between the implicit
 `open(..., "w")` truncate and `close()` flush leaves the destination
