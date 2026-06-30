@@ -23,8 +23,17 @@ class _Meta:
 
 
 class _Obj:
-    def __init__(self, orig_id: str, distance: float | None, *, has_metadata: bool = True) -> None:
-        self.properties = {"orig_id": orig_id}
+    def __init__(
+        self,
+        orig_id: str,
+        distance: float | None,
+        *,
+        has_metadata: bool = True,
+        has_orig_id: bool = True,
+    ) -> None:
+        # `has_orig_id=False` mocks a result object missing the `orig_id`
+        # property (out-of-band ingestion / schema drift) — #69.
+        self.properties = {"orig_id": orig_id} if has_orig_id else {}
         self.metadata = _Meta(distance) if has_metadata else None
 
 
@@ -85,3 +94,23 @@ def test_query_raises_on_none_distance_value():
     backend = _backend_with([_Obj("a", None)])
     with pytest.raises(BackendError, match="no distance metadata"):
         backend.query(np.zeros(4, dtype=np.float32), k=1)
+
+
+def test_query_raises_on_missing_orig_id_instead_of_returning_none_id():
+    # #69 (symmetric to #63): an object missing the `orig_id` property must not
+    # silently become a `(None, score)` hit, which violates the (id, score)
+    # contract and deflates recall (a None id never matches a ground-truth id).
+    # Inverse safety net: pre-fix this returned [(None, 0.8)].
+    backend = _backend_with([_Obj("a", 0.2), _Obj("", 0.2, has_orig_id=False)])
+    with pytest.raises(BackendError, match="no string 'orig_id'"):
+        backend.query(np.zeros(4, dtype=np.float32), k=2)
+
+
+def test_query_well_formed_results_unchanged_after_orig_id_guard():
+    # Over-rejection guard: the id guard must not perturb the happy path —
+    # ids and similarities are still returned in order.
+    backend = _backend_with([_Obj("a", 0.2), _Obj("c", 0.05)])
+    out = backend.query(np.zeros(4, dtype=np.float32), k=2)
+    assert [hit_id for hit_id, _ in out] == ["a", "c"]
+    assert out[0][1] == pytest.approx(0.8)
+    assert out[1][1] == pytest.approx(0.95)

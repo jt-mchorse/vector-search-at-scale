@@ -485,3 +485,15 @@ concurrency-lock arc.
 **Open questions / blockers:** none.
 
 **Next session:** code/test/README cost-artifact references now match the shipped `docs/cost_per_query.md`.
+
+## 2026-06-30 — Issue #69: WeaviateBackend.query returned (None, score) on an object missing orig_id (symmetric to #63)
+**Duration:** ~15 min · **Branch:** `session/2026-06-30-1605-issue-69`
+
+- `WeaviateBackend.query` read the result id with `obj.properties.get("orig_id")` and appended `(orig_id, similarity)`. A missing `orig_id` property yields `None`, so the method returned `[(None, score), ...]` — violating its `list[tuple[str, float]]` contract and silently deflating recall (a None id never matches a ground-truth id). This is the symmetric gap to #63, which hardened the *distance* side of this exact loop but left the *id* side reading straight through. Confirmed by reading the code (not blindly trusting the hunter).
+- Fixed with an `isinstance(str)` guard before the distance check (so its error message always references a real id), raising `BackendError`. +2 tests (missing-orig_id raises — fails pre-fix; well-formed unchanged). Suite 320 → 322, ruff clean. Filed priority:low — reachability is lower than #63 (needs out-of-band Weaviate data), but the contract and #63's precedent make the symmetric guard belong here.
+
+**Why this work, this session:** seventh issue of a DAY multi-issue run, third non-tier repo (per build sequence). Zero open issues → dogfood-and-file. I reviewed cost.py/prices.py myself (both exhaustively guarded — finiteness/sign guards throughout, nothing to fix); an Explore hunter searched cli/harness/load/backends exhaustively (76 tool-uses) and surfaced only this one candidate — a strong signal the repo is well-hardened (320 tests, cost model verified correct).
+
+**Open questions / blockers:** none — ready for review.
+
+**Next session:** vector-search-at-scale is mature; the weaviate id-axis guard now matches the #63 distance-axis posture.

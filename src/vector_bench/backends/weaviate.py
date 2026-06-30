@@ -88,6 +88,18 @@ class WeaviateBackend:
         out: list[tuple[str, float]] = []
         for obj in res.objects:
             orig_id = obj.properties.get("orig_id")
+            # Fail loud on a missing/non-string id, the symmetric twin of the
+            # distance-metadata guard below (#63): `.get` yields None when the
+            # object has no `orig_id` property, and the old read-through appended
+            # `(None, score)` — violating this method's `list[tuple[str, float]]`
+            # contract. A None id silently never matches a ground-truth id and
+            # deflates recall with no diagnostic. Checked before the distance
+            # guard so that error's `{orig_id!r}` always references a real id (#69).
+            if not isinstance(orig_id, str):
+                raise BackendError(
+                    f"weaviate returned an object with no string 'orig_id' property "
+                    f"(got {orig_id!r}); the result violates the (id, score) contract"
+                )
             if obj.metadata is None or obj.metadata.distance is None:
                 # Fail loud instead of inventing a best-case score. The old
                 # `else 0.0` fallback made similarity = 1.0 - 0.0 = 1.0 (the
