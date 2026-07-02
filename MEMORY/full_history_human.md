@@ -497,3 +497,11 @@ concurrency-lock arc.
 **Open questions / blockers:** none — ready for review.
 
 **Next session:** vector-search-at-scale is mature; the weaviate id-axis guard now matches the #63 distance-axis posture.
+
+## 2026-07-02 — Issue #72: stub oracle silently violated its recall==1.0 invariant (~30 min)
+
+**What got done.** The stub backend is documented as the ground-truth oracle that achieves recall@k=1.0 "by construction," but `ground_truth_topk` scored with a batched GEMM (`queries @ corpus.T`) while `StubBackend.query` uses a per-row GEMV (`vectors @ vector`). float32 GEMM and GEMV sum in different orders (~9e-8 apart), so at a top-k-boundary near-tie they order neighbors differently and the oracle silently missed one of its own true neighbors — reporting recall 0.998 and polluting the baseline every real backend is scored against. Fixed by scoring `ground_truth_topk` per-query with the identical GEMV expression the stub uses; verified bit-identical via `np.array_equal`, so recall is now exactly 1.0 by construction (0 mismatches over 25k queries). Tightened the two stub-recall assertions from `pytest.approx(1.0)` to exact `== 1.0` and added a regression test on the triggering workload (fails pre-fix at 0.998, passes post-fix). Full suite green (323 passed), ruff clean.
+
+**Why prioritized.** Third issue of the day run. After the priority tier was exhausted (blocked issues + two clean bug-hunts + zero coverage gaps), I rotated to non-tier repos per D-009 and ran two more dogfood hunts; python-async-llm-pipelines came up clean, vector-search-at-scale surfaced this. Filed priority:high because a non-deterministic oracle corrupts the harness's reference baseline. Reproduced firsthand before filing and fixing per the saturation memory guidance; no decision needed (reversible, invariant stated absolutely).
+
+**Open questions / blockers.** None. Broader float32 tie-robustness for *real* backends is a separate concern, out of scope here.

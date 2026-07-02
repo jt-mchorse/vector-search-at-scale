@@ -1,9 +1,11 @@
 """In-process pure-numpy backend.
 
 This is the reference implementation the harness scores everything against.
-It IS the ground truth (by construction, since `ground_truth_topk` uses the
-same cosine similarity), so the stub achieves recall@k = 1.0 on every
-workload. Useful for two things:
+It IS the ground truth (by construction, since `ground_truth_topk` scores
+with the *same per-row GEMV* `corpus @ query` this backend uses — not a
+batched GEMM, whose different float32 summation order would flip tie-boundary
+neighbors; see harness.py / #72), so the stub achieves recall@k = 1.0 exactly
+on every workload. Useful for two things:
 
 - Exercising the full harness end-to-end in CI without any AWS bring-up.
 - Sanity-checking new backends: a real engine should approach the stub's

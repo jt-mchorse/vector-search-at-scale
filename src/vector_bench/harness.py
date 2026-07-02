@@ -233,16 +233,24 @@ def ground_truth_topk(
     descending similarity order.
     """
     # Both arrays are already L2-normalized — dot product is cosine similarity.
-    sims = queries @ corpus.T  # shape: (n_queries, n_vectors)
-    n_q = sims.shape[0]
-    # argsort descending; `argpartition` would be faster for large N but
-    # `argsort` keeps the code obvious and is plenty fast for benchmark
-    # sizes the harness exercises locally (<=1M during real runs, much
-    # smaller in tests).
-    top = np.argsort(-sims, axis=1)[:, :k]
+    #
+    # Score per-query with the *same* GEMV expression `StubBackend.query` uses
+    # (`self._vectors @ vector`), NOT a batched `queries @ corpus.T` GEMM. In
+    # exact arithmetic the two are identical, but in float32 a GEMM and a GEMV
+    # sum the dot products in different orders, so scores differ by ~1e-7. At a
+    # tie near the top-k boundary that discrepancy flips which neighbor lands in
+    # the top-k — and since the stub *is* the ground-truth oracle, a mismatch
+    # makes it silently miss one of its own true neighbors (recall 0.998, not
+    # the documented 1.0), polluting the baseline every real backend is scored
+    # against (#72). Using the identical per-row GEMV here is bit-identical to
+    # the stub (same array, same BLAS gemv call), so the oracle invariant holds
+    # exactly by construction. Cost: n_queries GEMVs instead of one GEMM — a
+    # one-time ground-truth setup cost, not on the measured query hot path.
     out: list[list[str]] = []
-    for i in range(n_q):
-        out.append([corpus_ids[idx] for idx in top[i]])
+    for i in range(queries.shape[0]):
+        sims = corpus @ queries[i]  # shape: (n_vectors,) — matches stub.query
+        top = np.argsort(-sims)[:k]
+        out.append([corpus_ids[idx] for idx in top])
     return out
 
 
