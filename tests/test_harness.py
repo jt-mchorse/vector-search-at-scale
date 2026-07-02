@@ -82,10 +82,25 @@ class TestRunBenchmarkAgainstStub:
         w = Workload(n_vectors=50, dim=8, n_queries=10, top_k=5, seed=3)
         result = run_benchmark(StubBackend(), w, run_id="stub-1", results_dir=tmp_path)
         assert result.backend == "stub"
-        assert result.mean_recall_at_k == pytest.approx(1.0)
+        # Exact, not `approx` (#72): the stub is the ground-truth oracle and
+        # `ground_truth_topk` now scores with the identical per-row GEMV, so
+        # recall is 1.0 by construction. `approx` would silently tolerate a
+        # 0.998 regression from a tie-boundary flip.
+        assert result.mean_recall_at_k == 1.0
         # Sanity: latency stats are populated and non-negative.
         assert result.query_latency.p50_ms >= 0.0
         assert result.query_latency.p95_ms >= result.query_latency.p50_ms
+
+    def test_stub_recall_is_exactly_one_on_tie_prone_workload(self, tmp_path: Path) -> None:
+        # #72 regression: this workload has a top-k-boundary near-tie (query 22:
+        # sims[9]-sims[10] ~ 9e-8) that the old batched-GEMM `ground_truth_topk`
+        # ordered differently from the stub's per-row GEMV, so the oracle missed
+        # one of its own true neighbors and reported 0.998. With both paths on
+        # the identical per-row GEMV the recall is exactly 1.0. Verified this
+        # asserts 0.998 == 1.0 (i.e. fails) against the pre-fix code.
+        w = Workload(n_vectors=200, dim=32, n_queries=50, top_k=10, seed=33)
+        result = run_benchmark(StubBackend(), w, run_id="stub-tie", results_dir=tmp_path)
+        assert result.mean_recall_at_k == 1.0
 
     def test_writes_json_to_results_dir(self, tmp_path: Path) -> None:
         w = Workload(n_vectors=20, dim=4, n_queries=5, top_k=3, seed=2)
@@ -95,7 +110,7 @@ class TestRunBenchmarkAgainstStub:
         payload = json.loads(out.read_text(encoding="utf-8"))
         assert payload["backend"] == "stub"
         assert payload["workload"]["n_vectors"] == 20
-        assert payload["mean_recall_at_k"] == pytest.approx(1.0)
+        assert payload["mean_recall_at_k"] == 1.0  # exact oracle invariant (#72)
 
     def test_rejects_overwrite_without_force(self, tmp_path: Path) -> None:
         w = Workload(n_vectors=10, dim=4, n_queries=3, top_k=2, seed=1)
@@ -226,9 +241,7 @@ class TestLatencyStatsFinitenessGuard:
         parsed = json.loads(json.dumps(result.to_dict(), indent=2, sort_keys=True))
         assert parsed["query_latency"]["p99_ms"] == 3.0
 
-    @pytest.mark.parametrize(
-        "field", ["p50_ms", "p95_ms", "p99_ms", "max_ms"]
-    )
+    @pytest.mark.parametrize("field", ["p50_ms", "p95_ms", "p99_ms", "max_ms"])
     @pytest.mark.parametrize("bad", [float("inf"), float("-inf"), float("nan"), -1.0])
     def test_rejects_non_finite_or_negative_field(self, field: str, bad: float) -> None:
         kwargs = {"p50_ms": 1.0, "p95_ms": 2.0, "p99_ms": 3.0, "max_ms": 4.0}
