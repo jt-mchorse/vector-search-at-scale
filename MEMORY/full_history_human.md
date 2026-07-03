@@ -505,3 +505,13 @@ concurrency-lock arc.
 **Why prioritized.** Third issue of the day run. After the priority tier was exhausted (blocked issues + two clean bug-hunts + zero coverage gaps), I rotated to non-tier repos per D-009 and ran two more dogfood hunts; python-async-llm-pipelines came up clean, vector-search-at-scale surfaced this. Filed priority:high because a non-deterministic oracle corrupts the harness's reference baseline. Reproduced firsthand before filing and fixing per the saturation memory guidance; no decision needed (reversible, invariant stated absolutely).
 
 **Open questions / blockers.** None. Broader float32 tie-robustness for *real* backends is a separate concern, out of scope here.
+
+## 2026-07-03 — Issue #74: symbol-resolution doc-lock (propagates portfolio-ops #55) (~25 min)
+
+**What got done.** Added a fifth invariant to `tests/test_architecture_doc.py`: every `<submodule>.<symbol>` ref and multi-word CamelCase public type named in `docs/architecture.md` must resolve against the `vector_bench` package (`src/` layout), its submodules, the `backends` subpackage, or the Python builtins. Closes the drift class portfolio-ops #55 catalogued. The doc names 5 package types (`BenchmarkResult`, `LatencyStats`, `LoadCell`, `LoadMatrix`, `PriceTable`) plus `ThreadPoolExecutor` — which resolves cleanly because `vector_bench.load` imports it for the concurrency layer, so no external-symbol exemption was needed (unlike llm-cost-optimizer's `StrategyResult`) — and the builtin `KeyboardInterrupt`. Single-word capitalized and no-boundary tokens (`Backend`, `Workload`, `Makefile`) are excluded to avoid prose false positives. Baked in an inverse-safety-net test plus hard-pins for the skip-extension and subpackage sets. Suite +4 tests, ruff clean.
+
+**Why prioritized.** Third worked issue of the DAY run, continuing #55 propagation after chunking-strategies-lab #104 and prompt-regression-suite #103. vector-search-at-scale (build-seq #7) was the next Python gap repo lacking the lock.
+
+**Open questions / blockers.** None — ready for review.
+
+**Next in this session's loop:** python-async-llm-pipelines is the last Python gap repo (build-seq #8); after it the Python side of #55 is fully propagated.
