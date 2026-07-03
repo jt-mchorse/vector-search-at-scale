@@ -4,7 +4,7 @@ the actual shipped surface of the repo.
 Sister to the architecture-doc lock that landed in
 `embedding-model-shootout` PR #20 (same session), and parallel to the
 JS variants in `mcp-server-cookbook`, `nextjs-streaming-ai-patterns`,
-and `ai-app-integration-tests`. Four invariants pinned:
+and `ai-app-integration-tests`. Five invariants pinned:
 
 1. **Path-token reachability.** Every backtick-quoted path token that
    starts with one of the `RESOLVABLE_PREFIXES` resolves on disk.
@@ -24,9 +24,21 @@ and `ai-app-integration-tests`. Four invariants pinned:
 4. **Banned-phrase absence.** Phrases that characterized the pre-#21
    drift are absent (case-insensitive).
 
+5. **Symbol-reference resolution** (portfolio-ops #55). Every symbol the
+   doc *names* — a `<submodule>.<symbol>` attribute ref or a multi-word
+   CamelCase public type — resolves to a real attribute of the
+   `vector_bench` package (under `src/`), one of its submodules, the
+   `backends` subpackage, or the Python `builtins`. Catches the drift
+   class #55 catalogued portfolio-wide (a doc naming a nonexistent type
+   such as llm-cost-optimizer's `BatchAPIBackend` stays CI-green).
+   Propagates the embedding-model-shootout #71 / python-async #70 /
+   llm-eval-harness #140 / chunking-strategies-lab #104 /
+   prompt-regression-suite #103 precedents.
+
 Hard-pin tests lock `BANNED_PHRASES`, `KNOWN_SHIPPED_ISSUES`,
-`RESOLVABLE_PREFIXES`, and `MIN_ACTIVE_DECISION_ID` to their exact
-values so a future loose edit can't silently weaken the guard.
+`RESOLVABLE_PREFIXES`, `MIN_ACTIVE_DECISION_ID`, `SYMBOL_SKIP_EXTENSIONS`,
+and `_SUBPACKAGES` to their exact values so a future loose edit can't
+silently weaken the guard.
 """
 
 from __future__ import annotations
@@ -80,6 +92,22 @@ RESOLVABLE_PREFIXES = (
     "tests/",
     "Makefile",
 )
+
+
+# Symbol-resolution lock (portfolio-ops #55). The package lives under `src/`
+# and has a `backends` subpackage; `_SUBPACKAGES` names the subpackages whose
+# attributes also count as resolvable doc symbols. Pinned by
+# `test_symbol_subpackages_hard_pin_set` so a new subpackage is a deliberate
+# widening, not an accidental one.
+_PKG = "vector_bench"
+_PKG_DIR = REPO_ROOT / "src" / _PKG
+_SUBPACKAGES = ("backends",)
+
+# File-suffix tokens that look like a `<name>.<attr>` symbol reference but are
+# really filenames (`cli.py`, `prices.py`). Excluded from the dotted-symbol
+# resolution check so a filename isn't mistaken for a submodule attribute.
+# Hard-pinned by `test_symbol_skip_extensions_hard_pin_set`.
+SYMBOL_SKIP_EXTENSIONS = ("py", "sqlite", "json", "md", "txt", "yaml", "yml", "sh", "toml")
 
 
 @pytest.fixture(scope="module")
@@ -144,6 +172,73 @@ def _resolves_on_disk(token: str) -> bool:
     return (REPO_ROOT / token).exists()
 
 
+def _package_symbol_resolves(name: str) -> bool:
+    """True if `name` is an attribute of the `vector_bench` package, any of its
+    `*.py` submodules, the `backends` subpackage, or the Python `builtins`.
+
+    Submodule coverage is load-bearing (e.g. `ThreadPoolExecutor`, which the
+    doc names for the concurrency layer, resolves as an attribute of
+    `vector_bench.load` where it is imported). Builtins are included so the
+    doc's `KeyboardInterrupt` reference resolves without a hand-maintained
+    allow-list that rots.
+    """
+    import builtins
+    import importlib
+
+    if hasattr(builtins, name):
+        return True
+    pkg = importlib.import_module(_PKG)
+    if hasattr(pkg, name):
+        return True
+    module_names = [f"{_PKG}.{p.stem}" for p in _PKG_DIR.glob("*.py") if p.stem != "__init__"]
+    module_names += [f"{_PKG}.{sub}" for sub in _SUBPACKAGES]
+    for module_name in module_names:
+        try:
+            module = importlib.import_module(module_name)
+        except ModuleNotFoundError:
+            continue
+        if hasattr(module, name):
+            return True
+    return False
+
+
+def _extract_symbol_refs(text: str) -> tuple[set[str], set[str]]:
+    """Split backtick-quoted tokens into the two symbol-citation styles the doc
+    uses, so the resolver only checks genuine symbol claims. Returns
+    ``(dotted, camel)``.
+
+    - ``dotted``: ``<submodule>.<symbol>`` where ``<submodule>`` is a real
+      ``src/vector_bench/*.py`` module stem and the token is not a filename
+      (dropped via ``SYMBOL_SKIP_EXTENSIONS``). Stdlib refs (``os.replace``,
+      ``json.dumps``, ``dataclasses.asdict``) are skipped: their prefix is not
+      a submodule stem.
+    - ``camel``: a *multi-word* CamelCase identifier (an internal
+      lowercase->uppercase boundary, e.g. ``BenchmarkResult``, ``LatencyStats``,
+      ``ThreadPoolExecutor``). Single-word capitalized tokens (``Backend``,
+      ``Workload``) and no-boundary tokens (``Makefile``) are excluded: they
+      collide with prose. Bare snake_case is not locked.
+    """
+    submodules = {p.stem for p in _PKG_DIR.glob("*.py") if p.stem != "__init__"}
+    dotted: set[str] = set()
+    camel: set[str] = set()
+    for match in re.finditer(r"`([^`\n]+)`", text):
+        token = match.group(1).strip()
+        token = re.sub(r"\(\)$", "", token)
+        while token and token[-1] in ".,;:":
+            token = token[:-1]
+        dotted_match = re.fullmatch(r"([a-z_]+)\.([A-Za-z_][A-Za-z0-9_]*)", token)
+        if dotted_match:
+            module, attr = dotted_match.group(1), dotted_match.group(2)
+            if module in submodules and attr not in SYMBOL_SKIP_EXTENSIONS:
+                dotted.add(token)
+            continue
+        if re.fullmatch(r"[A-Z][A-Za-z0-9]*[a-z][A-Za-z0-9]*", token) and re.search(
+            r"[a-z][A-Z]", token
+        ):
+            camel.add(token)
+    return dotted, camel
+
+
 def test_doc_exists() -> None:
     assert DOC.exists(), f"missing {DOC}"
 
@@ -160,6 +255,80 @@ def test_backtick_paths_resolve_on_disk(doc_text: str) -> None:
         + "\n".join(f"  - `{t}`" for t in unresolved)
         + "\n(regenerate the doc to match the current layout, or fix the typo)"
     )
+
+
+def test_doc_symbol_refs_resolve(doc_text: str) -> None:
+    """Every symbol the doc names resolves to a real attribute (portfolio-ops #55).
+
+    ``test_backtick_paths_resolve_on_disk`` validates slash-path tokens only; a
+    *symbol* reference — a ``<submodule>.<symbol>`` attribute or a multi-word
+    CamelCase public type — was unguarded. That is exactly the drift class #55
+    catalogued (a doc naming a nonexistent ``BatchAPIBackend`` /
+    ``compute_frontier`` stays CI-green). Inverse-verified by
+    ``test_symbol_resolver_flags_injected_drift``.
+    """
+    import importlib
+
+    dotted, camel = _extract_symbol_refs(doc_text)
+    assert dotted or camel, (
+        "expected at least one symbol reference (`<submodule>.<symbol>` or a "
+        "multi-word CamelCase type) in docs/architecture.md — the resolver "
+        "would otherwise be vacuously green"
+    )
+
+    unresolved: list[str] = []
+    for token in sorted(dotted):
+        module_name, _, symbol = token.rpartition(".")
+        try:
+            module = importlib.import_module(f"{_PKG}.{module_name}")
+        except ModuleNotFoundError:
+            unresolved.append(f"{token} (module {_PKG}.{module_name} not importable)")
+            continue
+        if not hasattr(module, symbol):
+            unresolved.append(token)
+    for token in sorted(camel):
+        if not _package_symbol_resolves(token):
+            unresolved.append(f"{token} (not a vector_bench symbol or a builtin)")
+
+    assert not unresolved, (
+        "docs/architecture.md names symbols that don't exist in the package:\n"
+        + "\n".join(f"  - {u}" for u in unresolved)
+        + "\n(fix the doc to match the shipped symbol, or update the rename that "
+        "orphaned it)"
+    )
+
+
+def test_symbol_resolver_flags_injected_drift() -> None:
+    """Inverse safety net: a nonexistent CamelCase type in doc text is flagged.
+
+    Guards against a vacuously-green resolver — if a refactor ever neutered
+    extraction or resolution, this fails. Mirrors the #55 drift shape while a
+    real symbol in the same string still resolves.
+    """
+    fake = "The `NonexistentVectorBackend` yields a `LatencyStats`."
+    dotted, camel = _extract_symbol_refs(fake)
+    assert "NonexistentVectorBackend" in camel
+    assert "LatencyStats" in camel
+    unresolved = sorted(t for t in camel if not _package_symbol_resolves(t))
+    assert unresolved == ["NonexistentVectorBackend"]
+
+
+def test_symbol_skip_extensions_hard_pin_set() -> None:
+    assert SYMBOL_SKIP_EXTENSIONS == (
+        "py",
+        "sqlite",
+        "json",
+        "md",
+        "txt",
+        "yaml",
+        "yml",
+        "sh",
+        "toml",
+    )
+
+
+def test_symbol_subpackages_hard_pin_set() -> None:
+    assert _SUBPACKAGES == ("backends",)
 
 
 def test_every_shipped_issue_referenced(doc_text: str) -> None:
