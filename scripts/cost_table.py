@@ -241,11 +241,23 @@ def render_markdown(
         if ebs_components:
             ebs_summary = " + ".join(ebs_components)
         instance_type = _instance_for_tier(rows_list, r.scale_tier)
+        # `qps_source` is the one free-form cell — it carries the operator-supplied
+        # `--load-results TIER=PATH` directory (see `main`). Every other cell is a
+        # controlled tier/engine/instance value or a formatted number. Backticks do
+        # NOT protect a literal `|`: GFM splits table cells on unescaped pipes
+        # *before* it parses inline-code spans, so a piped path injects a spurious
+        # column and corrupts the whole table's alignment. Escape `|` -> `\|`
+        # (GitHub renders `\|` as a literal pipe, inside a code span in a table too)
+        # so the cell contributes zero column delimiters — same recurring GFM fix as
+        # `comment._row_to_md` (llm-eval-harness #130), `calibration.render_report`
+        # (#134), `aggregate_markdown` (embedding-model-shootout #79), and
+        # `run_matrix._render_summary` (chunking-strategies-lab #100), applied here (#76).
+        source_cell = qps_source.get(r.scale_tier, "—").replace("|", "\\|")
         lines.append(
             f"| {r.scale_tier} | {r.engine} | {instance_type} | {ebs_summary} | "
             f"${r.monthly_cost.total_usd_month:.2f} | {r.throughput_qps:.1f} | "
             f"${r.usd_per_query:.6f} | ${r.usd_per_million_queries:.2f} | "
-            f"{qps_source.get(r.scale_tier, '—')} |"
+            f"{source_cell} |"
         )
 
     lines += [

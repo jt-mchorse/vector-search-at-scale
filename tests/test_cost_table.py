@@ -193,6 +193,39 @@ def test_render_markdown_quotes_the_source_url():
     assert prices.source_url in md
 
 
+def test_render_markdown_escapes_pipe_in_throughput_source_so_columns_dont_break():
+    # The five shipped tiers/engines keep the table pipe-free, but the
+    # throughput-source cell carries the operator-supplied `--load-results
+    # TIER=PATH` directory, and a pipe in that path lands in a GFM cell. A raw
+    # `|` (even inside a code span) splits the cell and adds a spurious column,
+    # corrupting the whole table's alignment. Assert the piped data row's
+    # unescaped-pipe count equals the header's — i.e. the source cell
+    # contributes zero extra delimiters. Fails pre-fix (the piped row carried
+    # one more unescaped pipe than the header). See issue #76.
+    tiers = parse_terraform_tiers(SAMPLE_TF)
+    qps_by_tier = {t: 1000.0 for t in SCALE_TIERS}
+    prices = aws_us_east_1_snapshot()
+    rows = build_rows(tiers, qps_by_tier, prices)
+    piped = "`/tmp/a|b/c001.json` (real)"
+    md = render_markdown(
+        rows,
+        prices=prices,
+        qps_source={t: piped for t in SCALE_TIERS},
+    )
+    lines = md.splitlines()
+    header_line = next(line for line in lines if line.startswith("| Scale |"))
+    row_line = next(line for line in lines if line.startswith("| 1m |"))
+
+    def unescaped_pipes(s: str) -> int:
+        # A `\|` renders as a literal pipe and does NOT split the cell; only a
+        # bare `|` is a column delimiter. Count pipes not preceded by a backslash.
+        return sum(1 for i, ch in enumerate(s) if ch == "|" and (i == 0 or s[i - 1] != "\\"))
+
+    assert unescaped_pipes(row_line) == unescaped_pipes(header_line)
+    # The literal pipe is preserved (escaped), not dropped.
+    assert "a\\|b" in row_line
+
+
 # ----- main() ------------------------------------------------------------
 
 
