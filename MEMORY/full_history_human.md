@@ -515,3 +515,11 @@ concurrency-lock arc.
 **Open questions / blockers.** None — ready for review.
 
 **Next in this session's loop:** python-async-llm-pipelines is the last Python gap repo (build-seq #8); after it the Python side of #55 is fully propagated.
+
+## 2026-07-05 — Issue #76: escape pipe in cost_table throughput-source cell (~15 min)
+
+**What got done.** `render_markdown()` in `scripts/cost_table.py` interpolated the per-tier throughput-source string straight into a GFM table cell. That string carries the operator-supplied `--load-results TIER=PATH` directory, so a `|` in the path corrupted the table — GFM splits cells on unescaped pipes before it parses inline-code spans, so backticks don't protect it, and a piped path added a spurious column (header declared 9 columns, the data row parsed to 10). Fixed by escaping `|` -> `\|` in that one free-form cell (every other cell is a controlled tier/engine/instance value or a formatted number). Added a regression test mirroring chunking-strategies-lab #100: a piped source produces a data row whose unescaped-pipe count equals the header's, and the literal pipe survives (escaped, not dropped). Full suite green, ruff check + format clean. PR #77.
+
+**Why prioritized.** Night-session run in a saturated portfolio (nearly all repos have zero open actionable issues). Ran parallel dogfood bug-hunt agents across the not-yet-saturated repos; the vector-search-at-scale hunt surfaced this, the same recurring GFM pipe-escaping class already closed in five sibling repos. Reproduced firsthand before filing and fixing per the saturation memory guidance. Three other hunt findings were rejected on inspection: the mcp-server-cookbook sqlGuard underscore-boundary is a deliberate design (so `last_vacuum`/`last_analyze` columns stay queryable, and `_pg_sleep` isn't an executable function); the prompt-regression-suite `len(w) > 3` hint filter is an intentional stopword guard; python-async-llm-pipelines came up clean.
+
+**Open questions / blockers.** None — ready for review.
