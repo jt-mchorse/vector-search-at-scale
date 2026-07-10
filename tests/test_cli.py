@@ -43,6 +43,9 @@ def test_cli_run_stub_writes_json(tmp_path: Path, capsys) -> None:
 
 
 def test_cli_run_rejects_duplicate_run_id(tmp_path: Path, capsys) -> None:
+    # #83: a run-id collision must surface as a clean exit 2 (like the `load`
+    # sibling #81), not the raw FileExistsError traceback at exit 1 this test
+    # previously locked in.
     results = tmp_path / "results"
     args = [
         "run",
@@ -59,9 +62,65 @@ def test_cli_run_rejects_duplicate_run_id(tmp_path: Path, capsys) -> None:
         "--results-dir",
         str(results),
     ]
-    main(args)
-    with pytest.raises(FileExistsError):
-        main(args)
+    assert main(args) == 0
+    capsys.readouterr()
+    rc = main(args)
+    assert rc == 2
+    err = capsys.readouterr().err
+    assert "already exists" in err
+    assert "Traceback" not in err
+
+
+def test_cli_run_invalid_workload_exits_two(tmp_path: Path, capsys) -> None:
+    # #83: an invalid workload dimension (--n 0 -> Workload.__post_init__
+    # ValueError) must surface as a clean exit 2, not a raw traceback at exit 1.
+    rc = main(
+        [
+            "run",
+            "--backend",
+            "stub",
+            "--n",
+            "0",
+            "--queries",
+            "5",
+            "--run-id",
+            "badn",
+            "--results-dir",
+            str(tmp_path / "results"),
+        ]
+    )
+    assert rc == 2
+    err = capsys.readouterr().err
+    assert "positive" in err
+    assert "Traceback" not in err
+
+
+def test_cli_run_concurrency_over_one_exits_two(tmp_path: Path, capsys) -> None:
+    # #83: `run` is single-shot serial (D-011); --concurrency > 1 makes
+    # run_benchmark raise ValueError. It must surface as a clean exit 2 (the
+    # error message points the operator at `vector-bench load`), not a raw
+    # traceback at exit 1.
+    rc = main(
+        [
+            "run",
+            "--backend",
+            "stub",
+            "--n",
+            "50",
+            "--queries",
+            "5",
+            "--concurrency",
+            "2",
+            "--run-id",
+            "badconc",
+            "--results-dir",
+            str(tmp_path / "results"),
+        ]
+    )
+    assert rc == 2
+    err = capsys.readouterr().err
+    assert "concurrency" in err
+    assert "Traceback" not in err
 
 
 def test_cli_force_overwrites(tmp_path: Path) -> None:
