@@ -70,7 +70,32 @@ class QdrantBackend:
             limit=k,
             search_params=q.SearchParams(hnsw_ef=self._hnsw_ef),
         )
-        return [(r.payload["orig_id"], float(r.score)) for r in results]
+        out: list[tuple[str, float]] = []
+        for r in results:
+            payload = r.payload or {}
+            orig_id = payload.get("orig_id")
+            # Same (id, score) contract guards WeaviateBackend.query got in
+            # #69/#70 (orig_id) and #63/#64 (metric). The old read-through
+            # `r.payload["orig_id"]` only raised on a truly *absent* key; a
+            # present-but-None / non-string value (out-of-band ingest, schema
+            # drift) passed straight through as `(None, score)` / `(123, score)`,
+            # silently violating this method's `list[tuple[str, float]]` contract
+            # and deflating recall with no diagnostic. Checked before the score
+            # guard so that error's `{orig_id!r}` always references a real id (#69).
+            if not isinstance(orig_id, str):
+                raise BackendError(
+                    f"qdrant returned a point with no string 'orig_id' payload "
+                    f"(got {orig_id!r}); the result violates the (id, score) contract"
+                )
+            # `float(None)` would otherwise raise a bare TypeError instead of a
+            # backend-native diagnostic; mirror weaviate's missing-metric guard.
+            if r.score is None:
+                raise BackendError(
+                    f"qdrant returned no score for point {orig_id!r}; "
+                    "the result violates the (id, score) contract"
+                )
+            out.append((orig_id, float(r.score)))
+        return out
 
     def close(self) -> None:
         with contextlib.suppress(Exception):

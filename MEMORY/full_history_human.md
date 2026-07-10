@@ -523,3 +523,13 @@ concurrency-lock arc.
 **Why prioritized.** Night-session run in a saturated portfolio (nearly all repos have zero open actionable issues). Ran parallel dogfood bug-hunt agents across the not-yet-saturated repos; the vector-search-at-scale hunt surfaced this, the same recurring GFM pipe-escaping class already closed in five sibling repos. Reproduced firsthand before filing and fixing per the saturation memory guidance. Three other hunt findings were rejected on inspection: the mcp-server-cookbook sqlGuard underscore-boundary is a deliberate design (so `last_vacuum`/`last_analyze` columns stay queryable, and `_pg_sleep` isn't an executable function); the prompt-regression-suite `len(w) > 3` hint filter is an intentional stopword guard; python-async-llm-pipelines came up clean.
 
 **Open questions / blockers.** None — ready for review.
+
+## 2026-07-09 — Issue #79: qdrant (id, score) contract guards (weaviate #70/#64 sibling) (~25 min)
+
+**What got done.** `QdrantBackend.query` mapped results with `[(r.payload["orig_id"], float(r.score)) ...]` and no contract guard. Because `r.payload["orig_id"]` only raises on a truly *absent* key, a present-but-`None` / non-string payload value silently produced a `(None, score)` / `(123, score)` hit — the exact silent contract violation (deflated recall, no diagnostic) that `WeaviateBackend.query` got guards for in #69/#70 (`orig_id`) and #63/#64 (metric). A `None` score raised a bare `float(None)` `TypeError` instead of a `BackendError`. Added the sibling guards (reject non-string `orig_id` and `None` score with a `BackendError` naming the point; `orig_id` first so its message references a real id), left `pgvector` unchanged (provably exempt: `id TEXT PRIMARY KEY` + computed similarity are never NULL), and added a fake-client test file mirroring `test_weaviate_backend.py`. Four guard tests fail pre-fix; full suite green, ruff clean.
+
+**Why prioritized.** Second worked issue of the DAY run. No priority-tier repo had `priority:high` issues; lco (both open issues JT-gated `decision-revisit`) and vsas's own #71/#78 (both JT-gated) fell through, so I hunted a fresh bug in vsas — the stalest actionable repo (~4.5 days) — via the sibling-incomplete-fix / backend-parity lens. The GFM pipe-escape lens (#77) was checked first and found exhausted (`scale_tier` is strictly validated against `SCALE_TIERS`; `qps_source` was the only free-form cell and is already escaped).
+
+**Open questions / blockers.** None — PR #80 ready for review.
+
+**Next session:** backend result-mapping contract parity is now swept across all three real backends (weaviate #69/#70/#63/#64, qdrant #79, pgvector schema-exempt). Don't re-sweep this class.
