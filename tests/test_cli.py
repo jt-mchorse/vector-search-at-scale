@@ -83,3 +83,60 @@ def test_cli_force_overwrites(tmp_path: Path) -> None:
     ]
     main(args)
     main([*args, "--force"])  # should not raise
+
+
+def _load_args(results: Path, concurrency: str, run_id: str) -> list[str]:
+    return [
+        "load",
+        "--backend",
+        "stub",
+        "--n",
+        "20",
+        "--dim",
+        "8",
+        "--queries",
+        "5",
+        "--concurrency",
+        concurrency,
+        "--run-id",
+        run_id,
+        "--results-dir",
+        str(results),
+        "--force",
+    ]
+
+
+def test_cli_load_duplicate_concurrency_exits_two(tmp_path: Path, capsys) -> None:
+    # #81: duplicate concurrency levels would silently clobber a per-cell
+    # c<NNN>.json (D-007). The CLI must reject with a clean exit 2, not run to a
+    # lossy exit-0 success, and write nothing for the rejected run.
+    results = tmp_path / "results"
+    rc = main(_load_args(results, "1,10,10", "dup-load"))
+    assert rc == 2
+    err = capsys.readouterr().err
+    assert "distinct" in err
+    assert "Traceback" not in err
+    assert not (results / "dup-load").exists()
+
+
+def test_cli_load_non_positive_concurrency_exits_two(tmp_path: Path, capsys) -> None:
+    # #81: a non-positive level made run_under_load raise a ValueError that
+    # _do_load did not catch, escaping as a raw traceback at exit 1. It must
+    # surface as a clean exit 2 like the other CLI input errors.
+    results = tmp_path / "results"
+    rc = main(_load_args(results, "0,1", "nonpos-load"))
+    assert rc == 2
+    err = capsys.readouterr().err
+    assert "positive" in err
+    assert "Traceback" not in err
+
+
+def test_cli_load_valid_distinct_levels_runs(tmp_path: Path) -> None:
+    # Regression: valid distinct levels still produce one per-cell file each.
+    results = tmp_path / "results"
+    rc = main(_load_args(results, "1,10", "ok-load"))
+    assert rc == 0
+    out_dir = results / "ok-load"
+    assert (out_dir / "c001.json").exists()
+    assert (out_dir / "c010.json").exists()
+    assert (out_dir / "matrix.json").exists()

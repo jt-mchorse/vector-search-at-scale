@@ -136,6 +136,23 @@ def test_run_under_load_rejects_non_positive_concurrency(tmp_path: Path):
         )
 
 
+def test_run_under_load_rejects_duplicate_concurrency_levels(tmp_path: Path):
+    # #81: duplicate levels both write the same per-cell c<NNN>.json
+    # (last-writer-wins), silently losing a measured cell so the on-disk files
+    # no longer round-trip the matrix (D-007 "no silent clobber"). Reject them
+    # like the non-positive guard rather than clobber.
+    with pytest.raises(ValueError, match="distinct"):
+        run_under_load(
+            StubBackend(),
+            _wl(),
+            run_id="dup",
+            concurrency_levels=(1, 10, 10),
+            results_dir=tmp_path,
+        )
+    # Nothing was written for the rejected run (fail before the per-cell dump).
+    assert not (tmp_path / "dup").exists()
+
+
 def test_run_under_load_write_json_false_skips_filesystem(tmp_path: Path):
     matrix = run_under_load(
         StubBackend(),

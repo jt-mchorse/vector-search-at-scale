@@ -143,14 +143,23 @@ def _do_load(args: argparse.Namespace) -> int:
         seed=args.seed,
         concurrency=max(levels),  # records the max; per-cell concurrency is on the cell itself
     )
-    matrix = run_under_load(
-        backend,
-        workload,
-        run_id=args.run_id,
-        concurrency_levels=levels,
-        results_dir=args.results_dir,
-        force=args.force,
-    )
+    # `run_under_load` raises ValueError for a non-positive level (`c <= 0`) and
+    # for duplicate levels (which would silently clobber a per-cell c<NNN>.json,
+    # D-007). Only the `--concurrency` *parse* ValueError was caught above; these
+    # escaped as a raw traceback at exit 1. Translate to a clean message + exit 2
+    # so the load path honors the 0/1/2 exit-code contract like its siblings.
+    try:
+        matrix = run_under_load(
+            backend,
+            workload,
+            run_id=args.run_id,
+            concurrency_levels=levels,
+            results_dir=args.results_dir,
+            force=args.force,
+        )
+    except ValueError as e:
+        print(f"--concurrency invalid: {e}", file=sys.stderr)
+        return 2
     json.dump(matrix.to_json(), sys.stdout, indent=2, sort_keys=True, default=str)
     sys.stdout.write("\n")
     if args.render_table:
