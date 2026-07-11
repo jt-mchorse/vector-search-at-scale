@@ -104,21 +104,31 @@ def main(argv: list[str] | None = None) -> int:
 def _do_run(args: argparse.Namespace) -> int:
     backend_kwargs: dict[str, Any] = {}
     backend = make_backend(args.backend, **backend_kwargs)
-    workload = Workload(
-        n_vectors=args.n,
-        dim=args.dim,
-        n_queries=args.queries,
-        top_k=args.top_k,
-        seed=args.seed,
-        concurrency=args.concurrency,
-    )
-    result = run_benchmark(
-        backend,
-        workload,
-        run_id=args.run_id,
-        results_dir=args.results_dir,
-        force=args.force,
-    )
+    # `Workload.__post_init__` raises ValueError on invalid dimensions (e.g.
+    # `--n 0`), `run_benchmark` raises ValueError on a `--concurrency > 1`
+    # request (D-011) and FileExistsError on a run-id collision without --force.
+    # Unhandled these escaped as a raw traceback at exit 1; translate to a clean
+    # message + exit 2 so `run` honors the 0/1/2 exit-code contract like its
+    # `load` sibling (#81).
+    try:
+        workload = Workload(
+            n_vectors=args.n,
+            dim=args.dim,
+            n_queries=args.queries,
+            top_k=args.top_k,
+            seed=args.seed,
+            concurrency=args.concurrency,
+        )
+        result = run_benchmark(
+            backend,
+            workload,
+            run_id=args.run_id,
+            results_dir=args.results_dir,
+            force=args.force,
+        )
+    except (ValueError, FileExistsError) as e:
+        print(f"error: {e}", file=sys.stderr)
+        return 2
     json.dump(result.to_json(), sys.stdout, indent=2, sort_keys=True)
     sys.stdout.write("\n")
     return 0

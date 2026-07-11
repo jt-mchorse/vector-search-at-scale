@@ -542,4 +542,14 @@ Fix: a distinctness guard in `run_under_load` (raises `ValueError`, parity with 
 
 **Why prioritized.** Static priority:high queue globally exhausted; found via the sibling-incomplete-fix meta-lens (load-matrix idempotency + exit-code contract). Notably, the hunt agent itself flagged this as borderline degenerate-input, but firsthand verification showed it's silent data loss at exit 0 (a D-007 contract violation, not the degenerate-input-crash pattern the memory cautions about) and *also* surfaced the uncaught non-positive exit-1 traceback — a second clear exit-code gap — so it cleared the quality bar. (vsas #71 HNSW exact-recall and #78 knee staleness remain JT-gated; not touched.)
 
+**Open questions / blockers.** None — PR #82 ready for review.
+
+## 2026-07-10 — Issue #83: run-path exit-code contract (sibling of #81) (~15 min, night)
+
+**What got done.** The `run` subcommand (`_do_run`) had no exception handling around `Workload(...)` + `run_benchmark(...)`, so an invalid workload (`--n 0` → ValueError), a D-011 `--concurrency > 1` request (ValueError), or a run-id collision (FileExistsError) escaped as a raw traceback at exit 1 — breaking the 0/1/2 exit-code contract its `load` sibling now honors (#81). The asymmetry was even locked into `test_cli_run_rejects_duplicate_run_id`, which used `pytest.raises(FileExistsError)`.
+
+Wrapped the calls in `_do_run` with `except (ValueError, FileExistsError) -> clean stderr + exit 2`, mirroring `_do_load`. Rewrote the duplicate-run-id test to assert `rc == 2` + no traceback, and added `--n 0` and `--concurrency 2` exit-2 tests. Full suite green; ruff clean. Reproduced firsthand before/after (all three → exit 2 clean; valid run still exit 0).
+
+**Why prioritized.** Found via a *second-order* sibling hunt on this run's own just-shipped PRs — the meta-lesson "the PRs a run ships are the next hunt's freshest surface" applied within the same run. #81 fixed the load-side; this closes the run-side, so both CLI subcommands now honor the exit-code contract. (#81 and #83 both touch `cli.py` but different functions — `_do_load` vs `_do_run` — so a next-Phase-A serial merge/rebase is trivial.)
+
 **Open questions / blockers.** None — PR ready for review.
