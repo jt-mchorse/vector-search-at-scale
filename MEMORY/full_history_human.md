@@ -533,3 +533,13 @@ concurrency-lock arc.
 **Open questions / blockers.** None — PR #80 ready for review.
 
 **Next session:** backend result-mapping contract parity is now swept across all three real backends (weaviate #69/#70/#63/#64, qdrant #79, pgvector schema-exempt). Don't re-sweep this class.
+
+## 2026-07-10 — Issue #81: harden vector-bench load concurrency-level validation (~20 min, night)
+
+**What got done.** Two related defects in `vector-bench load`, both reachable from the shipped CLI. (1) **Duplicate concurrency levels silently clobbered per-cell JSON.** `run_under_load` validated each level is `> 0` but not that levels are distinct, and the per-cell dump keys each file on `c{concurrency:03d}.json` — so two cells sharing a concurrency both wrote the same filename (last-writer-wins), losing a measured cell while the command exited 0. The on-disk files no longer round-tripped the in-memory `LoadMatrix`, violating the D-007 "one JSON per run cell, no silent clobber" idempotency contract. (2) **Non-positive concurrency raw-tracebacked at exit 1.** `_do_load` caught the `ValueError` from *parsing* `--concurrency` but not the one `run_under_load` raises for `c <= 0`, so `--concurrency 0,1` escaped as a raw traceback at exit 1.
+
+Fix: a distinctness guard in `run_under_load` (raises `ValueError`, parity with the `c > 0` guard) plus wrapping the `run_under_load` call in `_do_load` with `except ValueError -> exit 2`, which covers both the new distinctness error and the pre-existing `c <= 0` case. Four tests (library rejects duplicates + writes nothing; CLI duplicate/non-positive → exit 2 with no traceback and no clobber; valid distinct levels still run). Full suite green (338 passed); ruff clean. Reproduced firsthand before/after.
+
+**Why prioritized.** Static priority:high queue globally exhausted; found via the sibling-incomplete-fix meta-lens (load-matrix idempotency + exit-code contract). Notably, the hunt agent itself flagged this as borderline degenerate-input, but firsthand verification showed it's silent data loss at exit 0 (a D-007 contract violation, not the degenerate-input-crash pattern the memory cautions about) and *also* surfaced the uncaught non-positive exit-1 traceback — a second clear exit-code gap — so it cleared the quality bar. (vsas #71 HNSW exact-recall and #78 knee staleness remain JT-gated; not touched.)
+
+**Open questions / blockers.** None — PR ready for review.

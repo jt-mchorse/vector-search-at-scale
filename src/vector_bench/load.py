@@ -202,6 +202,17 @@ def run_under_load(
     for c in concurrency_levels:
         if c <= 0:
             raise ValueError(f"concurrency must be positive, got {c}")
+    # Levels must be DISTINCT: the per-cell dump keys each file on
+    # `c{concurrency:03d}.json`, so two cells sharing a concurrency both write
+    # the same filename (last-writer-wins) and one measured cell is silently
+    # lost — the on-disk files then no longer round-trip the in-memory
+    # `LoadMatrix`, violating the D-007 "one JSON per run cell, no silent
+    # clobber" idempotency contract while the run still reports success.
+    if len(set(concurrency_levels)) != len(concurrency_levels):
+        raise ValueError(
+            f"concurrency_levels must be distinct; got {list(concurrency_levels)} "
+            "(duplicate levels collide on the per-cell c<NNN>.json filename)"
+        )
 
     out_dir = Path(results_dir) / run_id
     matrix_path = out_dir / "matrix.json"
