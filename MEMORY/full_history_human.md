@@ -563,3 +563,10 @@ Pre-check every `args.matrices` path with `is_file()`, report each missing one t
 **Why prioritized.** Exit-code contract parity — the last uncovered CLI surface after #84/#83/#82 closed the run/load paths. Found via a targeted exit-code/parity hunt (verified firsthand). Backend-parity lens came up empty (the (id,score) contract is genuinely scoped to weaviate+qdrant, both already enforcing it per #79). Not JT-gated #71/#78.
 
 **Open questions / blockers.** None — PR #86 ready.
+## 2026-07-12 — Issue #87: cost_table missing tf-main/results input exits 2, not a traceback (~12 min, night)
+
+**What got done.** `cost_table.py:main` translated one operator-input error to a clean exit 2 (`_parse_load_results_overrides`, lines 383-387) but left two sibling file reads bare: `Path(args.tf_main).read_text()` (line 389) and `load_throughput_qps(...)` (lines 398/402). A missing `--tf-main` or `results/load/<run-id>/c001.json` escaped as a raw `FileNotFoundError` traceback at **exit 1** — burying `load_throughput_qps`'s carefully-worded operator message ("expected ... to exist for the cost table. Re-run the load harness ..."). Wrapped the file-dependent section in `except FileNotFoundError → print(stderr) + return 2`, mirroring the existing guard; the descriptive messages now reach the operator with exit 2. 2 tests. Full suite 342, ruff green. Reproduced both cases firsthand (before: traceback/exit 1; after: clean message/exit 2).
+
+**Why prioritized.** A **second-order sibling hunt** on this run's own #85 (`plot_latency`) fix — the same exit-code contract vein (#83/#84/#85) in a different script with a richer gap (two read surfaces vs one). Notably, the earlier vsas hunt agent had *wrongly* asserted `cost_table.py:384-387` "catches and returns 2"; firsthand verification caught that false negative (the catch only wraps `_parse_load_results_overrides`, not the tf_main/results reads) — the memory lesson to verify firsthand paid off. Not JT-gated #71/#78.
+
+**Open questions / blockers.** None — PR #88 ready.
