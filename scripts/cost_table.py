@@ -386,24 +386,34 @@ def main(argv: list[str] | None = None) -> int:
         print(str(exc), file=sys.stderr)
         return 2
 
-    tf_text = Path(args.tf_main).read_text(encoding="utf-8")
-    tiers = parse_terraform_tiers(tf_text)
+    # The operator-supplied `--tf-main` and the load-harness `c001.json` files
+    # are missing-input, not internal, errors: translate a FileNotFoundError to a
+    # clean exit 2 (mirroring the _parse_load_results_overrides guard above),
+    # rather than let it escape as a raw traceback (#83/#84/#85). This also lets
+    # `load_throughput_qps`'s carefully-worded "Re-run the load harness" message
+    # actually reach the operator instead of being buried in a stack trace.
+    try:
+        tf_text = Path(args.tf_main).read_text(encoding="utf-8")
+        tiers = parse_terraform_tiers(tf_text)
 
-    qps_by_tier: dict[str, float] = {}
-    qps_source: dict[str, str] = {}
-    results_dir = Path(args.results_dir)
-    for tier in SCALE_TIERS:
-        if tier in load_overrides:
-            override_dir = load_overrides[tier]
-            qps = load_throughput_qps(override_dir)
-            qps_by_tier[tier] = qps
-            qps_source[tier] = f"`{override_dir}/c001.json` (real)"
-        else:
-            qps = load_throughput_qps(results_dir / args.run_id)
-            qps_by_tier[tier] = qps
-            marker = "(simulated)" if args.dry else ""
-            label = f"`results/load/{args.run_id}/c001.json`"
-            qps_source[tier] = f"{label} {marker}".strip()
+        qps_by_tier: dict[str, float] = {}
+        qps_source: dict[str, str] = {}
+        results_dir = Path(args.results_dir)
+        for tier in SCALE_TIERS:
+            if tier in load_overrides:
+                override_dir = load_overrides[tier]
+                qps = load_throughput_qps(override_dir)
+                qps_by_tier[tier] = qps
+                qps_source[tier] = f"`{override_dir}/c001.json` (real)"
+            else:
+                qps = load_throughput_qps(results_dir / args.run_id)
+                qps_by_tier[tier] = qps
+                marker = "(simulated)" if args.dry else ""
+                label = f"`results/load/{args.run_id}/c001.json`"
+                qps_source[tier] = f"{label} {marker}".strip()
+    except FileNotFoundError as exc:
+        print(str(exc), file=sys.stderr)
+        return 2
 
     prices = aws_us_east_1_snapshot()
 
