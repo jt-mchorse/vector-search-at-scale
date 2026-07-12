@@ -65,3 +65,26 @@ def test_load_matrix_orders_cells_by_concurrency(tmp_path: Path) -> None:
     assert [c.concurrency for c in loaded.cells] == [1, 10, 100]
     # The p50 series the plotter derives is then monotonically non-decreasing.
     assert [c.query_latency.p50_ms for c in loaded.cells] == [1.0, 10.0, 100.0]
+
+
+def test_main_missing_matrix_path_exits_2_not_traceback(tmp_path: Path, capsys) -> None:
+    # A missing operator-supplied matrix.json must translate to a clean exit 2
+    # with a stderr message, matching the sibling `plot_hnsw_frontier.py` — not
+    # escape as a raw FileNotFoundError traceback (exit 1). (#83/#84 contract.)
+    missing = tmp_path / "does_not_exist" / "matrix.json"
+    rc = plot_latency.main([str(missing)])
+    assert rc == 2
+    err = capsys.readouterr().err
+    assert "not found" in err
+    assert str(missing) in err
+
+
+def test_main_reports_all_missing_paths(tmp_path: Path, capsys) -> None:
+    # nargs="+" accepts several paths; every missing one is named before exit 2.
+    m1 = tmp_path / "a.json"
+    m2 = tmp_path / "b.json"
+    rc = plot_latency.main([str(m1), str(m2)])
+    assert rc == 2
+    err = capsys.readouterr().err
+    assert str(m1) in err
+    assert str(m2) in err

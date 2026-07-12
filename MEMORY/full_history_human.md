@@ -553,3 +553,13 @@ Wrapped the calls in `_do_run` with `except (ValueError, FileExistsError) -> cle
 **Why prioritized.** Found via a *second-order* sibling hunt on this run's own just-shipped PRs — the meta-lesson "the PRs a run ships are the next hunt's freshest surface" applied within the same run. #81 fixed the load-side; this closes the run-side, so both CLI subcommands now honor the exit-code contract. (#81 and #83 both touch `cli.py` but different functions — `_do_load` vs `_do_run` — so a next-Phase-A serial merge/rebase is trivial.)
 
 **Open questions / blockers.** None — PR ready for review.
+
+## 2026-07-12 — Issue #85: plot_latency missing matrix.json exits 2, not a traceback (~15 min, night)
+
+**What got done.** `scripts/plot_latency.py:main` loaded each operator-supplied `matrix.json` via `_load_matrix → json.loads(path.read_text())` with no `is_file()` pre-check, so a missing path (the documented input `results/load/<id>/matrix.json`, README:145 + docs/architecture.md) escaped as a raw `FileNotFoundError` traceback at **exit 1** — where the sibling plot script `scripts/plot_hnsw_frontier.py:155-157` translates the identical missing-input case to a clean stderr `"<path> not found"` + **exit 2** (#83/#84 exit-code contract).
+
+Pre-check every `args.matrices` path with `is_file()`, report each missing one to stderr, and `return 2`. Scope is the missing-file case only — the sibling doesn't guard malformed JSON either, so that variant isn't a sibling divergence (kept the fix honest). 2 tests (single missing path → rc 2 + stderr names it; nargs="+" reports every missing path). Full suite 342, ruff check/format green (no mypy gate in vsas CI). Reproduced firsthand before/after.
+
+**Why prioritized.** Exit-code contract parity — the last uncovered CLI surface after #84/#83/#82 closed the run/load paths. Found via a targeted exit-code/parity hunt (verified firsthand). Backend-parity lens came up empty (the (id,score) contract is genuinely scoped to weaviate+qdrant, both already enforcing it per #79). Not JT-gated #71/#78.
+
+**Open questions / blockers.** None — PR #86 ready.
