@@ -105,7 +105,18 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--out-dir", default="docs/latency-under-load", help="Where to write PNGs.")
     args = parser.parse_args(argv)
 
-    matrices = [_load_matrix(Path(p)) for p in args.matrices]
+    # Operator-supplied paths (README/architecture-doc name `results/load/<id>/
+    # matrix.json`). A missing one must translate to a clean exit 2, like the
+    # sibling `plot_hnsw_frontier.py` guards its `grid_json` — not escape as a
+    # raw FileNotFoundError traceback at exit 1 (#83/#84 exit-code contract).
+    paths = [Path(p) for p in args.matrices]
+    missing = [p for p in paths if not p.is_file()]
+    if missing:
+        for p in missing:
+            sys.stderr.write(f"{p} not found\n")
+        return 2
+
+    matrices = [_load_matrix(p) for p in paths]
     print(render_table(matrices))
     written = _maybe_plot(matrices, Path(args.out_dir))
     for p in written:
