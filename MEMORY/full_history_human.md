@@ -570,3 +570,14 @@ Pre-check every `args.matrices` path with `is_file()`, report each missing one t
 **Why prioritized.** A **second-order sibling hunt** on this run's own #85 (`plot_latency`) fix — the same exit-code contract vein (#83/#84/#85) in a different script with a richer gap (two read surfaces vs one). Notably, the earlier vsas hunt agent had *wrongly* asserted `cost_table.py:384-387` "catches and returns 2"; firsthand verification caught that false negative (the catch only wraps `_parse_load_results_overrides`, not the tf_main/results reads) — the memory lesson to verify firsthand paid off. Not JT-gated #71/#78.
 
 **Open questions / blockers.** None — PR #88 ready.
+
+## 2026-07-12 — Issue #89: architecture.md documents wrong load flag (--clients vs --concurrency)
+**Duration:** ~13 min · **Branch:** `session/2026-07-12-0949-issue-89`
+
+- `docs/architecture.md` documented `vector-bench load --clients 1,10,100`, but the CLI flag is `--concurrency` (the token `--clients` appears nowhere else; the README uses `--concurrency`). An operator copy-pasting the doc command hit `error: unrecognized arguments: --clients`. Fixed the doc and added a lock test tying the documented load flag to the CLI source so it can't drift again.
+
+**Why this work, this session:** Sixth hit of the run — the served-output/doc-drift lens applied to architecture.md CLI commands; a genuinely broken copy-pasteable command.
+
+**Open questions / blockers:** none — ready for review.
+
+**Next session:** Phase A merge PR for #89.

@@ -1011,3 +1011,22 @@ context_for_next_session:
 decisions_made: []
 followups: []
 ---
+
+---
+session: 2026-07-12T09:50Z
+issue: 89
+duration_min: 13
+focus: architecture_md_vector_bench_load_documented_clients_flag_but_cli_is_concurrency_broken_command_doc_drift
+phase: night_session_phase_b_issue_6
+delta:
+  files_changed: 2   # docs/architecture.md (--clients -> --concurrency) + tests/test_architecture_doc.py (1 lock test)
+  tests_added: 1     # doc load flag matches cli: --concurrency in doc+cli, --clients in neither
+context_for_next_session:
+  - shipped_89_pr_ready_vsas_architecture_md_82_83_documented_vector_bench_load_clients_1_10_100_but_cli_registers_concurrency_cli_py_45_75_clients_token_appears_NOWHERE_else_readme_142_uses_concurrency_correctly_operator_copy_paste_from_arch_doc_hits_unrecognized_arguments_clients
+  - found_by_wave6_ems_vsas_doc_drift_agent_HIGH_verified_firsthand_grep_clients_only_architecture_83_grep_concurrency_cli_45_75
+  - fix_arch_clients_to_concurrency_plus_lock_test_test_load_runner_flag_matches_cli_asserts_concurrency_in_doc_and_cli_src_clients_in_neither_existing_arch_lock_covered_paths_symbols_decisions_banned_phrases_NOT_flag_names
+  - full_suite_green_ruff_clean
+  - doc_drift_lens_wave6_yielded_vsas_clients_ems_pareto_pyasync_streammetrics_fields_all_broken_command_or_invented_symbol_in_architecture_md_while_readmes_correct
+decisions_made: []
+followups: []
+---
