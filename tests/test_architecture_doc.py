@@ -395,3 +395,18 @@ def test_resolvable_prefixes_hard_pin_set() -> None:
 
 def test_min_active_decision_id_hard_pin() -> None:
     assert MIN_ACTIVE_DECISION_ID == 2
+
+
+def test_load_runner_flag_matches_cli(doc_text: str) -> None:
+    # architecture.md once documented `vector-bench load --clients 1,10,100`, but
+    # the CLI registers `--concurrency` (cli.py), so a copy-paste from the doc
+    # failed with "unrecognized arguments: --clients" (#89). The path/symbol/
+    # decision/banned-phrase locks don't cover flag names — pin the doc's load
+    # flag to the real CLI flag so it can't drift again.
+    cli_src = (REPO_ROOT / "src" / "vector_bench" / "cli.py").read_text(encoding="utf-8")
+    assert '"--concurrency"' in cli_src, "the CLI no longer registers --concurrency"
+    assert '"--clients"' not in cli_src, "CLI now has --clients; update this lock"
+    assert "--clients" not in doc_text, (
+        "docs/architecture.md uses --clients; the real CLI flag is --concurrency"
+    )
+    assert "--concurrency" in doc_text

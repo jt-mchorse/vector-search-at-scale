@@ -80,7 +80,7 @@ thing differing between runs is the engine.
   `--concurrency > 1` (use `vector-bench load` instead) per D-011 so
   it can't silently report serial latency tagged as concurrent.
 - **`vector-bench load`** — multi-client concurrency sweep
-  (`--clients 1,10,100`). Drives concurrency via a
+  (`--concurrency 1,10,100`). Drives concurrency via a
   `ThreadPoolExecutor` over the same `Backend` Protocol (D-008 — keeps
   the load runner in-process so wall-clock numbers compose with the
   harness's recall numbers, instead of adding k6/locust as a second
