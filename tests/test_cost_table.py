@@ -387,3 +387,26 @@ def test_main_load_results_malformed_entry_exits_2(
     captured = capsys.readouterr()
     assert rc == 2
     assert "expected TIER=PATH" in captured.err
+
+
+# ----- missing-input files translate to exit 2 (exit-code contract #85) -----
+
+
+def test_main_missing_tf_main_exits_2_not_traceback(tmp_path: Path, capsys):
+    # A missing operator-supplied --tf-main must translate to a clean exit 2
+    # (like the sibling plot_latency.py #85 / the _parse_load_results_overrides
+    # guard), not escape as a raw FileNotFoundError traceback.
+    missing = tmp_path / "no_such_main.tf"
+    rc = main(["--dry", "--tf-main", str(missing), "--out", str(tmp_path / "out.md")])
+    assert rc == 2
+    assert str(missing) in capsys.readouterr().err
+
+
+def test_main_missing_results_dir_exits_2_with_operator_message(tmp_path: Path, capsys):
+    # A missing load-harness c001.json must surface load_throughput_qps's
+    # operator-facing "Re-run the load harness" message on stderr with exit 2,
+    # instead of burying it in a traceback.
+    rc = main(["--run-id", "no-such-run", "--out", str(tmp_path / "out.md")])
+    assert rc == 2
+    err = capsys.readouterr().err
+    assert "Re-run the load harness" in err
