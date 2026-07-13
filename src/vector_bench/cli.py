@@ -170,6 +170,16 @@ def _do_load(args: argparse.Namespace) -> int:
     except ValueError as e:
         print(f"--concurrency invalid: {e}", file=sys.stderr)
         return 2
+    except FileExistsError as e:
+        # A run-id collision (matrix.json already at <results-dir>/<run-id>/
+        # without --force) is raised by run_under_load just as run_benchmark
+        # raises it for `run`. `_do_run` catches it for a clean exit 2; catch it
+        # here too so the `load` sibling honors the same collision contract
+        # (#93, sibling of #81/#83) instead of a raw traceback at exit 1. Kept
+        # separate from the ValueError clause because the `--concurrency invalid:`
+        # prefix would misdescribe a collision.
+        print(f"error: {e}", file=sys.stderr)
+        return 2
     json.dump(matrix.to_json(), sys.stdout, indent=2, sort_keys=True, default=str)
     sys.stdout.write("\n")
     if args.render_table:
