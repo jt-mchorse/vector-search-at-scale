@@ -593,3 +593,15 @@ Pre-check every `args.matrices` path with `is_file()`, report each missing one t
 **Open questions / blockers:** none — ready for review.
 
 **Next session:** the vsas arch doc's other count/field claims (Workload/LatencyStats/BenchmarkResult/LoadCell/LoadMatrix to_dict field counts, atomic_write_text 5 call sites, 3-layer/3-backend/port claims) were all audited and are accurate — no further vsas doc-drift.
+
+## Session 2026-07-13 (night) — issue #93: `load` exits 2 on run-id collision, not a raw traceback
+
+`vector-bench load` caught only `ValueError` from `run_under_load`, so the `FileExistsError` it raises on a run-id collision (a `matrix.json` already present under `<results-dir>/<run-id>/` without `--force`) escaped as a raw traceback at exit 1. The sibling `vector-bench run` catches `(ValueError, FileExistsError)` and exits 2 for the identical collision — an asymmetric catch tuple between two CLI handlers that call into the same-raising helpers. Sibling-incomplete-fix of the #81/#83 exit-code-contract work; the existing `run` collision test even comments that it mirrors "the `load` sibling #81", though `load` never actually handled it and had no test for it.
+
+The fix adds a separate `except FileExistsError` clause to `_do_load` printing `error: {e}` + exit 2 (matching `_do_run`), kept apart from the `--concurrency invalid:`-prefixed `ValueError` clause whose prefix would misdescribe a collision. Added a lock test mirroring the `run` sibling. A subtlety: the `_load_args` test helper always appends `--force` (which overwrites rather than colliding), so the test filters it out to exercise the collision path — caught by reproducing firsthand before writing the test. Full suite green, ruff clean.
+
+**Why this work, this session:** Fourth hit of the night run, surfaced by the sibling-incomplete-fix dogfood hunt on vector-search-at-scale and verified firsthand.
+
+**Open questions / blockers:** none — PR #94 ready for review.
+
+**Next session:** Phase A merge PR for #93.
