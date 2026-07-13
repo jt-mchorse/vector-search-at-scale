@@ -410,3 +410,44 @@ def test_load_runner_flag_matches_cli(doc_text: str) -> None:
         "docs/architecture.md uses --clients; the real CLI flag is --concurrency"
     )
     assert "--concurrency" in doc_text
+
+
+def test_named_backend_modules_resolve_to_terraform_dirs(doc_text: str) -> None:
+    """Every backend module the doc lists under `terraform/modules/` resolves to
+    a real module directory (#91).
+
+    architecture.md once named the Weaviate module `weaviate-oss`, but the dir is
+    `terraform/modules/weaviate` (and `main.tf` declares `module "weaviate"`) —
+    the `-oss` suffix was bare prose, so the backtick-path lock never checked it.
+    Pin the doc's named backend modules to the real module directory set.
+    """
+    m = re.search(r"modules under `terraform/modules/`:\s*(.+?)\(", doc_text, re.S)
+    assert m, (
+        "expected the 'backend modules under `terraform/modules/`: …' sentence in "
+        "docs/architecture.md"
+    )
+    named = {t for t in re.findall(r"[a-z][a-z0-9-]+", m.group(1)) if t != "and"}
+    assert named, "no backend module names parsed from the doc sentence"
+    real = {p.name for p in (REPO_ROOT / "terraform" / "modules").iterdir() if p.is_dir()}
+    missing = sorted(named - real)
+    assert not missing, (
+        "docs/architecture.md names terraform/modules/ backends that don't exist on "
+        f"disk: {missing} (real module dirs: {sorted(real)}). Fix the doc name to "
+        "match the module directory."
+    )
+
+
+def test_backend_module_resolver_flags_injected_drift() -> None:
+    """Inverse safety net: a nonexistent module name in the sentence is flagged
+    while the real ones still resolve (guards a vacuously-green resolver)."""
+    fake = (
+        "Three backend modules under `terraform/modules/`: pgvector, qdrant, and "
+        "weaviate-oss (D-003 — self-hosted)."
+    )
+    m = re.search(r"modules under `terraform/modules/`:\s*(.+?)\(", fake, re.S)
+    assert m
+    named = {t for t in re.findall(r"[a-z][a-z0-9-]+", m.group(1)) if t != "and"}
+    real = {p.name for p in (REPO_ROOT / "terraform" / "modules").iterdir() if p.is_dir()}
+    assert sorted(named - real) == ["weaviate-oss"]
+    assert "pgvector" in named
+    assert "pgvector" in real

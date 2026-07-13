@@ -51,7 +51,7 @@ operator-supplied (per-tier hourly cost in [`docs/infra.md`](./infra.md)).
 - One VPC, one public subnet, one IGW. Single AZ on purpose (D-002): any
   cross-AZ millisecond would muddy the latency comparison between engines.
 - Three backend modules under `terraform/modules/`: pgvector, qdrant, and
-  weaviate-oss (D-003 — Weaviate self-hosted, not cloud, for parity with
+  weaviate (D-003 — Weaviate self-hosted, not cloud, for parity with
   the other two single-node setups). Each module is *self-contained*:
   EC2 + EBS data volume + service-specific security group + `user_data.sh`
   that brings the service up via Docker on first boot with pinned image
