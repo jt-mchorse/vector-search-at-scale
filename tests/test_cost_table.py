@@ -415,6 +415,20 @@ def test_main_non_utf8_tf_main_exits_2_not_traceback(tmp_path: Path, capsys):
     assert "not valid UTF-8" in capsys.readouterr().err
 
 
+def test_main_malformed_c001_json_exits_2_not_traceback(tmp_path: Path, capsys):
+    # A c001.json supplied via --load-results is operator input; a present-but-
+    # malformed (valid-UTF-8-but-not-valid-JSON) one raises json.JSONDecodeError
+    # from load_throughput_qps, which — like the plot scripts' matrix/grid reads
+    # in this same change — must translate to a clean exit 2, not leak a raw
+    # traceback at exit 1.
+    results_dir = tmp_path / "load"
+    results_dir.mkdir()
+    (results_dir / "c001.json").write_text("{not valid json", encoding="utf-8")
+    rc = main(["--dry", "--load-results", f"1m={results_dir}", "--out", str(tmp_path / "out.md")])
+    assert rc == 2
+    assert "not valid JSON" in capsys.readouterr().err
+
+
 def test_main_missing_results_dir_exits_2_with_operator_message(tmp_path: Path, capsys):
     # A missing load-harness c001.json must surface load_throughput_qps's
     # operator-facing "Re-run the load harness" message on stderr with exit 2,
