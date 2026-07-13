@@ -1030,3 +1030,24 @@ context_for_next_session:
 decisions_made: []
 followups: []
 ---
+
+---
+session: 2026-07-13T05:59Z
+issue: 91
+duration_min: 15
+focus: architecture_backend_module_named_weaviate_oss_but_dir_is_weaviate_bare_prose_name_beyond_backtick_path_lock
+phase: night_session_phase_b_issue_7
+delta:
+  files_changed: 2   # docs/architecture.md, tests/test_architecture_doc.py
+  tests_added: 2     # terraform-module-name resolver + inverse injected-drift guard
+context_for_next_session:
+  - found_via_parallel_explore_agent_scan_of_vsas_VERIFIED_FIRSTHAND_agent_reported_it_correctly
+  - bug_architecture_md_layer1_line_54_named_three_backend_modules_pgvector_qdrant_weaviate_OSS_but_the_dir_is_terraform_modules_weaviate_and_main_tf_declares_module_weaviate_no_weaviate_oss_dir_exists_oss_suffix_redundant_d_003_parenthetical_already_says_self_hosted
+  - WHY_UNCAUGHT_test_backtick_paths_resolve_on_disk_checks_ONLY_backtick_quoted_resolvable_prefix_tokens_weaviate_oss_is_BARE_PROSE_not_a_backtick_path_so_the_named_modules_were_never_resolved_to_real_dirs
+  - fix_corrected_to_weaviate_plus_lock_parse_the_backend_modules_under_terraform_modules_sentence_assert_every_named_module_resolves_to_a_real_terraform_modules_subdir_inverse_guard_verified_flags_exactly_weaviate_oss_pre_fix
+  - full_suite_347_pass_ruff_clean_gotcha_PT018_split_composite_assert_AGAIN_same_as_prs_this_run
+  - vsas_2_open_issues_71_78_are_JT_gated_decision_revisits_untouched
+  - pr_92_ready_closes_91_no_core_decision
+decisions_made: []
+followups: []
+---

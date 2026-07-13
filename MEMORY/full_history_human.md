@@ -581,3 +581,15 @@ Pre-check every `args.matrices` path with `is_file()`, report each missing one t
 **Open questions / blockers:** none — ready for review.
 
 **Next session:** Phase A merge PR for #89.
+
+## 2026-07-13 (Night) — Issue #91: architecture named 'weaviate-oss' but the module dir is 'weaviate'
+**Duration:** ~15 min · **Branch:** `session/2026-07-13-0559-issue-91` · **PR:** #92
+
+- `docs/architecture.md` Layer 1 named the Weaviate Terraform module `weaviate-oss`, but the directory is `terraform/modules/weaviate` and `main.tf` declares `module "weaviate"`. The name was bare prose (not a backtick path), so `test_backtick_paths_resolve_on_disk` never checked it — "arch-doc drift beyond the lock lens".
+- Corrected to `weaviate` and added a code-tied lock parsing the "backend modules under `terraform/modules/`: …" sentence, asserting every named module resolves to a real `terraform/modules/<name>` directory, with an inverse injected-drift guard. Verified it flags exactly `weaviate-oss` pre-fix. Full suite 347 pass; ruff clean.
+
+**Why this work, this session:** parallel Explore agent flagged it; verified firsthand. vsas's two open issues (#71/#78) are JT-gated decision-revisits — untouched.
+
+**Open questions / blockers:** none — ready for review.
+
+**Next session:** the vsas arch doc's other count/field claims (Workload/LatencyStats/BenchmarkResult/LoadCell/LoadMatrix to_dict field counts, atomic_write_text 5 call sites, 3-layer/3-backend/port claims) were all audited and are accurate — no further vsas doc-drift.
