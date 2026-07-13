@@ -116,7 +116,23 @@ def main(argv: list[str] | None = None) -> int:
             sys.stderr.write(f"{p} not found\n")
         return 2
 
-    matrices = [_load_matrix(p) for p in paths]
+    # A present-but-unreadable matrix file (non-UTF-8 bytes, or valid UTF-8 that
+    # isn't valid JSON) is bad operator input, the same class the missing-file
+    # pre-check handles. `_load_matrix` does `json.loads(path.read_text())`, so
+    # such a file raises UnicodeDecodeError or json.JSONDecodeError — neither of
+    # which is a FileNotFoundError — and used to leak a raw traceback at exit 1.
+    # Translate to a clean exit 2 per the #83/#84 exit-code contract (sibling of
+    # llm-eval-harness#174).
+    matrices = []
+    for p in paths:
+        try:
+            matrices.append(_load_matrix(p))
+        except UnicodeDecodeError as exc:
+            sys.stderr.write(f"{p} is not valid UTF-8: {exc}\n")
+            return 2
+        except json.JSONDecodeError as exc:
+            sys.stderr.write(f"{p} is not valid JSON: {exc}\n")
+            return 2
     print(render_table(matrices))
     written = _maybe_plot(matrices, Path(args.out_dir))
     for p in written:

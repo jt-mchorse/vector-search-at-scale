@@ -402,6 +402,19 @@ def test_main_missing_tf_main_exits_2_not_traceback(tmp_path: Path, capsys):
     assert str(missing) in capsys.readouterr().err
 
 
+def test_main_non_utf8_tf_main_exits_2_not_traceback(tmp_path: Path, capsys):
+    # A present-but-non-UTF-8 --tf-main is unreadable input, the same class as
+    # the missing-file case: read_text(encoding="utf-8") raises UnicodeDecodeError
+    # (a ValueError subclass, NOT a FileNotFoundError), which escaped the guard
+    # and leaked a raw traceback at exit 1. It must translate to a clean exit 2
+    # (sibling of llm-eval-harness#174 / prompt-regression-suite#126).
+    bad = tmp_path / "bad_main.tf"
+    bad.write_bytes(b"\xff\xfe\x00not utf-8")
+    rc = main(["--dry", "--tf-main", str(bad), "--out", str(tmp_path / "out.md")])
+    assert rc == 2
+    assert "not valid UTF-8" in capsys.readouterr().err
+
+
 def test_main_missing_results_dir_exits_2_with_operator_message(tmp_path: Path, capsys):
     # A missing load-harness c001.json must surface load_throughput_qps's
     # operator-facing "Re-run the load harness" message on stderr with exit 2,
