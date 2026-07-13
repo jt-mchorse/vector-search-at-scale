@@ -199,3 +199,23 @@ def test_cli_load_valid_distinct_levels_runs(tmp_path: Path) -> None:
     assert (out_dir / "c001.json").exists()
     assert (out_dir / "c010.json").exists()
     assert (out_dir / "matrix.json").exists()
+
+
+def test_cli_load_rejects_duplicate_run_id(tmp_path: Path, capsys) -> None:
+    # #93: a run-id collision (matrix.json already present without --force) made
+    # run_under_load raise FileExistsError, which _do_load did NOT catch (only
+    # ValueError), escaping as a raw traceback at exit 1. It must surface as a
+    # clean exit 2 with "already exists", exactly like the `run` sibling
+    # (test_cli_run_rejects_duplicate_run_id, #83) — completing the #81/#83
+    # exit-code contract for the `load` collision seam.
+    results = tmp_path / "results"
+    # NB: _load_args appends --force (which would overwrite, not collide), so
+    # build args WITHOUT it to exercise the collision path.
+    args = [a for a in _load_args(results, "1,2", "dupload") if a != "--force"]
+    assert main(args) == 0
+    capsys.readouterr()
+    rc = main(args)
+    assert rc == 2
+    err = capsys.readouterr().err
+    assert "already exists" in err
+    assert "Traceback" not in err
