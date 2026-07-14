@@ -640,3 +640,16 @@ Fixed by wrapping the `run_grid` call in `main()` with `try/except OSError` → 
 **Open questions / blockers:** none — PR #100 ready for review.
 
 **Next session:** Phase A merge PR for #99.
+
+## 2026-07-14 (night) — Issue #101: vector-bench run/load leaked a raw OSError on an unwritable --results-dir
+**Duration:** ~15 min · **Branch:** `session/2026-07-14-0746-issue-101` · **PR:** #102
+
+`vector-bench run` (`_do_run`) caught `(ValueError, FileExistsError)` and `load` (`_do_load`) caught `ValueError` + `FileExistsError`, translating those to a clean exit 2 per the 0/1/2 contract. But both write output through `atomic_write_text`, and a general `OSError` (unwritable `--results-dir`: `NotADirectoryError`/`PermissionError`/`ENOSPC`/`EROFS`) was not caught — it escaped as a raw traceback at exit 1. The two script writers (#98) and hnsw_grid (#99) were guarded, but the CLI's own `run`/`load` writer subcommands kept only the `FileExistsError` subset. Verified firsthand.
+
+Fixed by widening `_do_run` to `(ValueError, OSError)` and `_do_load`'s `FileExistsError` clause to `OSError` — `FileExistsError` (collision) stays caught (subclass), write-seam `OSError`s now land as a clean exit 2. Two lock tests; full suite (360) green, ruff clean.
+
+**Why this work, this session:** Ninth hit of the night run, surfaced by a **second-order sibling hunt on this run's own #99/#100 hnsw_grid fix** — a per-script write-seam sweep missed the CLI subcommand that wraps the same `run_benchmark` write. (2nd vsas PR this run; MEMORY append conflict with #100 resolved by rebase at merge.)
+
+**Open questions / blockers:** none — PR #102 ready for review.
+
+**Next session:** Phase A merge PR for #101 (rebase after #100).
