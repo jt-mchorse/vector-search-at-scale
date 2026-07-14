@@ -219,3 +219,47 @@ def test_cli_load_rejects_duplicate_run_id(tmp_path: Path, capsys) -> None:
     err = capsys.readouterr().err
     assert "already exists" in err
     assert "Traceback" not in err
+
+
+def test_cli_run_unwritable_results_dir_exits_two(tmp_path: Path, capsys) -> None:
+    # #101: `run` writes its result JSON through atomic_write_text, so an
+    # unwritable --results-dir (here a path whose parent component is a FILE →
+    # NotADirectoryError) raised a general OSError the (ValueError, FileExistsError)
+    # clause missed, leaking a raw traceback at exit 1. It must surface as a clean
+    # exit 2 (write-seam sibling of #98/#99).
+    blocker = tmp_path / "blocker"
+    blocker.write_text("x")
+    rc = main(
+        [
+            "run",
+            "--backend",
+            "stub",
+            "--n",
+            "20",
+            "--dim",
+            "8",
+            "--queries",
+            "5",
+            "--run-id",
+            "x",
+            "--results-dir",
+            str(blocker / "sub"),
+        ]
+    )
+    assert rc == 2
+    err = capsys.readouterr().err
+    assert "error:" in err
+    assert "Traceback" not in err
+
+
+def test_cli_load_unwritable_results_dir_exits_two(tmp_path: Path, capsys) -> None:
+    # #101: the `load` sibling of the above — an unwritable --results-dir raises a
+    # general OSError from run_under_load's write that the FileExistsError-only
+    # clause missed. Must land as a clean exit 2, not a raw traceback.
+    blocker = tmp_path / "blocker"
+    blocker.write_text("x")
+    rc = main(_load_args(blocker / "sub", "1,2", "x"))
+    assert rc == 2
+    err = capsys.readouterr().err
+    assert "error:" in err
+    assert "Traceback" not in err

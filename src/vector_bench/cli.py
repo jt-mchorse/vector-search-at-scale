@@ -107,9 +107,14 @@ def _do_run(args: argparse.Namespace) -> int:
     # `Workload.__post_init__` raises ValueError on invalid dimensions (e.g.
     # `--n 0`), `run_benchmark` raises ValueError on a `--concurrency > 1`
     # request (D-011) and FileExistsError on a run-id collision without --force.
-    # Unhandled these escaped as a raw traceback at exit 1; translate to a clean
-    # message + exit 2 so `run` honors the 0/1/2 exit-code contract like its
-    # `load` sibling (#81).
+    # `run_benchmark` also WRITES its result JSON through `atomic_write_text`, so
+    # an unwritable `--results-dir` (read-only fs, permission-denied, or a path
+    # component that is a file) raises a general OSError — which the previous
+    # `(ValueError, FileExistsError)` clause missed, leaking a raw traceback at
+    # exit 1. `FileExistsError` is an OSError subclass (still caught, collision
+    # case), so widening to OSError also lands the write-seam failures as a clean
+    # exit 2 (#101, write-seam sibling of #98/#99). The computation is pure, so
+    # OSError here only ever comes from the output write.
     try:
         workload = Workload(
             n_vectors=args.n,
@@ -126,7 +131,7 @@ def _do_run(args: argparse.Namespace) -> int:
             results_dir=args.results_dir,
             force=args.force,
         )
-    except (ValueError, FileExistsError) as e:
+    except (ValueError, OSError) as e:
         print(f"error: {e}", file=sys.stderr)
         return 2
     json.dump(result.to_json(), sys.stdout, indent=2, sort_keys=True)
@@ -170,14 +175,16 @@ def _do_load(args: argparse.Namespace) -> int:
     except ValueError as e:
         print(f"--concurrency invalid: {e}", file=sys.stderr)
         return 2
-    except FileExistsError as e:
+    except OSError as e:
         # A run-id collision (matrix.json already at <results-dir>/<run-id>/
-        # without --force) is raised by run_under_load just as run_benchmark
-        # raises it for `run`. `_do_run` catches it for a clean exit 2; catch it
-        # here too so the `load` sibling honors the same collision contract
-        # (#93, sibling of #81/#83) instead of a raw traceback at exit 1. Kept
-        # separate from the ValueError clause because the `--concurrency invalid:`
-        # prefix would misdescribe a collision.
+        # without --force) raises FileExistsError; an unwritable `--results-dir`
+        # raises another OSError (NotADirectoryError/PermissionError/ENOSPC) from
+        # `run_under_load`'s `atomic_write_text` write. `_do_run` catches both for
+        # a clean exit 2; catch the whole OSError family here too so the `load`
+        # sibling honors the same collision + write-seam contract (#101, sibling
+        # of #81/#83/#93/#99) instead of a raw traceback at exit 1. Kept separate
+        # from the ValueError clause because the `--concurrency invalid:` prefix
+        # would misdescribe a collision or write failure.
         print(f"error: {e}", file=sys.stderr)
         return 2
     json.dump(matrix.to_json(), sys.stdout, indent=2, sort_keys=True, default=str)
