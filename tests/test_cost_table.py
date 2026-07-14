@@ -415,6 +415,22 @@ def test_main_non_utf8_tf_main_exits_2_not_traceback(tmp_path: Path, capsys):
     assert "not valid UTF-8" in capsys.readouterr().err
 
 
+def test_main_unwritable_out_exits_2_not_traceback(tmp_path: Path, capsys):
+    # The output path is operator input too: an unwritable --out must land as a
+    # clean exit 2, not a raw OSError traceback (write-seam sibling of the input
+    # guards above and llm-eval-harness#158/#159). A path whose parent component
+    # is a FILE makes atomic_write_text's mkdir raise NotADirectoryError (an
+    # OSError) — a deterministic, portable unwritable target.
+    blocker = tmp_path / "blocker"
+    blocker.write_text("x")
+    out_path = blocker / "sub" / "cost.md"
+    rc = main(["--dry", "--out", str(out_path)])
+    assert rc == 2
+    err = capsys.readouterr().err
+    assert "could not write" in err
+    assert "Traceback" not in err
+
+
 def test_main_malformed_c001_json_exits_2_not_traceback(tmp_path: Path, capsys):
     # A c001.json supplied via --load-results is operator input; a present-but-
     # malformed (valid-UTF-8-but-not-valid-JSON) one raises json.JSONDecodeError

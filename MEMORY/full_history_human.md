@@ -616,3 +616,14 @@ The fix adds a separate `except FileExistsError` clause to `_do_load` printing `
 **Open questions / blockers:** none — PR #96 ready for review.
 
 **Next session:** Phase A merge PR for #95.
+
+## 2026-07-14 (night) — Issue #97: plot/cost-table scripts leak a raw OSError on an unwritable output path
+**Duration:** ~30 min · **Branch:** `session/2026-07-14-0532-issue-97` · **PR:** #98
+
+`cost_table.py`, `plot_latency.py`, and `plot_hnsw_frontier.py` all guard their input-read seam per the #83/#84 exit-code contract (#96 added non-UTF-8 / malformed-JSON → exit 2), but each left its output-write seam unguarded. A bad `--out`/`--out-dir`/`--out-png` (read-only filesystem, permission denied, or a path component that is a file → `NotADirectoryError`) made `atomic_write_text`/`mkdir`/`savefig` raise `OSError`, which escaped as a raw traceback at exit 1 *after* the table already printed. Fixed by wrapping each output-write call in `try/except OSError` → clean stderr + `return 2`, mirroring the input guards and the write-seam sibling in llm-eval-harness #158/#159 and python-async-llm-pipelines #84. Verified firsthand (pre-fix `cost_table --out <file>/sub/cost.md` raised `NotADirectoryError`, exit 1). Three new lock tests (one per script, matplotlib-guarded for the plot pair) plus the existing cost_table atomic-helper routing test updated from "OSError propagates" to the exit-2 contract; the harness/library routing tests were left unchanged (a library fn has no CLI exit-code contract). Full suite (358) green, ruff clean.
+
+**Why this work, this session:** Fourth hit of the night run — a firsthand cross-repo write-seam sweep after pyasync #84, grepping the output writers across ems/vsas/chunking. ems already guards its seam (cli.py); vsas's three scripts — the exact ones #96 hardened on input — leaked on output.
+
+**Open questions / blockers:** none — PR #98 ready for review.
+
+**Next session:** Phase A merge PR for #97.

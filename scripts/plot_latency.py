@@ -134,7 +134,16 @@ def main(argv: list[str] | None = None) -> int:
             sys.stderr.write(f"{p} is not valid JSON: {exc}\n")
             return 2
     print(render_table(matrices))
-    written = _maybe_plot(matrices, Path(args.out_dir))
+    # The output dir is operator input too: an unwritable `--out-dir` (a read-only
+    # filesystem, a permission-denied dir, or a path component that is a file)
+    # makes `_maybe_plot`'s mkdir/savefig raise OSError, which without this guard
+    # escaped as a raw traceback at exit 1 — the write-seam sibling of the input
+    # guards above (#96) per the #83/#84 exit-code contract.
+    try:
+        written = _maybe_plot(matrices, Path(args.out_dir))
+    except OSError as exc:
+        sys.stderr.write(f"could not write to {args.out_dir}: {exc}\n")
+        return 2
     for p in written:
         print(f"# wrote {p}", file=sys.stderr)
     return 0

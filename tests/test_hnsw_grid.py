@@ -130,6 +130,32 @@ def test_render_writes_png_and_optionally_svg(tmp_path: Path, svg: bool):
     assert len(frontier) == 2  # both non-dominated
 
 
+def test_main_unwritable_out_png_exits_2_not_traceback(tmp_path: Path, capsys):
+    pytest.importorskip("matplotlib")  # the write seam is only reached when plotting runs
+    # The output path is operator input too: an unwritable --out-png must land as a
+    # clean exit 2, not a raw OSError traceback after the table prints (write-seam
+    # sibling of the input guards below and llm-eval-harness#158/#159). A path whose
+    # parent component is a FILE makes render's mkdir raise NotADirectoryError.
+    grid = {
+        "backend": "hnsw-sim",
+        "workload": {"n_vectors": 1000, "n_queries": 100, "dim": 32, "top_k": 5, "seed": 1},
+        "axes": {"M": [8], "ef_construction": [50], "ef_search": [16, 64]},
+        "cells": [
+            _make_cell(8, 50, 16, recall=0.7, p95=1.5),
+            _make_cell(8, 50, 64, recall=0.95, p95=3.0),
+        ],
+    }
+    grid_json = tmp_path / "grid.json"
+    grid_json.write_text(json.dumps(grid), encoding="utf-8")
+    blocker = tmp_path / "blocker"
+    blocker.write_text("x")
+    rc = main([str(grid_json), "--out-png", str(blocker / "sub" / "frontier.png")])
+    assert rc == 2
+    err = capsys.readouterr().err
+    assert "could not write chart" in err
+    assert "Traceback" not in err
+
+
 def test_render_rejects_empty_grid(tmp_path: Path):
     grid = {
         "backend": "hnsw-sim",

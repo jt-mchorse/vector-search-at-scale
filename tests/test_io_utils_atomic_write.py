@@ -183,7 +183,9 @@ def test_cost_table_main_routes_through_atomic_helper(
     monkeypatch.setattr(io_utils_mod.os, "replace", boom)
 
     out = tmp_path / "docs" / "cost_per_query.md"
-    with pytest.raises(OSError, match="simulated rename failure"):
-        cost_table.main(["--out", str(out)])
-
+    # os.replace (used by atomic_write_text) raising both proves the write routes
+    # through the atomic helper AND exercises the write-seam exit-2 contract (#97):
+    # a clean exit 2, not a propagated raw traceback.
+    rc = cost_table.main(["--out", str(out)])
+    assert rc == 2, "a write failure must land as the clean exit-2 contract (#97)"
     assert not out.exists(), "cost_table --out must not write destination on replace failure"

@@ -448,7 +448,17 @@ def main(argv: list[str] | None = None) -> int:
     md = render_markdown(rows, prices=prices, qps_source=qps_source)
 
     out_path = Path(args.out)
-    atomic_write_text(out_path, md)
+    # The output path is operator input too: an unwritable `--out` (a read-only
+    # filesystem, a permission-denied dir, or a path component that is a file)
+    # makes `atomic_write_text` raise OSError, which without this guard escaped as
+    # a raw traceback at exit 1 — the same write-seam gap the input guards (#96)
+    # never covered on this script. Translate to a clean exit 2 per the #83/#84
+    # exit-code contract (write-seam sibling of llm-eval-harness#158/#159).
+    try:
+        atomic_write_text(out_path, md)
+    except OSError as exc:
+        sys.stderr.write(f"could not write {out_path}: {exc}\n")
+        return 2
 
     print(f"cost-table wrote {out_path}")
     for r in rows:
