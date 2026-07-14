@@ -116,3 +116,27 @@ def test_main_malformed_json_matrix_exits_2_not_traceback(tmp_path: Path, capsys
     err = capsys.readouterr().err
     assert "not valid JSON" in err
     assert str(bad) in err
+
+
+def test_main_unwritable_out_dir_exits_2_not_traceback(tmp_path: Path, capsys) -> None:
+    import pytest
+
+    pytest.importorskip("matplotlib")  # the write seam is only reached when plotting runs
+    # The output dir is operator input too: an unwritable --out-dir must land as a
+    # clean exit 2, not a raw OSError traceback after the table prints (write-seam
+    # sibling of the input guards above and llm-eval-harness#158/#159). A path whose
+    # parent component is a FILE makes _maybe_plot's mkdir raise NotADirectoryError.
+    matrix = LoadMatrix(
+        run_id="demo",
+        backend="stub",
+        workload=Workload(n_vectors=64, dim=16, n_queries=20, top_k=5, seed=1),
+        cells=(_cell(1), _cell(10)),
+    )
+    dump_load_matrix_json(tmp_path, matrix=matrix)
+    blocker = tmp_path / "blocker"
+    blocker.write_text("x")
+    rc = plot_latency.main([str(tmp_path / "matrix.json"), "--out-dir", str(blocker / "sub")])
+    assert rc == 2
+    err = capsys.readouterr().err
+    assert "could not write" in err
+    assert "Traceback" not in err

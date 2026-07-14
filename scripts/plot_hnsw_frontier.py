@@ -170,7 +170,18 @@ def main(argv: list[str] | None = None) -> int:
         sys.stderr.write(f"{args.grid_json} is not valid JSON: {exc}\n")
         return 2
 
-    frontier, png, svg = render(grid, out_png=args.out_png, out_svg=args.out_svg, title=args.title)
+    # The output paths are operator input too: an unwritable `--out-png`/`--out-svg`
+    # (a read-only filesystem, a permission-denied dir, or a path component that is
+    # a file) makes `render`'s mkdir/savefig raise OSError, which without this guard
+    # escaped as a raw traceback at exit 1 — the write-seam sibling of the input
+    # guards above (#96) per the #83/#84 exit-code contract.
+    try:
+        frontier, png, svg = render(
+            grid, out_png=args.out_png, out_svg=args.out_svg, title=args.title
+        )
+    except OSError as exc:
+        sys.stderr.write(f"could not write chart: {exc}\n")
+        return 2
     top_k = grid["workload"]["top_k"]
     _print_table(frontier, top_k=top_k, label="Pareto frontier")
 
