@@ -11,6 +11,7 @@ import pytest
 _REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(_REPO_ROOT / "scripts"))
 
+from hnsw_grid import main as hnsw_grid_main  # noqa: E402
 from hnsw_grid import run_grid  # noqa: E402
 from plot_hnsw_frontier import (  # noqa: E402
     main,
@@ -105,6 +106,38 @@ def test_run_grid_end_to_end_tiny_workload(tmp_path: Path):
         small = next(c for c in payload["cells"] if c["M"] == M and c["ef_search"] == 16)
         large = next(c for c in payload["cells"] if c["M"] == M and c["ef_search"] == 32)
         assert large["mean_recall_at_k"] >= small["mean_recall_at_k"]
+
+
+def test_main_unwritable_out_dir_exits_2_not_traceback(tmp_path: Path, capsys):
+    # `--out-dir` is operator input too: an unwritable target must land as a clean
+    # exit 2, not a raw OSError traceback (write-seam parity with the three sibling
+    # writers guarded in #98). A path whose parent component is a FILE makes
+    # run_grid's out_dir.mkdir raise NotADirectoryError. hnsw_grid was the one
+    # operator-facing writer #98 left unguarded (#99).
+    blocker = tmp_path / "blocker"
+    blocker.write_text("x")
+    rc = hnsw_grid_main(
+        [
+            "--n-vectors",
+            "80",
+            "--n-queries",
+            "8",
+            "--dim",
+            "8",
+            "--M",
+            "8",
+            "--ef-construction",
+            "50",
+            "--ef-search",
+            "16",
+            "--out-dir",
+            str(blocker / "sub"),
+        ]
+    )
+    assert rc == 2
+    err = capsys.readouterr().err
+    assert "could not write under" in err
+    assert "Traceback" not in err
 
 
 @pytest.mark.parametrize("svg", [False, True])

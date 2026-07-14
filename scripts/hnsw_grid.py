@@ -121,18 +121,30 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--backend", default="hnsw-sim")
     args = p.parse_args(argv)
 
-    run_grid(
-        n_vectors=args.n_vectors,
-        n_queries=args.n_queries,
-        dim=args.dim,
-        top_k=args.top_k,
-        seed=args.seed,
-        M_values=args.M,
-        ef_construction_values=args.ef_construction,
-        ef_search_values=args.ef_search,
-        out_dir=args.out_dir,
-        backend_name=args.backend,
-    )
+    # `--out-dir` is operator input too: an unwritable target (a read-only
+    # filesystem, a permission-denied dir, or a path component that is a file)
+    # makes `run_grid`'s writes — `out_dir.mkdir`, the per-cell result JSON, and
+    # the final `grid.json` via `atomic_write_text` — raise OSError, which without
+    # this guard escaped as a raw traceback at exit 1. Translate to a clean exit 2,
+    # matching the write-seam guard its three grouped sibling writers got in #98
+    # (`cost_table.py`, `plot_latency.py`, `plot_hnsw_frontier.py`). `run_grid`'s
+    # computation is pure, so OSError here only ever comes from the output writes.
+    try:
+        run_grid(
+            n_vectors=args.n_vectors,
+            n_queries=args.n_queries,
+            dim=args.dim,
+            top_k=args.top_k,
+            seed=args.seed,
+            M_values=args.M,
+            ef_construction_values=args.ef_construction,
+            ef_search_values=args.ef_search,
+            out_dir=args.out_dir,
+            backend_name=args.backend,
+        )
+    except OSError as exc:
+        sys.stderr.write(f"could not write under {args.out_dir}: {exc}\n")
+        return 2
     return 0
 
 
