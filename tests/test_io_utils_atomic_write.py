@@ -189,3 +189,46 @@ def test_cost_table_main_routes_through_atomic_helper(
     rc = cost_table.main(["--out", str(out)])
     assert rc == 2, "a write failure must land as the clean exit-2 contract (#97)"
     assert not out.exists(), "cost_table --out must not write destination on replace failure"
+
+
+def test_atomic_write_text_survives_long_basename_near_name_max(tmp_path: Path) -> None:
+    """A destination basename near NAME_MAX (255 on ext4/APFS) that a plain
+    `Path.write_text` accepts must also succeed through `atomic_write_text`
+    (issue #103).
+
+    Before the `_cap_base_for_temp` cap, the temp name `.<base>.<random>.tmp`
+    prepended the full basename, pushing the temp filename past NAME_MAX and
+    raising `OSError: [Errno 63] File name too long` — even though writing the
+    same target directly succeeds. Reachable from a long operator `--run-id`
+    (results land at `results/<run_id>.json`). Identical bug to
+    rag-production-kit#128 / eval_harness#175 and the 2026-07-14 cross-repo
+    sweep; vsas was the last Python repo carrying the pre-fix helper.
+    """
+    # 250-char basename: write_text accepts it (<= 255), but the pre-fix temp
+    # name `.<250>.<8-char>.tmp` was ~272 bytes and overflowed NAME_MAX.
+    base = "r" * 246 + ".json"
+    assert len(base.encode("utf-8")) == 251
+    target = tmp_path / base
+
+    # Baseline: a plain write of the same target succeeds on this fs.
+    probe = tmp_path / (base + ".probe")
+    if len((base + ".probe").encode("utf-8")) <= 255:
+        probe.write_text("probe")
+    target.write_text("baseline")  # proves write_text accepts the 251-byte name
+    target.unlink()
+
+    atomic_write_text(target, "payload")
+    assert target.read_text() == "payload"
+    # No leftover temp files in the dir.
+    assert [p.name for p in tmp_path.iterdir() if p.name.endswith(".tmp")] == []
+
+
+def test_cap_base_for_temp_trims_on_char_boundary() -> None:
+    """`_cap_base_for_temp` trims to a byte budget without splitting a
+    multibyte codepoint (NAME_MAX is a byte limit, but names are str)."""
+    # Each `é` is 2 bytes in UTF-8; 200 of them = 400 bytes, over the budget.
+    capped = io_utils_mod._cap_base_for_temp("é" * 200)
+    assert len(capped.encode("utf-8")) <= io_utils_mod._MAX_TEMP_BASE_BYTES
+    assert capped == capped  # decodes cleanly — no half-codepoint
+    # A short name is returned unchanged.
+    assert io_utils_mod._cap_base_for_temp("short.json") == "short.json"
