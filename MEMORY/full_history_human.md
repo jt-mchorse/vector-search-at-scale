@@ -627,3 +627,16 @@ The fix adds a separate `except FileExistsError` clause to `_do_load` printing `
 **Open questions / blockers:** none — PR #98 ready for review.
 
 **Next session:** Phase A merge PR for #97.
+
+## 2026-07-14 (night) — Issue #99: hnsw_grid.py was the 4th operator-facing writer #98 left unguarded
+**Duration:** ~15 min · **Branch:** `session/2026-07-14-0727-issue-99` · **PR:** #100
+
+`docs/architecture.md` groups four operator-facing writers as routing through `atomic_write_text` (`load.py`, `harness.py`, `hnsw_grid.py`, `cost_table.py`). #98 added an `OSError → clean exit 2` write-seam guard to the three *script* writers (`cost_table.py`, `plot_latency.py`, `plot_hnsw_frontier.py`) but left `hnsw_grid.py` out — so its `run_grid` writes (`out_dir.mkdir`, per-cell result JSON, `grid.json`) leaked a raw `NotADirectoryError` traceback at exit 1 on an unwritable `--out-dir`, reachable from the documented README reproduce command. Verified firsthand: the same unwritable-target scenario yields exit 1 + raw traceback on `hnsw_grid` vs a clean exit 2 message on `cost_table`/`plot_latency`.
+
+Fixed by wrapping the `run_grid` call in `main()` with `try/except OSError` → stderr + `return 2`, mirroring `cost_table.py`'s guard (`run_grid`'s computation is pure; only the output writes raise `OSError`). One lock test; full suite (359) green, ruff clean.
+
+**Why this work, this session:** Fourth hit of the night run. This one sat right at the churn line — like `chunking-strategies-lab`'s `run_matrix.py` (which I *dismissed* as churn this same run), `hnsw_grid.py` documents no exit-code contract of its own. I shipped it because it has a stronger consistency anchor that `run_matrix` lacks: all three of its direct sibling scripts got the guard in the single #98 commit, `architecture.md` explicitly groups it as a *peer* operator-facing writer, and it's reachable from the documented README reproduce command. Filed priority:low as an honest write-seam parity completion. The vsas operator-facing-writer family is now fully closed.
+
+**Open questions / blockers:** none — PR #100 ready for review.
+
+**Next session:** Phase A merge PR for #99.
