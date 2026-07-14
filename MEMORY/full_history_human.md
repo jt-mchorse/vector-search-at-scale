@@ -653,3 +653,16 @@ Fixed by widening `_do_run` to `(ValueError, OSError)` and `_do_load`'s `FileExi
 **Open questions / blockers:** none — PR #102 ready for review.
 
 **Next session:** Phase A merge PR for #101 (rebase after #100).
+
+## 2026-07-14 (night) — Issue #103: atomic_write_text overflows NAME_MAX on a long --run-id basename
+**Duration:** ~15 min · **Branch:** `session/2026-07-14-0914-issue-103` · **PR:** #104
+
+`atomic_write_text` built its temp file name as `.<target.name>.<random>.tmp` with no cap on the basename, so a destination basename near `NAME_MAX` (255 bytes) overflowed the limit and raised `OSError` ENAMETOOLONG — even though a plain `write_text` of that same path succeeds. Reachable from a long operator `--run-id` (`vector-bench run` writes `results/<run_id>.json`; `load` writes under `results/load/<run_id>/`). Verified firsthand: a 250-char basename that `write_text` accepts failed via `atomic_write_text`.
+
+This is the identical bug already fixed in `rag#128`, `mcp#96`, and the 2026-07-14 cross-repo sweep (`leh#175`, `prs#127`, `pyasync#86`, `ems#103`, `chunking#128`, `lco#154`). vsas was the **last** Python repo carrying the pre-fix helper — it received the write-seam exit-2 fixes (#99/#101) this run but not the NAME_MAX cap. Fixed by porting the sibling `_cap_base_for_temp` 200-byte cap (trimming on a char boundary since NAME_MAX is a byte limit). Two regression tests; full suite (363) green, ruff clean.
+
+**Why this work, this session:** Surfaced by a second-order sibling hunt on this run's own Phase A merges — the NAME_MAX sweep landed in 6 repos this run but skipped vsas, which got a different write-seam fix the same run. The cross-repo `atomic_write_text` NAME_MAX vein is now fully closed across all 9 Python repos.
+
+**Open questions / blockers:** none — PR #104 ready for review.
+
+**Next session:** Phase A merge PR for #103.
