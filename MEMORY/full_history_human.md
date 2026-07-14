@@ -605,3 +605,14 @@ The fix adds a separate `except FileExistsError` clause to `_do_load` printing `
 **Open questions / blockers:** none — PR #94 ready for review.
 
 **Next session:** Phase A merge PR for #93.
+
+## 2026-07-13 (night) — Issue #95: unreadable input file exits 2, not a traceback (3 scripts)
+**Duration:** ~25 min · **Branch:** `session/2026-07-13-1126-issue-95` · **PR:** #96
+
+`cost_table.py`, `plot_latency.py`, and `plot_hnsw_frontier.py` translated a *missing* input file to a clean exit 2 (the #83/#84/#85 exit-code contract) but leaked a raw traceback at exit 1 on a *present-but-unreadable* file. A corrupt file passes the `is_file()`/`FileNotFoundError` pre-check, then `read_text(encoding="utf-8")`/`json.loads(...)` raises `UnicodeDecodeError` (a `ValueError` subclass) or `json.JSONDecodeError` — neither a `FileNotFoundError` — so it escaped the guard. Added `UnicodeDecodeError` handling to cost_table's guard (its operator-supplied `--tf-main` is Terraform text, not JSON; the JSON `c001.json` is harness-generated) and `UnicodeDecodeError` + `json.JSONDecodeError` handling to the two plot scripts (whose operator-supplied file *is* the JSON, so both bad-content modes are in scope). This is the direct cross-repo sibling of the same fix in llm-eval-harness #174, prompt-regression-suite #126, embedding-model-shootout #102, and chunking-strategies-lab #124. Five lock tests; full suite green, ruff clean.
+
+**Why this work, this session:** Third hit of the night run, surfaced by a sibling-incomplete-fix hunt on the cross-repo bad-input-file exit-code lens and verified firsthand (all five repro commands) before and after.
+
+**Open questions / blockers:** none — PR #96 ready for review.
+
+**Next session:** Phase A merge PR for #95.

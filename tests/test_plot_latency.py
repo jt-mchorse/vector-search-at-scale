@@ -88,3 +88,31 @@ def test_main_reports_all_missing_paths(tmp_path: Path, capsys) -> None:
     err = capsys.readouterr().err
     assert str(m1) in err
     assert str(m2) in err
+
+
+def test_main_non_utf8_matrix_exits_2_not_traceback(tmp_path: Path, capsys) -> None:
+    # A present-but-non-UTF-8 matrix file is bad operator input, the same class
+    # as the missing-file case. `_load_matrix` does json.loads(read_text()), so a
+    # non-UTF-8 byte raises UnicodeDecodeError (a ValueError subclass, NOT a
+    # FileNotFoundError), which escaped the pre-check and leaked a raw traceback
+    # at exit 1. It must translate to a clean exit 2 (sibling of llm-eval-harness#174).
+    bad = tmp_path / "matrix.json"
+    bad.write_bytes(b"\xff\xfe\x00not utf-8")
+    rc = plot_latency.main([str(bad)])
+    assert rc == 2
+    err = capsys.readouterr().err
+    assert "not valid UTF-8" in err
+    assert str(bad) in err
+
+
+def test_main_malformed_json_matrix_exits_2_not_traceback(tmp_path: Path, capsys) -> None:
+    # A present, valid-UTF-8-but-not-valid-JSON matrix file is bad operator input
+    # at the same json.loads seam: it raises json.JSONDecodeError, which also
+    # escaped the pre-check. It must translate to a clean exit 2, not leak.
+    bad = tmp_path / "matrix.json"
+    bad.write_text("{not valid json", encoding="utf-8")
+    rc = plot_latency.main([str(bad)])
+    assert rc == 2
+    err = capsys.readouterr().err
+    assert "not valid JSON" in err
+    assert str(bad) in err

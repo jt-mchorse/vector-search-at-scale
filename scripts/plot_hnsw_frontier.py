@@ -155,7 +155,20 @@ def main(argv: list[str] | None = None) -> int:
     if not args.grid_json.is_file():
         sys.stderr.write(f"{args.grid_json} not found\n")
         return 2
-    grid = json.loads(args.grid_json.read_text(encoding="utf-8"))
+    # A present-but-unreadable grid file (non-UTF-8 bytes, or valid UTF-8 that
+    # isn't valid JSON) is bad operator input, the same class the missing-file
+    # pre-check handles. `read_text(encoding="utf-8")` + `json.loads` raise
+    # UnicodeDecodeError / json.JSONDecodeError — neither a FileNotFoundError —
+    # and used to leak a raw traceback at exit 1. Translate to a clean exit 2 per
+    # the #83/#84 exit-code contract (sibling of llm-eval-harness#174).
+    try:
+        grid = json.loads(args.grid_json.read_text(encoding="utf-8"))
+    except UnicodeDecodeError as exc:
+        sys.stderr.write(f"{args.grid_json} is not valid UTF-8: {exc}\n")
+        return 2
+    except json.JSONDecodeError as exc:
+        sys.stderr.write(f"{args.grid_json} is not valid JSON: {exc}\n")
+        return 2
 
     frontier, png, svg = render(grid, out_png=args.out_png, out_svg=args.out_svg, title=args.title)
     top_k = grid["workload"]["top_k"]

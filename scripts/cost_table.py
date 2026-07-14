@@ -414,6 +414,25 @@ def main(argv: list[str] | None = None) -> int:
     except FileNotFoundError as exc:
         print(str(exc), file=sys.stderr)
         return 2
+    except UnicodeDecodeError as exc:
+        # A present-but-non-UTF-8 `--tf-main` (or a `c001.json` load-results file)
+        # is unreadable input, the same missing-input class the FileNotFoundError
+        # branch handles: `read_text(encoding="utf-8")` raises UnicodeDecodeError,
+        # which subclasses ValueError — NOT FileNotFoundError — so it escaped the
+        # branch above and leaked a raw traceback at exit 1. Translate it to a
+        # clean exit 2, completing the #83/#84/#85 exit-code contract (sibling of
+        # llm-eval-harness#174 / prompt-regression-suite#126).
+        print(f"input file is not valid UTF-8: {exc}", file=sys.stderr)
+        return 2
+    except json.JSONDecodeError as exc:
+        # A `c001.json` supplied via `--load-results TIER=PATH` is operator input
+        # (they point at their real load-results dir); a present-but-malformed one
+        # raises json.JSONDecodeError, which — like the plot scripts' matrix/grid
+        # reads in this same change — is bad input, not an internal error. Exit 2,
+        # not a raw traceback. (Deep schema validation of a well-formed-JSON but
+        # wrong-shape c001.json stays out of scope, matching the plot scripts.)
+        print(f"input file is not valid JSON: {exc}", file=sys.stderr)
+        return 2
 
     prices = aws_us_east_1_snapshot()
 

@@ -13,6 +13,7 @@ sys.path.insert(0, str(_REPO_ROOT / "scripts"))
 
 from hnsw_grid import run_grid  # noqa: E402
 from plot_hnsw_frontier import (  # noqa: E402
+    main,
     pareto_frontier,
     recommended_defaults,
     render,
@@ -138,3 +139,40 @@ def test_render_rejects_empty_grid(tmp_path: Path):
     }
     with pytest.raises(ValueError, match="no cells"):
         render(grid, out_png=tmp_path / "out.png")
+
+
+def test_main_missing_grid_json_exits_2_not_traceback(tmp_path: Path, capsys):
+    # A missing operator-supplied grid.json translates to a clean exit 2 (the
+    # pre-existing #83/#84 contract) — kept here alongside the bad-content cases.
+    missing = tmp_path / "no_such_grid.json"
+    rc = main([str(missing)])
+    assert rc == 2
+    assert str(missing) in capsys.readouterr().err
+
+
+def test_main_non_utf8_grid_json_exits_2_not_traceback(tmp_path: Path, capsys):
+    # A present-but-non-UTF-8 grid.json is bad operator input, the same class as
+    # the missing-file case. read_text(encoding="utf-8") raises UnicodeDecodeError
+    # (a ValueError subclass, NOT a FileNotFoundError), which escaped the
+    # pre-check and leaked a raw traceback at exit 1. It must translate to a clean
+    # exit 2 (sibling of llm-eval-harness#174).
+    bad = tmp_path / "grid.json"
+    bad.write_bytes(b"\xff\xfe\x00not utf-8")
+    rc = main([str(bad)])
+    assert rc == 2
+    err = capsys.readouterr().err
+    assert "not valid UTF-8" in err
+    assert str(bad) in err
+
+
+def test_main_malformed_json_grid_exits_2_not_traceback(tmp_path: Path, capsys):
+    # A present, valid-UTF-8-but-not-valid-JSON grid.json is bad operator input at
+    # the same json.loads seam: it raises json.JSONDecodeError, which also escaped
+    # the pre-check. It must translate to a clean exit 2, not leak.
+    bad = tmp_path / "grid.json"
+    bad.write_text("{not valid json", encoding="utf-8")
+    rc = main([str(bad)])
+    assert rc == 2
+    err = capsys.readouterr().err
+    assert "not valid JSON" in err
+    assert str(bad) in err
