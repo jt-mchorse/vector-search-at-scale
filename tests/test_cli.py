@@ -95,6 +95,38 @@ def test_cli_run_invalid_workload_exits_two(tmp_path: Path, capsys) -> None:
     assert "Traceback" not in err
 
 
+@pytest.mark.parametrize(
+    ("extra_args", "needle"),
+    [
+        (["--n", "0", "--queries", "5"], "positive"),
+        (["--n", "5", "--queries", "10", "--top-k", "20"], "exceeds"),
+    ],
+)
+def test_cli_load_invalid_workload_exits_two(
+    extra_args: list[str], needle: str, tmp_path: Path, capsys
+) -> None:
+    # Sibling of #83: `load` built its `Workload` OUTSIDE the run_under_load
+    # try/except, so an invalid dimension (--n 0, or --top-k > --n) leaked a raw
+    # traceback at exit 1 while the `run` sibling surfaced the identical
+    # ValueError as a clean exit 2. `load` must honor the same contract.
+    rc = main(
+        [
+            "load",
+            "--backend",
+            "stub",
+            *extra_args,
+            "--run-id",
+            "badload",
+            "--results-dir",
+            str(tmp_path / "results"),
+        ]
+    )
+    assert rc == 2
+    err = capsys.readouterr().err
+    assert needle in err
+    assert "Traceback" not in err
+
+
 def test_cli_run_concurrency_over_one_exits_two(tmp_path: Path, capsys) -> None:
     # #83: `run` is single-shot serial (D-011); --concurrency > 1 makes
     # run_benchmark raise ValueError. It must surface as a clean exit 2 (the

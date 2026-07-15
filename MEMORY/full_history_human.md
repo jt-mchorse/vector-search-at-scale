@@ -666,3 +666,11 @@ This is the identical bug already fixed in `rag#128`, `mcp#96`, and the 2026-07-
 **Open questions / blockers:** none — PR #104 ready for review.
 
 **Next session:** Phase A merge PR for #103.
+
+## 2026-07-14 (night, issue #105) — load subcommand raw-tracebacks on invalid workload (sibling of #83)
+
+`_do_load` built its `Workload(...)` outside the try/except that wraps `run_under_load`, so a `Workload.__post_init__` `ValueError` (`--top-k` > `--n`, `--n 0`) escaped as a raw traceback at exit 1 — while the sibling `run` subcommand (`_do_run`) wraps the identical construction and lands the same ValueError as a clean exit 2. The #83 exit-code guard on `run` was never propagated to `load`.
+
+Fix: wrap `load`'s `Workload(...)` in a `try/except ValueError` → `error: {e}` / exit 2, mirroring `_do_run`, kept separate from the `run_under_load` `--concurrency invalid:` clause so a dimension error isn't mislabeled. Verified firsthand: pre-fix `load --n 5 --top-k 20` tracebacked at exit 1 while `run` exited 2; post-fix both exit 2, happy path unchanged. Added a parametrized regression test mirroring the `run` test.
+
+The lens: when an exit-code guard lands on one subcommand, check the sibling subcommands for the same construction placed outside the try — `_do_run` wrapped `Workload`, `_do_load` didn't. Found by the agent hunt (avoiding the two gated areas #71/#78), verified firsthand. Full suite green, ruff clean. Shipped as PR #106.

@@ -150,14 +150,27 @@ def _do_load(args: argparse.Namespace) -> int:
         return 2
 
     backend = make_backend(args.backend)
-    workload = Workload(
-        n_vectors=args.n,
-        dim=args.dim,
-        n_queries=args.queries,
-        top_k=args.top_k,
-        seed=args.seed,
-        concurrency=max(levels),  # records the max; per-cell concurrency is on the cell itself
-    )
+    # `Workload.__post_init__` validates the dimensions (`--n 0`, `--top-k` >
+    # `--n`, etc.). This construction sat OUTSIDE the `run_under_load` try below,
+    # so a bad `--n`/`--top-k`/`--queries` leaked a raw traceback at exit 1 —
+    # while the sibling `run` subcommand (`_do_run`) wraps the identical
+    # `Workload(...)` and lands the same ValueError as a clean exit 2 (#83). Catch
+    # it here too so `load` honors the 0/1/2 exit-code contract. Kept separate from
+    # the `run_under_load` ValueError clause below (whose `--concurrency invalid:`
+    # prefix would misdescribe a dimension error) — use the neutral `error:` prefix
+    # `_do_run` uses for the same class.
+    try:
+        workload = Workload(
+            n_vectors=args.n,
+            dim=args.dim,
+            n_queries=args.queries,
+            top_k=args.top_k,
+            seed=args.seed,
+            concurrency=max(levels),  # records the max; per-cell concurrency is on the cell itself
+        )
+    except ValueError as e:
+        print(f"error: {e}", file=sys.stderr)
+        return 2
     # `run_under_load` raises ValueError for a non-positive level (`c <= 0`) and
     # for duplicate levels (which would silently clobber a per-cell c<NNN>.json,
     # D-007). Only the `--concurrency` *parse* ValueError was caught above; these
