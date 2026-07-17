@@ -133,6 +133,19 @@ def main(argv: list[str] | None = None) -> int:
         except json.JSONDecodeError as exc:
             sys.stderr.write(f"{p} is not valid JSON: {exc}\n")
             return 2
+        except (TypeError, ValueError, KeyError) as exc:
+            # A file that is valid JSON but not a valid load matrix is the same
+            # class of bad operator input as the decode failures above: `_load_matrix`
+            # does `int(...)`/`float(...)` coercion, dataclass construction
+            # (`LatencyStats(**...)` whose `__post_init__` runs `math.isfinite` on
+            # each field), and required-key indexing — so a bad-typed field
+            # (`p50_ms: "fast"` -> TypeError), a non-numeric scalar
+            # (`concurrency: "x"` -> ValueError), or a missing key (KeyError) used
+            # to leak a raw traceback at exit 1. Translate to a clean exit 2, the
+            # deserialization sibling of the decode guards above and the `load`
+            # subcommand's invalid-workload exit-2 (#105/#106), per #83/#84.
+            sys.stderr.write(f"{p} is not a valid load matrix: {exc}\n")
+            return 2
     print(render_table(matrices))
     # The output dir is operator input too: an unwritable `--out-dir` (a read-only
     # filesystem, a permission-denied dir, or a path component that is a file)
