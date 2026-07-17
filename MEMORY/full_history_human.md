@@ -674,3 +674,15 @@ This is the identical bug already fixed in `rag#128`, `mcp#96`, and the 2026-07-
 Fix: wrap `load`'s `Workload(...)` in a `try/except ValueError` → `error: {e}` / exit 2, mirroring `_do_run`, kept separate from the `run_under_load` `--concurrency invalid:` clause so a dimension error isn't mislabeled. Verified firsthand: pre-fix `load --n 5 --top-k 20` tracebacked at exit 1 while `run` exited 2; post-fix both exit 2, happy path unchanged. Added a parametrized regression test mirroring the `run` test.
 
 The lens: when an exit-code guard lands on one subcommand, check the sibling subcommands for the same construction placed outside the try — `_do_run` wrapped `Workload`, `_do_load` didn't. Found by the agent hunt (avoiding the two gated areas #71/#78), verified firsthand. Full suite green, ruff clean. Shipped as PR #106.
+
+## 2026-07-17 — Issue #107: plot_latency deserialization exit-2 gap
+
+`scripts/plot_latency.py` translated a matrix file's decode failures
+(non-UTF-8, invalid JSON) into a clean exit 2, but the next layer —
+`_load_matrix`'s int/float coercion, `LatencyStats(**...)` construction (whose
+`__post_init__` runs `math.isfinite` per field), and required-key indexing —
+raised TypeError/ValueError/KeyError that the loop didn't catch, so a valid-JSON
+but malformed matrix (e.g. `p50_ms: "fast"`) leaked a raw traceback at exit 1. I
+reproduced it firsthand, then broadened the except clause to translate those to a
+clean "not a valid load matrix" exit 2, matching the load subcommand. Shipped as
+PR #108.
