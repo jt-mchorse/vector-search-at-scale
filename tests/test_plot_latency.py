@@ -118,6 +118,36 @@ def test_main_malformed_json_matrix_exits_2_not_traceback(tmp_path: Path, capsys
     assert str(bad) in err
 
 
+def test_main_malformed_load_matrix_exits_2_not_traceback(tmp_path: Path, capsys) -> None:
+    # A file that is valid JSON but NOT a valid load matrix (a bad-typed field)
+    # is the same class of bad operator input as the decode failures above:
+    # `_load_matrix` coerces + constructs `LatencyStats(**...)`, whose
+    # `__post_init__` runs `math.isfinite` on each field — a string p50_ms raises
+    # TypeError (not a JSONDecodeError). It must translate to a clean exit 2.
+    import json as _json
+
+    matrix = LoadMatrix(
+        run_id="demo",
+        backend="stub",
+        workload=Workload(n_vectors=64, dim=16, n_queries=20, top_k=5, seed=1),
+        cells=(_cell(1),),
+    )
+    dump_load_matrix_json(tmp_path, matrix=matrix)
+    matrix_path = tmp_path / "matrix.json"
+    data = _json.loads(matrix_path.read_text(encoding="utf-8"))
+    data["cells"][0]["query_latency"]["p50_ms"] = "fast"  # valid JSON, bad type
+    matrix_path.write_text(_json.dumps(data), encoding="utf-8")
+
+    rc = plot_latency.main([str(matrix_path)])
+    assert rc == 2
+    err = capsys.readouterr().err
+    assert "not a valid load matrix" in err
+    assert str(matrix_path) in err
+    # A clean operator-error line, not a leaked LatencyStats/isfinite traceback.
+    assert "Traceback" not in err
+    assert "math.isfinite" not in err
+
+
 def test_main_unwritable_out_dir_exits_2_not_traceback(tmp_path: Path, capsys) -> None:
     import pytest
 
