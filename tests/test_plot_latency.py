@@ -10,7 +10,10 @@ rather than a backtracking zig-zag (#49).
 from __future__ import annotations
 
 import importlib.util
+import json as _json
 from pathlib import Path
+
+import pytest
 
 from vector_bench.harness import LatencyStats, Workload
 from vector_bench.load import LoadCell, LoadMatrix, dump_load_matrix_json
@@ -146,6 +149,55 @@ def test_main_malformed_load_matrix_exits_2_not_traceback(tmp_path: Path, capsys
     # A clean operator-error line, not a leaked LatencyStats/isfinite traceback.
     assert "Traceback" not in err
     assert "math.isfinite" not in err
+
+
+def _write_matrix_with(tmp_path: Path, mutate) -> Path:
+    matrix = LoadMatrix(
+        run_id="demo",
+        backend="stub",
+        workload=Workload(n_vectors=64, dim=16, n_queries=20, top_k=5, seed=1),
+        cells=(_cell(1),),
+    )
+    dump_load_matrix_json(tmp_path, matrix=matrix)
+    matrix_path = tmp_path / "matrix.json"
+    data = _json.loads(matrix_path.read_text(encoding="utf-8"))
+    mutate(data)
+    matrix_path.write_text(_json.dumps(data), encoding="utf-8")
+    return matrix_path
+
+
+@pytest.mark.parametrize("field", ["mean_recall_at_k", "throughput_qps", "ingest_seconds"])
+def test_main_boolean_loadcell_numeric_exits_2_not_fabricated(
+    tmp_path: Path, capsys, field: str
+) -> None:
+    # A JSON `true`/`false` at a LoadCell numeric field passes `float()`/`int()`
+    # (bool subclasses int) and would fabricate a 1.0/0.0 on the published table
+    # (e.g. `mean_recall_at_k: true` -> a fake perfect recall). #108 hardened the
+    # structural/decode path but not this boolean-coercion sibling; it must exit 2.
+    matrix_path = _write_matrix_with(tmp_path, lambda d: d["cells"][0].__setitem__(field, True))
+    rc = plot_latency.main([str(matrix_path)])
+    assert rc == 2
+    err = capsys.readouterr().err
+    assert "not a valid load matrix" in err
+    assert "Traceback" not in err
+
+
+def test_main_boolean_latency_field_exits_2_not_fabricated(tmp_path: Path, capsys) -> None:
+    # A boolean nested latency field reaches `LatencyStats(**...)` raw (no
+    # coercion), where `math.isfinite(True)` is True — it must be rejected, not
+    # loaded as a fabricated 1.0/0.0 ms.
+    matrix_path = _write_matrix_with(
+        tmp_path, lambda d: d["cells"][0]["query_latency"].__setitem__("p50_ms", True)
+    )
+    rc = plot_latency.main([str(matrix_path)])
+    assert rc == 2
+    assert "not a valid load matrix" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize("bad", [True, False])
+def test_latency_stats_rejects_boolean_field(bad: bool) -> None:
+    with pytest.raises(ValueError, match=r"p50_ms must be a finite number"):
+        LatencyStats(p50_ms=bad, p95_ms=1.0, p99_ms=2.0, max_ms=3.0)
 
 
 def test_main_unwritable_out_dir_exits_2_not_traceback(tmp_path: Path, capsys) -> None:
