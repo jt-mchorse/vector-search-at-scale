@@ -699,3 +699,10 @@ bool before coercion in `_load_matrix` (→ the #108 exit-2 handler) and added t
 bool exclusion to `LatencyStats.__post_init__`. Five tests. Found via a
 second-order sibling hunt on #108 combined with the ems bool-before-coercion vein.
 PR #110.
+
+_Addendum (same PR #110):_ the same boolean-coercion class was found in a second
+external-JSON loader in this repo — `cost_table.py`'s `load_throughput_qps` did
+`float(payload["throughput_qps"])`, fabricating `1.0` qps from a JSON `true`.
+Folded into #109/#110 (guard before coercion → exit-2) rather than a separate
+near-duplicate same-repo PR. Both matrix.json and c001.json loaders now reject
+boolean numerics.
