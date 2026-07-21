@@ -20,8 +20,66 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import sys
 from pathlib import Path
+from typing import Any
+
+# The grid cell fields this script consumes numerically: `_dominates` /
+# `pareto_frontier` compare them, `recommended_defaults` picks the knee off them,
+# and `_print_table` formats them into the published Pareto-frontier table.
+_NUMERIC_CELL_FIELDS = ("mean_recall_at_k", "p50_ms", "p95_ms")
+
+
+def _require_finite_number(value: Any, field: str) -> float:
+    """Reject a boolean / non-numeric / non-finite grid cell value before it is used.
+
+    `grid.json` cells are plain dicts deserialized from operator-supplied JSON —
+    unlike `scripts/plot_latency.py`, whose `_load_matrix` reconstructs `LoadCell`
+    dataclasses and so gained `_reject_bool_numeric` + `LatencyStats` finiteness in
+    #109/#110. This is the sibling guard for the *other* plotter:
+
+    - `bool` subclasses `int`, so a JSON `true` at `mean_recall_at_k`/`p95_ms`
+      silently coerces to `1.0` and fabricates a perfect benchmark row (and can
+      hijack the recommended-defaults knee) — the §10 no-fabricated-benchmarks
+      class #110 closed on the latency side.
+    - a non-numeric string reaches `_dominates`' comparison and raises a raw
+      `TypeError` (exit 1), escaping the exit-2 bad-input contract this file
+      already honors for missing-file / bad-UTF-8 / bad-JSON / unwritable-out.
+    - a bare `NaN`/`Infinity` token parses natively via `json.loads` and would
+      render as `nan` in the published table — the non-finite sibling
+      `LatencyStats.__post_init__` rejects.
+
+    Raises `ValueError`, which `main()` translates to a clean exit 2.
+    """
+    if isinstance(value, bool):
+        raise ValueError(f"{field} must be a number, not a bool; got {value!r}")
+    if not isinstance(value, (int, float)):
+        raise ValueError(f"{field} must be a number; got {type(value).__name__}")
+    if not math.isfinite(value):
+        raise ValueError(f"{field} must be finite; got {value!r}")
+    return float(value)
+
+
+def _validate_cells(grid: dict) -> None:
+    """Guard every consumed numeric field of every grid cell at the load boundary.
+
+    Mirrors the exit-2 bad-input contract of the file's other input guards: a
+    malformed cell raises `ValueError` here rather than a raw `TypeError` deep in
+    `_dominates` or a fabricated value in the published table.
+    """
+    cells = grid.get("cells")
+    if not isinstance(cells, list):
+        # A non-list `cells` is caught downstream (`render` raises on empty/absent
+        # cells); leave shape validation to it and guard only value types here.
+        return
+    for i, cell in enumerate(cells):
+        if not isinstance(cell, dict):
+            raise ValueError(f"grid cell {i} must be a JSON object; got {type(cell).__name__}")
+        for field in _NUMERIC_CELL_FIELDS:
+            if field not in cell:
+                raise ValueError(f"grid cell {i} is missing required numeric field {field!r}")
+            _require_finite_number(cell[field], f"grid cell {i} {field}")
 
 
 def _dominates(a: dict, b: dict) -> bool:
@@ -168,6 +226,18 @@ def main(argv: list[str] | None = None) -> int:
         return 2
     except json.JSONDecodeError as exc:
         sys.stderr.write(f"{args.grid_json} is not valid JSON: {exc}\n")
+        return 2
+
+    # The cell *values* are operator input too: a boolean/non-numeric/non-finite
+    # numeric field silently fabricates a benchmark row (bool -> 1.0), crashes
+    # `_dominates` with a raw TypeError (non-numeric string), or renders `nan`
+    # (NaN/Infinity token). Validate them at the load boundary, the value sibling
+    # of the structural guards above and of plot_latency's `_reject_bool_numeric`
+    # (#109/#110). A malformed value is bad input -> clean exit 2.
+    try:
+        _validate_cells(grid)
+    except ValueError as exc:
+        sys.stderr.write(f"{args.grid_json} has an invalid grid cell: {exc}\n")
         return 2
 
     # The output paths are operator input too: an unwritable `--out-png`/`--out-svg`
