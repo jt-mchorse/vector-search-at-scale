@@ -706,3 +706,20 @@ external-JSON loader in this repo — `cost_table.py`'s `load_throughput_qps` di
 Folded into #109/#110 (guard before coercion → exit-2) rather than a separate
 near-duplicate same-repo PR. Both matrix.json and c001.json loaders now reject
 boolean numerics.
+
+## 2026-07-21 — plot_hnsw_frontier numeric cell guard (#111, PR #112)
+
+`scripts/plot_hnsw_frontier.py` is the *other* plotter alongside `plot_latency.py`,
+which was hardened in #109/#110 to reject boolean/non-finite numerics in
+`matrix.json`. But `plot_hnsw_frontier` reads `grid.json` cells as plain dicts and
+uses their numeric fields (`mean_recall_at_k`, `p50_ms`, `p95_ms`) directly — in
+the Pareto-frontier computation, the recommended-defaults knee, the scatter plot,
+and the published markdown table — with no value guard. Verified firsthand against
+the committed `results/hnsw-grid/grid.json`: a JSON `true` at a cell field became a
+fabricated `recall=1.000 p95=1.00ms` row and was even selected as the recommended
+knee (exit 0, silent — a §10 no-fabricated-benchmarks violation); a non-numeric
+string raised a raw `TypeError` in `_dominates` (exit 1, breaking the file's own
+exit-2 contract); a NaN token rendered `nan`. Added `_require_finite_number` +
+`_validate_cells` at the load boundary in `main()`, routing the error to exit 2 and
+also turning the pre-existing missing-field `KeyError` into the same clean exit.
+Nine tests. Found via the sibling-incomplete-fix lens on this run's just-merged #110.
