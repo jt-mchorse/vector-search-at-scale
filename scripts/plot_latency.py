@@ -23,12 +23,29 @@ import argparse
 import json
 import sys
 from pathlib import Path
+from typing import Any
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT / "src"))
 
 from vector_bench.harness import LatencyStats, Workload  # noqa: E402
 from vector_bench.load import LoadCell, LoadMatrix, render_table  # noqa: E402
+
+
+def _reject_bool_numeric(value: Any, field: str) -> Any:
+    """Reject a JSON boolean at a numeric field before `int()`/`float()` coercion.
+
+    `bool` subclasses `int`, so `int(True)`/`float(True)` silently coerce a JSON
+    `true`/`false` to `1`/`0` — a fabricated benchmark number that `LoadCell`'s
+    finiteness guards never see (they run *after* the coercion here). A recall of
+    `true` becomes a fabricated perfect `1.0` on the published latency table/plot
+    (handoff §10). The `ValueError` is caught by `main`'s `(TypeError, ValueError,
+    KeyError)` handler and mapped to the documented exit 2, the boolean sibling of
+    the structural/decode guards landed in #108.
+    """
+    if isinstance(value, bool):
+        raise ValueError(f"{field} must be a number, not a bool; got {value!r}")
+    return value
 
 
 def _load_matrix(path: Path) -> LoadMatrix:
@@ -41,11 +58,13 @@ def _load_matrix(path: Path) -> LoadMatrix:
                 run_id=c["run_id"],
                 backend=c["backend"],
                 workload=Workload(**c["workload"]),
-                concurrency=int(c["concurrency"]),
-                ingest_seconds=float(c["ingest_seconds"]),
+                concurrency=int(_reject_bool_numeric(c["concurrency"], "concurrency")),
+                ingest_seconds=float(_reject_bool_numeric(c["ingest_seconds"], "ingest_seconds")),
                 query_latency=LatencyStats(**c["query_latency"]),
-                mean_recall_at_k=float(c["mean_recall_at_k"]),
-                throughput_qps=float(c["throughput_qps"]),
+                mean_recall_at_k=float(
+                    _reject_bool_numeric(c["mean_recall_at_k"], "mean_recall_at_k")
+                ),
+                throughput_qps=float(_reject_bool_numeric(c["throughput_qps"], "throughput_qps")),
                 started_at=c["started_at"],
                 git_sha=c.get("git_sha"),
             )

@@ -686,3 +686,23 @@ but malformed matrix (e.g. `p50_ms: "fast"`) leaked a raw traceback at exit 1. I
 reproduced it firsthand, then broadened the except clause to translate those to a
 clean "not a valid load matrix" exit 2, matching the load subcommand. Shipped as
 PR #108.
+
+## 2026-07-20 (night) — issue #109: boolean numeric fabricated a benchmark value
+
+The `plot_latency.py` `matrix.json` loader — hardened by the just-merged #108 for
+structural/decode errors — still silently coerced a boolean numeric into a
+fabricated benchmark value. `float(True)` is `1.0`, so a JSON `true` at
+`mean_recall_at_k`/`throughput_qps`/`ingest_seconds` became a fake perfect number
+before `LoadCell`'s finiteness guards ran, and a boolean nested latency field
+reached `LatencyStats(**...)` raw where `math.isfinite(True)` is `True`. Rejected
+bool before coercion in `_load_matrix` (→ the #108 exit-2 handler) and added the
+bool exclusion to `LatencyStats.__post_init__`. Five tests. Found via a
+second-order sibling hunt on #108 combined with the ems bool-before-coercion vein.
+PR #110.
+
+_Addendum (same PR #110):_ the same boolean-coercion class was found in a second
+external-JSON loader in this repo — `cost_table.py`'s `load_throughput_qps` did
+`float(payload["throughput_qps"])`, fabricating `1.0` qps from a JSON `true`.
+Folded into #109/#110 (guard before coercion → exit-2) rather than a separate
+near-duplicate same-repo PR. Both matrix.json and c001.json loaders now reject
+boolean numerics.

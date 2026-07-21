@@ -154,7 +154,16 @@ def load_throughput_qps(results_dir: Path) -> float:
             f"to produce it."
         )
     payload = json.loads(c01_path.read_text(encoding="utf-8"))
-    return float(payload["throughput_qps"])
+    qps = payload["throughput_qps"]
+    # Reject a boolean before `float()` coercion: `bool` subclasses `int`, so
+    # `float(True)` is `1.0` — a JSON `true` in a hand-edited/externally-produced
+    # c001.json would silently amortize the cost table over a fabricated 1.0 qps
+    # (handoff §10). `float()` already raises ValueError on a non-numeric string
+    # (caught by `main`'s exit-2 handler), but a bool coerces cleanly, so guard it
+    # explicitly — the sibling of the `plot_latency._load_matrix` boolean guard.
+    if isinstance(qps, bool):
+        raise ValueError(f"throughput_qps must be a number, not a bool; got {qps!r}")
+    return float(qps)
 
 
 # ----------------------------------------------------------------------

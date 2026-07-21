@@ -117,6 +117,19 @@ def test_load_throughput_qps_raises_when_c001_missing(tmp_path: Path):
         load_throughput_qps(run_dir)
 
 
+@pytest.mark.parametrize("bad", [True, False])
+def test_load_throughput_qps_rejects_boolean(tmp_path: Path, bad: bool):
+    # bool subclasses int, so `float(True)` is 1.0 — a JSON `true` in a
+    # hand-edited c001.json would amortize the cost table over a fabricated 1.0
+    # qps. Reject it (ValueError -> main's exit-2 handler), the sibling of the
+    # plot_latency._load_matrix boolean guard.
+    run_dir = tmp_path / "load" / "stub-10k"
+    run_dir.mkdir(parents=True)
+    (run_dir / "c001.json").write_text(json.dumps({"throughput_qps": bad}))
+    with pytest.raises(ValueError, match="throughput_qps must be a number"):
+        load_throughput_qps(run_dir)
+
+
 # ----- build_rows --------------------------------------------------------
 
 

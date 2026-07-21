@@ -121,7 +121,14 @@ class LatencyStats:
             ("p99_ms", self.p99_ms),
             ("max_ms", self.max_ms),
         ):
-            if not math.isfinite(value) or value < 0:
+            # bool excluded explicitly: it subclasses int, so `math.isfinite(True)`
+            # is True and `True < 0` is False — a boolean latency (from a hand-
+            # edited or JSON-reconstructed instance, e.g. `plot_latency`'s
+            # `LatencyStats(**c["query_latency"])`) would pass and serialize a
+            # fabricated 1.0/0.0 ms into the benchmark (handoff §10). Sibling of
+            # the int-field bool guards in `Workload` (#29) and the ems#108/#109
+            # bool-before-coercion vein.
+            if isinstance(value, bool) or not math.isfinite(value) or value < 0:
                 raise ValueError(f"{name} must be a finite number >= 0, got {value!r}")
 
     def to_dict(self) -> dict[str, Any]:
