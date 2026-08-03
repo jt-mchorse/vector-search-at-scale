@@ -723,3 +723,42 @@ exit-2 contract); a NaN token rendered `nan`. Added `_require_finite_number` +
 `_validate_cells` at the load boundary in `main()`, routing the error to exit 2 and
 also turning the pre-existing missing-field `KeyError` into the same clean exit.
 Nine tests. Found via the sibling-incomplete-fix lens on this run's just-merged #110.
+
+## 2026-08-03 — Issue #113: three tests that no install could ever run
+
+Three tests guard on `pytest.importorskip("matplotlib")`, and matplotlib was
+declared nowhere in `pyproject.toml` — not in `dependencies`, not in any extra.
+So there was no documented install of this repo under which they could run.
+They skipped in CI, they skipped for anyone following the README, and the
+`python` job reported green through all of it. This is strictly worse than the
+sibling case in llm-cost-optimizer#170, where the extra existed and CI simply
+did not install it.
+
+What was going unprotected is not marginal. `scripts/plot_latency.py` and
+`scripts/plot_hnsw_frontier.py` are both documented with quickstart commands,
+and the README calls the committed frontier plot "real". Two of the three tests
+exist specifically to cover the write seam — their own comments say so — which
+is the same seam class as #107, a bug that was real in that very file.
+
+The part worth carrying forward is the discrimination. The identical skip
+pattern is *deliberate* in two sibling repos: chunking-strategies-lab's D-009
+puts matplotlib behind a `[notebook]` extra and explicitly rejects "matplotlib
+in base install breaks dep-free default", and embedding-model-shootout has the
+equivalent decision. Filing a CI-install fix against those would have walked
+straight into a non-superseded decision. vector-search-at-scale has no such
+decision and did not offer the extra at all, and its base dependencies already
+carry numpy, so the dep-free-base rationale does not transfer either. Check
+`core_decisions_ai.md` before treating a skipping test as a bug; the two
+siblings went to JT as decision-revisits instead.
+
+The lock is derived from the suite rather than hardcoding matplotlib, so the
+next `importorskip` cannot repeat this quietly. It asserts two things in order
+of sharpness: the guarded module must be provided by some declared extra (a
+guard naming an undeclared module is a dead test, not a conditional one), and
+CI must install an extra that provides it. There is an `_EXPECTED_DORMANT`
+escape hatch so "this test is meant to stay dormant" has to be stated rather
+than happen by accident. Both assertions were verified by reverting each change
+in turn and reading the diagnostic.
+
+Fresh 3.11 and 3.12 venvs: three skips to zero, full suite green. Shipped as
+PR #114.
