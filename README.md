@@ -145,6 +145,8 @@ writing one JSON per cell + a `matrix.json` summary under
 `results/load/<id>/`. `scripts/plot_latency.py` reads one or more
 `matrix.json` files and emits a markdown table plus optional PNG charts
 (matplotlib is lazy-imported; degrades to "chart skipped" if absent).
+Install the renderer with the `[plot]` extra — `pip install -e '.[plot]'` —
+to get the charts rather than the skip path.
 
 The committed `results/load/stub-10k/matrix.json` is a real
 in-process numpy run (10 000 corpus vectors × 64 dims × 500 queries, M-series
@@ -195,6 +197,7 @@ committed simulation grid):
 Reproduce:
 
 ```bash
+pip install -e '.[plot]'          # matplotlib, for the frontier renderer
 python scripts/hnsw_grid.py \
     --M 8,16,32 --ef-construction 50,100,200 --ef-search 16,32,64,128 \
     --out-dir results/hnsw-grid

@@ -31,6 +31,17 @@ dependencies = [
 pgvector = ["psycopg[binary]>=3.2"]
 qdrant = ["qdrant-client>=1.10"]
 weaviate = ["weaviate-client>=4.7"]
+# Rendering deps for the two documented plotting scripts
+# (scripts/plot_latency.py, scripts/plot_hnsw_frontier.py). matplotlib was
+# previously declared nowhere, so the three `importorskip("matplotlib")`
+# write-seam tests guarding those scripts could not run under *any*
+# documented install — not in CI, not for a reader following the README
+# (#113). Named `plot` to match embedding-model-shootout's extra of the
+# same name. Kept opt-in rather than a base dependency because the
+# measurement path never renders; unlike the sibling repos, though, this
+# base install already carries numpy, so there is no dep-free-base
+# property to preserve here.
+plot = ["matplotlib>=3.8"]
 dev = [
   "pytest>=8.0",
   "ruff>=0.5",

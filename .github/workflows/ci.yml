@@ -68,8 +68,12 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+      # `[plot]` is installed alongside `[dev]` so the three
+      # `importorskip("matplotlib")` write-seam tests in test_plot_latency.py
+      # and test_hnsw_grid.py actually execute. Without it they skipped every
+      # run and this job still reported green (#113).
       - name: install dev extras
-        run: pip install -e '.[dev]'
+        run: pip install -e '.[dev,plot]'
       - name: ruff lint
         run: ruff check src/ tests/
       - name: pytest
