@@ -762,3 +762,69 @@ in turn and reading the diagnostic.
 
 Fresh 3.11 and 3.12 venvs: three skips to zero, full suite green. Shipped as
 PR #114.
+
+## 2026-08-05 — the cost-table guards were raising into nothing (#115)
+
+`scripts/cost_table.py` reads two kinds of operator input: the Terraform file
+that defines per-tier sizing, and one `c001.json` per tier carrying the measured
+`throughput_qps`. `main()` wraps both in a `try` — and that `try` caught
+`FileNotFoundError`, `UnicodeDecodeError` and `json.JSONDecodeError`. Nothing
+else.
+
+What makes that a bug rather than a gap is what the code inside the block does.
+It deliberately raises the exceptions there is no arm for. `load_throughput_qps`
+guards against a JSON `true` (because `bool` subclasses `int`, so `float(True)`
+would amortize the whole table over a fabricated 1.0 qps), and the comment
+introducing that guard says:
+
+> `float()` already raises ValueError on a non-numeric string (caught by
+> `main`'s exit-2 handler), but a bool coerces cleanly, so guard it explicitly
+
+There was no such handler. The guard had been raising into nothing since it
+landed, and so had `float()`'s own `ValueError`, `parse_terraform_tiers`'
+tier-block errors, `float(None)`'s `TypeError`, the `KeyError` from an absent
+field, and `cost_per_query`'s positive-and-finite refusal. Nine input shapes,
+all verified firsthand, all exiting 1 with a raw traceback:
+
+| input | escaped as |
+| --- | --- |
+| `{"throughput_qps": true}` | `ValueError: … not a bool` — the guard's own message |
+| `{"throughput_qps": "abc"}` | `ValueError: could not convert string to float` |
+| `{"throughput_qps": null}` | `TypeError: float() argument must be…` |
+| `{"qps": 5}` | `KeyError: 'throughput_qps'` |
+| `{"throughput_qps": 0}` | `ValueError: … positive and finite` |
+| `{"throughput_qps": Infinity}` | same |
+| `[1,2]` | `TypeError: list indices must be…` |
+| `--tf-main` with no tier blocks | `ValueError: … missing tier blocks` |
+| `--tf-main` with an incomplete tier | `ValueError: … missing one or more required fields` |
+
+The repo has three scripts that load operator JSON and publish a benchmark
+artifact, and they should agree on what a malformed input means. Two do:
+`plot_latency.py` catches `(TypeError, ValueError, KeyError)` outright, and
+`plot_hnsw_frontier.py` funnels every value-level problem through
+`_validate_cells` into a `ValueError` it then catches. `cost_table.py` had the
+write-seam `OSError` guard from #96 and the two decode arms, and nothing on the
+value axis — the sole gap. It even had an `except ValueError → return 2` a few
+lines earlier for `_parse_load_results_overrides`, so the contract was
+established in the very same function; the load block just never got the arm.
+
+Two details made the fix less mechanical than it looks. `UnicodeDecodeError`
+and `json.JSONDecodeError` are both `ValueError` subclasses, so the new broad
+arm has to sit *below* them or it swallows their specific messages. And
+`cost_per_query`'s check doesn't fire in the load block at all — it fires from
+`build_rows`, which runs after it — so the zero/NaN/Infinity cases needed their
+own arm at that call site. The general lesson: when adding a catch arm, trace
+where each guard actually *raises*, not where the value is read.
+
+Messages now name which input failed, since `main` reads several paths and an
+undifferentiated "invalid input" leaves the operator guessing.
+
+Thirteen tests cover all nine shapes plus the happy path. Each asserts exit 2
+**and** that stderr carries no `Traceback` — the exit code alone can't
+distinguish "handled cleanly" from "handled, then dumped a stack anyway" — and
+the unusable-qps cases additionally assert no file was published. The parity
+lock is derived rather than restated: it walks both scripts' `ExceptHandler`
+nodes with `ast` and asserts both carry the three types, so a future divergence
+in either file fails here instead of relying on someone remembering.
+
+Full suite 398 passed; ruff clean under 0.15.13 and 0.16.1.
