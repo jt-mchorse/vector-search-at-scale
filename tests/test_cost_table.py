@@ -466,3 +466,138 @@ def test_main_missing_results_dir_exits_2_with_operator_message(tmp_path: Path, 
     assert rc == 2
     err = capsys.readouterr().err
     assert "Re-run the load harness" in err
+
+
+# ----- the value axis of the exit-code contract (#115) -----------------------
+#
+# `main`'s input-load block caught FileNotFoundError / UnicodeDecodeError /
+# json.JSONDecodeError only, while the guards *inside* it deliberately raise
+# ValueError (bool qps, non-numeric string, zero/NaN/Infinity qps via
+# cost_per_query, terraform tier problems), TypeError (null / non-object
+# payload) and KeyError (absent field). Every one escaped as a raw traceback at
+# exit 1, so those guards were raising into nothing — `load_throughput_qps`'s
+# own comment even claimed `main` translated them. `plot_latency.main` has had
+# the `(TypeError, ValueError, KeyError)` arm all along; these lock the parity.
+#
+# Each case asserts exit 2 AND the absence of a traceback: the exit code alone
+# can't distinguish "handled cleanly" from "handled, then dumped a stack anyway".
+
+
+def _write_c001(tmp_path: Path, body: str) -> Path:
+    results_dir = tmp_path / "load"
+    results_dir.mkdir(exist_ok=True)
+    (results_dir / "c001.json").write_text(body, encoding="utf-8")
+    return results_dir
+
+
+@pytest.mark.parametrize(
+    ("body", "needle"),
+    [
+        # ValueError from load_throughput_qps's own bool guard — the one whose
+        # comment asserted it reached an exit-2 handler that did not exist.
+        ('{"throughput_qps": true}', "not a bool"),
+        # ValueError from float() on a non-numeric string.
+        ('{"throughput_qps": "abc"}', "could not convert string to float"),
+        # TypeError from float(None).
+        ('{"throughput_qps": null}', "float()"),
+        # KeyError from the absent required field.
+        ('{"qps": 5}', "throughput_qps"),
+        # TypeError from subscripting a non-object payload.
+        ("[1, 2]", "list indices"),
+    ],
+)
+def test_main_structurally_invalid_c001_exits_2_naming_the_file(
+    tmp_path: Path, capsys, body: str, needle: str
+):
+    results_dir = _write_c001(tmp_path, body)
+    rc = main(["--dry", "--load-results", f"1m={results_dir}", "--out", str(tmp_path / "out.md")])
+    assert rc == 2
+    err = capsys.readouterr().err
+    assert "Traceback" not in err
+    # The message names *which* input was bad — `main` reads the terraform file
+    # and one c001.json per tier, so an undifferentiated message is unactionable.
+    assert str(results_dir) in err
+    assert needle in err
+
+
+@pytest.mark.parametrize("qps_literal", ["0", "NaN", "Infinity"])
+def test_main_unusable_qps_exits_2_rather_than_fabricating_a_row(
+    tmp_path: Path, capsys, qps_literal: str
+):
+    # These pass float() cleanly and are only rejected one layer down by
+    # `cost_per_query`, which fires *after* the load block. An Infinity qps would
+    # otherwise amortize to a fabricated $0.00/query row (handoff §10), and the
+    # refusal that prevents that has to reach the operator as exit 2. `NaN` and
+    # `Infinity` are bare tokens `json.loads` parses natively, so no Python is
+    # needed to produce such a c001.json.
+    results_dir = _write_c001(tmp_path, f'{{"throughput_qps": {qps_literal}}}')
+    out_path = tmp_path / "out.md"
+    rc = main(["--dry", "--load-results", f"1m={results_dir}", "--out", str(out_path)])
+    assert rc == 2
+    err = capsys.readouterr().err
+    assert "Traceback" not in err
+    assert "positive and finite" in err
+    # Nothing was published: the refusal happens before the write seam.
+    assert not out_path.exists()
+
+
+@pytest.mark.parametrize(
+    ("tf_body", "needle"),
+    [
+        # No tier blocks at all.
+        ('variable "x" {}\n', "missing tier blocks"),
+        # A tier block present but missing required fields.
+        ('"1m" = { instance_type = "m5.large" }\n"10m" = {}\n"100m" = {}\n', "missing one or more"),
+    ],
+)
+def test_main_invalid_tf_main_exits_2_naming_the_file(
+    tmp_path: Path, capsys, tf_body: str, needle: str
+):
+    # `--tf-main` is documented operator input. A file that reads and decodes but
+    # doesn't parse as tier sizing raises ValueError out of parse_terraform_tiers,
+    # which had no arm — the terraform-side sibling of the c001.json cases above.
+    tf = tmp_path / "main.tf"
+    tf.write_text(tf_body, encoding="utf-8")
+    rc = main(["--dry", "--tf-main", str(tf), "--out", str(tmp_path / "out.md")])
+    assert rc == 2
+    err = capsys.readouterr().err
+    assert "Traceback" not in err
+    assert str(tf) in err
+    assert needle in err
+
+
+def test_main_happy_path_still_exits_0_and_writes(tmp_path: Path):
+    # The new arm must not swallow a working run. Guards that only ever fire are
+    # indistinguishable from guards that always fire without this.
+    results_dir = _write_c001(tmp_path, '{"throughput_qps": 5}')
+    out_path = tmp_path / "out.md"
+    rc = main(["--dry", "--load-results", f"1m={results_dir}", "--out", str(out_path)])
+    assert rc == 0
+    assert out_path.exists()
+    assert "| Scale | Engine |" in out_path.read_text(encoding="utf-8")
+
+
+def test_cost_table_matches_plot_latency_value_axis_catch_shape():
+    """`cost_table.main` and `plot_latency.main` must agree on which exception
+    types are bad operator input, or the two published artifacts disagree on
+    what a malformed results file means. Derived from the sources rather than
+    restated, so a future divergence in either file fails here."""
+    import ast
+
+    def value_axis_arms(path: Path) -> set[str]:
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        found: set[str] = set()
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.ExceptHandler) or node.type is None:
+                continue
+            names = node.type.elts if isinstance(node.type, ast.Tuple) else [node.type]
+            caught = {n.id for n in names if isinstance(n, ast.Name)}
+            if {"TypeError", "ValueError", "KeyError"} & caught:
+                found |= caught
+        return found
+
+    scripts_dir = _REPO_ROOT / "scripts"
+    assert {"TypeError", "ValueError", "KeyError"} <= value_axis_arms(scripts_dir / "cost_table.py")
+    assert {"TypeError", "ValueError", "KeyError"} <= value_axis_arms(
+        scripts_dir / "plot_latency.py"
+    )
