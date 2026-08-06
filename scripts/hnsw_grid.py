@@ -121,6 +121,23 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--backend", default="hnsw-sim")
     args = p.parse_args(argv)
 
+    # `_parse_int_list` drops empty segments, so `--M ''` (and `--M ','`) parse
+    # to `[]` rather than raising. An empty axis makes the `itertools.product`
+    # in `run_grid` yield nothing, so the script wrote a **zero-cell grid.json**
+    # and exited 0, announcing a successful grid run — a degenerate artifact
+    # published as a benchmark (handoff §10). The failure only surfaced later,
+    # in a different script, as `plot_hnsw_frontier`'s "grid has no cells;
+    # nothing to plot". Reject it here, mirroring `_do_load`'s
+    # "--concurrency must contain at least one value" (#117).
+    for flag, values in (
+        ("--M", args.M),
+        ("--ef-construction", args.ef_construction),
+        ("--ef-search", args.ef_search),
+    ):
+        if not values:
+            sys.stderr.write(f"{flag} must contain at least one value\n")
+            return 2
+
     # `--out-dir` is operator input too: an unwritable target (a read-only
     # filesystem, a permission-denied dir, or a path component that is a file)
     # makes `run_grid`'s writes — `out_dir.mkdir`, the per-cell result JSON, and
@@ -142,6 +159,22 @@ def main(argv: list[str] | None = None) -> int:
             out_dir=args.out_dir,
             backend_name=args.backend,
         )
+    except ValueError as exc:
+        # `run_grid` builds a `Workload` (which validates `n_vectors`, `dim`,
+        # `n_queries`, `top_k`) and calls `make_backend`, and both report a bad
+        # value by raising ValueError. That construction sat inside a try that
+        # caught OSError only, so `--n-vectors 0`, `--dim 0`, `--top-k -3`,
+        # `--M 0`, `--ef-search 0`, `--backend bogus` and friends all escaped as
+        # raw tracebacks at exit 1 (#117).
+        #
+        # This is the fourth entry point in the repo that constructs a
+        # `Workload` + a backend, and the only one that never got this arm:
+        # `cli._do_run` and `cli._do_load` both wrap the identical call and land
+        # the same ValueError as a clean exit 2 (#83), and `_do_load`'s comment
+        # describes precisely this bug shape. Reuse their neutral `error:`
+        # prefix so the three read the same.
+        sys.stderr.write(f"error: {exc}\n")
+        return 2
     except OSError as exc:
         sys.stderr.write(f"could not write under {args.out_dir}: {exc}\n")
         return 2

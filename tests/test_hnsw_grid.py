@@ -235,3 +235,165 @@ def test_main_malformed_json_grid_exits_2_not_traceback(tmp_path: Path, capsys):
     err = capsys.readouterr().err
     assert "not valid JSON" in err
     assert str(bad) in err
+
+
+# ----- degenerate grid dimensions (#117) -------------------------------------
+#
+# `run_grid` builds a `Workload` (validating n_vectors/dim/n_queries/top_k) and
+# calls `make_backend`, and both report a bad value by raising ValueError. That
+# call sat inside a try catching OSError only, so every degenerate dimension
+# escaped as a raw traceback at exit 1. This is the fourth entry point in the
+# repo that constructs a Workload + backend and the only one that lacked the
+# arm — `cli._do_run` and `cli._do_load` both land the same ValueError as a
+# clean exit 2 (#83), and `_do_load`'s comment describes exactly this shape.
+
+
+def _grid_argv(out_dir: Path, overrides: dict[str, str] | None = None) -> list[str]:
+    """A minimal, fast, valid grid invocation, with flags replaced by name.
+
+    Keys are the full flag spellings (`"--top-k"`), so an override always
+    *replaces* a default rather than appending a second occurrence.
+    """
+    flags = {
+        "--n-vectors": "50",
+        "--n-queries": "5",
+        "--dim": "8",
+        "--top-k": "3",
+        "--M": "8",
+        "--ef-construction": "20",
+        "--ef-search": "16",
+    }
+    for key in overrides or {}:
+        assert key in flags, f"override {key!r} is not one of {sorted(flags)}"
+    flags.update(overrides or {})
+    argv: list[str] = []
+    for k, v in flags.items():
+        argv += [k, v]
+    return argv + ["--out-dir", str(out_dir)]
+
+
+@pytest.mark.parametrize(
+    ("override", "needle"),
+    [
+        ({"--n-vectors": "0"}, "n_vectors must be positive"),
+        ({"--n-vectors": "-5"}, "n_vectors must be positive"),
+        ({"--dim": "0"}, "dim must be positive"),
+        ({"--n-queries": "0"}, "n_queries must be positive"),
+        ({"--top-k": "0"}, "top_k must be positive"),
+        ({"--top-k": "-3"}, "top_k must be positive"),
+        ({"--M": "0"}, "M must be positive"),
+        ({"--ef-search": "0"}, "ef_search must be positive"),
+    ],
+)
+def test_main_degenerate_dimension_exits_2_not_traceback(
+    tmp_path: Path, capsys, override: dict, needle: str
+):
+    rc = hnsw_grid_main(_grid_argv(tmp_path, override))
+    err = capsys.readouterr().err
+    assert rc == 2
+    assert needle in err
+    # `error:` is the neutral prefix `_do_run`/`_do_load` use for this class, so
+    # all three entry points read the same.
+    assert err.startswith("error:")
+    assert "Traceback" not in err
+    # Nothing was published for a run that never should have started.
+    assert not (tmp_path / "grid.json").exists()
+
+
+def test_main_unknown_backend_exits_2_not_traceback(tmp_path: Path, capsys):
+    rc = hnsw_grid_main(_grid_argv(tmp_path) + ["--backend", "bogus"])
+    err = capsys.readouterr().err
+    assert rc == 2
+    assert "unknown backend" in err
+    assert "Traceback" not in err
+    assert not (tmp_path / "grid.json").exists()
+
+
+@pytest.mark.parametrize("flag", ["--M", "--ef-construction", "--ef-search"])
+@pytest.mark.parametrize("empty", ["", ",", " , "])
+def test_main_empty_axis_list_exits_2_and_writes_nothing(
+    tmp_path: Path, capsys, flag: str, empty: str
+):
+    """The worst of the set: `_parse_int_list` drops empty segments, so an empty
+    axis parsed to `[]`, `itertools.product` yielded nothing, and the script
+    wrote a ZERO-CELL grid.json and exited 0 — announcing a successful grid run.
+    A degenerate artifact published as a benchmark (handoff §10); the failure
+    only surfaced later as plot_hnsw_frontier's "grid has no cells"."""
+    rc = hnsw_grid_main(_grid_argv(tmp_path, {flag: empty}))
+    err = capsys.readouterr().err
+    assert rc == 2
+    assert f"{flag} must contain at least one value" in err
+    assert "Traceback" not in err
+    # The regression this locks: pre-fix a grid.json existed here, with 0 cells.
+    assert not (tmp_path / "grid.json").exists()
+
+
+def test_main_valid_tiny_grid_still_exits_0_and_writes_cells(tmp_path: Path, capsys):
+    """The new guards must not swallow a working run."""
+    rc = hnsw_grid_main(_grid_argv(tmp_path))
+    _ = capsys.readouterr()
+    assert rc == 0
+    grid = json.loads((tmp_path / "grid.json").read_text())
+    assert len(grid["cells"]) == 1
+
+
+def test_every_cli_workload_construction_is_guarded_against_valueerror():
+    """`Workload(...)` behind a CLI must sit inside a `ValueError`-catching try,
+    or that entry point reports a bad dimension as an exit-1 traceback. Derived
+    from the sources by walking the AST, so a fifth entry point reintroducing
+    the gap fails here rather than depending on someone remembering."""
+    import ast
+
+    def unguarded_sites(path: Path) -> list[int]:
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        guarded: set[int] = set()
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Try):
+                continue
+            catches_value_error = any(
+                "ValueError"
+                in {
+                    n.id
+                    for n in (
+                        h.type.elts if isinstance(h.type, ast.Tuple) else [h.type] if h.type else []
+                    )
+                    if isinstance(n, ast.Name)
+                }
+                for h in node.handlers
+            )
+            if not catches_value_error:
+                continue
+            for inner in ast.walk(node):
+                guarded.add(id(inner))
+        bad: list[int] = []
+        for node in ast.walk(tree):
+            if (
+                isinstance(node, ast.Call)
+                and isinstance(node.func, ast.Name)
+                and node.func.id == "Workload"
+                and id(node) not in guarded
+            ):
+                bad.append(node.lineno)
+        return bad
+
+    # `run_grid` is a library function called from `main` inside the guarded try,
+    # so the guard is one frame up; assert on the entry points that own a `main`.
+    cli_path = _REPO_ROOT / "src" / "vector_bench" / "cli.py"
+    assert unguarded_sites(cli_path) == [], (
+        f"unguarded Workload(...) in cli.py at lines {unguarded_sites(cli_path)}"
+    )
+    # hnsw_grid's Workload lives in run_grid; what must be guarded is main's
+    # `run_grid(...)` call, which the ValueError arm now covers.
+    grid_src = (_REPO_ROOT / "scripts" / "hnsw_grid.py").read_text(encoding="utf-8")
+    grid_tree = ast.parse(grid_src)
+    main_fn = next(
+        n for n in ast.walk(grid_tree) if isinstance(n, ast.FunctionDef) and n.name == "main"
+    )
+    arms = {
+        n.id
+        for h in ast.walk(main_fn)
+        if isinstance(h, ast.ExceptHandler) and h.type is not None
+        for n in (h.type.elts if isinstance(h.type, ast.Tuple) else [h.type])
+        if isinstance(n, ast.Name)
+    }
+    assert {"ValueError", "OSError"} <= arms

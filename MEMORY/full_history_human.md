@@ -828,3 +828,61 @@ nodes with `ast` and asserts both carry the three types, so a future divergence
 in either file fails here instead of relying on someone remembering.
 
 Full suite 398 passed; ruff clean under 0.15.13 and 0.16.1.
+## 2026-08-05 — the grid generator's guards had no catcher, and an empty axis published a zero-cell benchmark (#117)
+
+`scripts/hnsw_grid.py::main` wrapped `run_grid(...)` in a `try` that caught
+`OSError` only. But `run_grid` builds a `Workload` — which validates
+`n_vectors`, `dim`, `n_queries` and `top_k` — and calls `make_backend`, and both
+report a bad value by raising `ValueError`. So every degenerate grid dimension
+escaped as a raw traceback at exit 1: `--n-vectors 0`, `--n-vectors -5`,
+`--dim 0`, `--n-queries 0`, `--top-k 0`, `--top-k -3`, `--M 0`, `--ef-search 0`,
+and `--backend bogus`.
+
+This repo had already fixed that shape twice and left a comment describing it.
+`cli._do_load`:
+
+> `Workload.__post_init__` validates the dimensions (`--n 0`, `--top-k` > `--n`,
+> etc.). This construction sat OUTSIDE the `run_under_load` try below, so a bad
+> `--n`/`--top-k`/`--queries` leaked a raw traceback at exit 1 — while the
+> sibling `run` subcommand (`_do_run`) wraps the identical `Workload(...)` and
+> lands the same ValueError as a clean exit 2 (#83).
+
+`hnsw_grid.py` is the fourth entry point that constructs a `Workload` plus a
+backend, and the only one that never got that arm.
+
+The tenth shape is worse than the nine tracebacks. `_parse_int_list` drops empty
+segments, so `--M ''` parses to `[]` rather than raising. `itertools.product`
+over an empty axis yields nothing, so the script wrote a **zero-cell
+`grid.json`** and exited 0 — printing `wrote …/grid.json`, exactly as a
+successful run does. A degenerate artifact published as a benchmark, and the
+failure only surfaced later, in a different script, as `plot_hnsw_frontier`'s
+`grid has no cells; nothing to plot`. `_do_load` already treats the analogous
+case as an operator error (`--concurrency must contain at least one value`); the
+three axis flags here had no such check. They do now, with the same wording,
+running before any work.
+
+Twenty-two tests. The empty-axis ones assert **no `grid.json` was written**
+rather than only the exit code, because the regression being locked is precisely
+that a file appeared — an exit-code assertion alone would have missed it. The
+parity lock is AST-derived: it walks `cli.py` for any `Workload(...)` call not
+inside a `ValueError`-catching `try`, and asserts `hnsw_grid`'s `main` carries
+both arms, so a fifth entry point fails here rather than depending on someone
+remembering.
+
+Validation-only. No artifact is regenerated, and the recommended-defaults knee
+(JT-gated, #78) and the exact-recall question (#71) are untouched.
+
+Two process notes. This came from the same AST scan of every `main`/`cli`
+function's exception arms that produced the `llm-cost-optimizer` fix earlier in
+the run — one scan, two repos, two shipped fixes; worth re-running whenever a new
+CLI lands. And three rounds of probing were wasted on a shell quirk: zsh does not
+word-split unquoted parameter expansions, so a `$BASE` variable holding flags
+arrived as a single argument and argparse answered `unrecognized arguments`,
+which I briefly misread as a finding. Drive CLI probes from Python by calling
+`main(argv)` directly.
+
+Full suite 406 passed; ruff clean under 0.15.13 and 0.16.1.
+
+**Merge note:** #116 and #118 are both open on this repo. They touch different
+scripts, so there is no source conflict, but both append to these MEMORY files —
+merge #116 first, then rebase #118.
