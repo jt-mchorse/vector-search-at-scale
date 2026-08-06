@@ -158,9 +158,13 @@ def load_throughput_qps(results_dir: Path) -> float:
     # Reject a boolean before `float()` coercion: `bool` subclasses `int`, so
     # `float(True)` is `1.0` — a JSON `true` in a hand-edited/externally-produced
     # c001.json would silently amortize the cost table over a fabricated 1.0 qps
-    # (handoff §10). `float()` already raises ValueError on a non-numeric string
-    # (caught by `main`'s exit-2 handler), but a bool coerces cleanly, so guard it
-    # explicitly — the sibling of the `plot_latency._load_matrix` boolean guard.
+    # (handoff §10). `float()` already raises ValueError on a non-numeric string,
+    # but a bool coerces cleanly, so guard it explicitly — the sibling of the
+    # `plot_latency._load_matrix` boolean guard. Both that ValueError and this one
+    # reach `main`'s `(TypeError, ValueError, KeyError)` arm and become a clean
+    # exit 2. Before #115 that arm did not exist, so this guard — and the comment
+    # here that already asserted it was "caught by `main`'s exit-2 handler" —
+    # raised into nothing and surfaced as a traceback at exit 1 instead.
     if isinstance(qps, bool):
         raise ValueError(f"throughput_qps must be a number, not a bool; got {qps!r}")
     return float(qps)
@@ -401,6 +405,11 @@ def main(argv: list[str] | None = None) -> int:
     # rather than let it escape as a raw traceback (#83/#84/#85). This also lets
     # `load_throughput_qps`'s carefully-worded "Re-run the load harness" message
     # actually reach the operator instead of being buried in a stack trace.
+    # Names whichever input the block below is currently reading, so the
+    # value-axis handler can say *which* file was bad. `main` loads the
+    # terraform file and then one `c001.json` per tier, so an undifferentiated
+    # "invalid input" would leave the operator to guess among several paths.
+    current_input = args.tf_main
     try:
         tf_text = Path(args.tf_main).read_text(encoding="utf-8")
         tiers = parse_terraform_tiers(tf_text)
@@ -411,10 +420,12 @@ def main(argv: list[str] | None = None) -> int:
         for tier in SCALE_TIERS:
             if tier in load_overrides:
                 override_dir = load_overrides[tier]
+                current_input = f"{override_dir}/c001.json"
                 qps = load_throughput_qps(override_dir)
                 qps_by_tier[tier] = qps
                 qps_source[tier] = f"`{override_dir}/c001.json` (real)"
             else:
+                current_input = f"{results_dir / args.run_id}/c001.json"
                 qps = load_throughput_qps(results_dir / args.run_id)
                 qps_by_tier[tier] = qps
                 marker = "(simulated)" if args.dry else ""
@@ -442,6 +453,31 @@ def main(argv: list[str] | None = None) -> int:
         # wrong-shape c001.json stays out of scope, matching the plot scripts.)
         print(f"input file is not valid JSON: {exc}", file=sys.stderr)
         return 2
+    except (TypeError, ValueError, KeyError) as exc:
+        # A file that parses as JSON (or as terraform) but isn't a valid input is
+        # the same class of bad operator input as the decode failures above —
+        # and unlike them, this block *deliberately raises these very
+        # exceptions*: `load_throughput_qps`'s bool guard and `float()` coercion
+        # raise ValueError, a null/array payload raises TypeError out of
+        # `float(None)` / `payload["throughput_qps"]`, an absent key raises
+        # KeyError, `cost_per_query`'s finiteness check raises ValueError for a
+        # zero/NaN/Infinity qps, and `parse_terraform_tiers` raises ValueError
+        # for a `--tf-main` missing tier blocks or tier fields. Every one of them
+        # used to escape as a raw traceback at exit 1, so the guards were raising
+        # into nothing (#115). Translate to a clean exit 2, matching
+        # `plot_latency.main`'s `(TypeError, ValueError, KeyError)` arm verbatim
+        # and the `except ValueError` arm `_parse_load_results_overrides` already
+        # has a few lines up, per the #83/#84/#85 exit-code contract.
+        #
+        # Arm order is load-bearing: `UnicodeDecodeError` and
+        # `json.JSONDecodeError` are both `ValueError` subclasses, so they must
+        # stay above this one to keep their more specific messages.
+        #
+        # Deep schema validation of a well-formed-but-wrong-shape `c001.json`
+        # stays out of scope here, matching the explicit scoping in the plot
+        # scripts; this only fixes how such a file is *reported*.
+        print(f"{current_input} is not a valid cost-table input: {exc}", file=sys.stderr)
+        return 2
 
     prices = aws_us_east_1_snapshot()
 
@@ -453,7 +489,25 @@ def main(argv: list[str] | None = None) -> int:
     for t in SCALE_TIERS:
         _tier_to_instance[t] = tiers[t].instance_type
 
-    rows = build_rows(tiers, qps_by_tier, prices)
+    # `cost_per_query`'s own validation lives one layer down and fires *here*,
+    # not in the load block above: a `throughput_qps` of `0`, `NaN` or
+    # `Infinity` passes `float()` cleanly at load time and is only rejected when
+    # the amortization runs. That check is correct (an infinite qps would
+    # fabricate a `$0.00/query` row) but it raised `ValueError` past the end of
+    # the guarded block and out as a raw traceback at exit 1 — the same
+    # raising-into-nothing gap as the load-block guards (#115). Same arm, so the
+    # cost model's refusal reaches the operator as a clean exit 2. The message
+    # points at the throughput sources because that is the only operator input
+    # feeding this call.
+    try:
+        rows = build_rows(tiers, qps_by_tier, prices)
+    except (TypeError, ValueError, KeyError) as exc:
+        sources = ", ".join(sorted({s.replace("`", "") for s in qps_source.values()}))
+        print(
+            f"cost model rejected a measured throughput (from {sources}): {exc}",
+            file=sys.stderr,
+        )
+        return 2
     md = render_markdown(rows, prices=prices, qps_source=qps_source)
 
     out_path = Path(args.out)
