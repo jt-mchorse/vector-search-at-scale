@@ -273,7 +273,8 @@ def test_chart_name_is_keyed_by_run_id() -> None:
     assert a != b, "two runs of one backend at one scale must not share a filename"
     assert a.startswith("baseline"), a
     # backend + scale stay in the name — they're what makes a listing readable.
-    assert "stub" in a and "n64" in a
+    assert "stub" in a
+    assert "n64" in a
 
 
 def test_two_runs_of_one_backend_produce_two_charts(tmp_path: Path, capsys) -> None:
@@ -305,11 +306,15 @@ def test_reported_paths_are_exactly_the_paths_that_exist(tmp_path: Path, capsys)
     plot_latency.main([str(p) for p in paths] + ["--out-dir", str(out)])
     err = capsys.readouterr().err
 
-    reported = {line.removeprefix("# wrote ").strip() for line in err.splitlines() if "wrote" in line}
-    on_disk = {str(p) for p in out.glob("*.png")}
-    assert reported == on_disk, (
-        f"stderr reported {reported} but the directory holds {on_disk}"
+    # Compared as sorted *lists*, not sets. A set collapses the duplicate and
+    # makes this pass on the unfixed tree — the pre-fix run reported
+    # `stub_n64.png` twice against one file on disk, which set-equality can't
+    # see. (Caught by running this test against the reverted source.)
+    reported = sorted(
+        line.removeprefix("# wrote ").strip() for line in err.splitlines() if "wrote" in line
     )
+    on_disk = sorted(str(p) for p in out.glob("*.png"))
+    assert reported == on_disk, f"stderr reported {reported} but the directory holds {on_disk}"
 
 
 def test_duplicate_run_id_exits_2_and_writes_nothing(tmp_path: Path, capsys) -> None:
