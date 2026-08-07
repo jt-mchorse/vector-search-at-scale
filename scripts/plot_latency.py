@@ -3,8 +3,15 @@
 
 Inputs are one or more `matrix.json` files written by
 ``vector-bench load --run-id <id>``; one PNG line chart is emitted per
-backend × workload-scale and a single combined markdown table is
-printed to stdout.
+**run_id** — named ``{run_id}_{backend}_n{n_vectors}.png``, mirroring
+D-007's one-file-per-run_id results layout — and a single combined
+markdown table is printed to stdout.
+
+Two inputs carrying the same ``run_id`` would render to one path, so the
+script rejects that with exit 2 rather than overwriting (#121). Charts are
+keyed by run_id precisely so that comparing two runs of *one* backend — a
+baseline against a re-tune, which is what the per-run_id results tree is
+for — yields two charts rather than one.
 
 Matplotlib is lazy-imported so this script is safe to run on a fresh
 CI box without the chart dep installed — it degrades to "matplotlib not
@@ -83,6 +90,41 @@ def _load_matrix(path: Path) -> LoadMatrix:
     )
 
 
+def _chart_name(m: LoadMatrix) -> str:
+    """Chart filename for one matrix — keyed by ``run_id`` first (#121).
+
+    This used to be ``{backend}_n{n_vectors}.png``, which omits the one field
+    an operator uses to tell two runs apart. Two matrices of the same backend
+    at the same scale — a baseline and a re-tune, the workload the per-run_id
+    results tree exists for — collided, and the second silently overwrote the
+    first while stderr reported both as written.
+
+    ``run_id`` leads, mirroring D-007's "one JSON file per run_id under
+    results/", so the chart set matches the markdown table's columns
+    one-for-one. ``backend`` and the vector count stay in the name because
+    they're what makes a filename readable in a directory listing.
+    """
+    return f"{m.run_id}_{m.backend}_n{m.workload.n_vectors}.png"
+
+
+def _duplicate_targets(matrices: list[LoadMatrix]) -> dict[str, list[str]]:
+    """Map each colliding chart filename to the run_ids that produced it.
+
+    Empty when every matrix gets its own chart. A non-empty result means two
+    *inputs* in this invocation resolve to one path — with ``run_id`` in the
+    name that requires the same run_id twice, which is the operator typo
+    D-007's rationale calls out by name.
+
+    Deliberately scoped to within-invocation collisions: overwriting a chart
+    left by a *previous* run is normal idempotent regeneration. D-007's
+    force-check governs the results JSON, not derived plots.
+    """
+    seen: dict[str, list[str]] = {}
+    for m in matrices:
+        seen.setdefault(_chart_name(m), []).append(m.run_id)
+    return {name: ids for name, ids in seen.items() if len(ids) > 1}
+
+
 def _maybe_plot(matrices: list[LoadMatrix], out_dir: Path) -> list[Path]:
     try:
         import matplotlib
@@ -111,7 +153,7 @@ def _maybe_plot(matrices: list[LoadMatrix], out_dir: Path) -> list[Path]:
         ax.grid(True, which="both", linestyle="--", alpha=0.4)
         ax.legend()
         fig.tight_layout()
-        path = out_dir / f"{m.backend}_n{m.workload.n_vectors}.png"
+        path = out_dir / _chart_name(m)
         fig.savefig(path, dpi=120)
         plt.close(fig)
         written.append(path)
@@ -165,6 +207,21 @@ def main(argv: list[str] | None = None) -> int:
             # subcommand's invalid-workload exit-2 (#105/#106), per #83/#84.
             sys.stderr.write(f"{p} is not a valid load matrix: {exc}\n")
             return 2
+    # Two inputs resolving to one chart path is a collision, and D-007's
+    # rationale — "clear failure mode when operator typos run_id collision" —
+    # says it must be loud. Checked here, before `render_table` prints and
+    # before any `savefig`, so a rejected invocation leaves neither a
+    # half-written chart set nor a table implying the run succeeded.
+    collisions = _duplicate_targets(matrices)
+    if collisions:
+        for name, run_ids in sorted(collisions.items()):
+            sys.stderr.write(
+                f"{len(run_ids)} matrices both render to {name}: "
+                f"run_id {sorted(run_ids)[0]!r} appears {len(run_ids)} times. "
+                "Charts are keyed by run_id; pass each run once.\n"
+            )
+        return 2
+
     print(render_table(matrices))
     # The output dir is operator input too: an unwritable `--out-dir` (a read-only
     # filesystem, a permission-denied dir, or a path component that is a file)
