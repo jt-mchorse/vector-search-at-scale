@@ -886,3 +886,93 @@ Full suite 406 passed; ruff clean under 0.15.13 and 0.16.1.
 **Merge note:** #116 and #118 are both open on this repo. They touch different
 scripts, so there is no source conflict, but both append to these MEMORY files —
 merge #116 first, then rebase #118.
+
+## Session 2026-08-06 — the floor had no floor (#119)
+
+`plot_hnsw_frontier.py` is careful. It guards its file input, its JSON,
+every consumed numeric field of every grid cell, and both output paths —
+each with a clean exit 2 and a comment explaining the harm it prevents.
+
+It did not guard the one number all those cell values are *compared
+against*. `--recall-floor` was a bare `type=float`.
+
+```
+$ python scripts/plot_hnsw_frontier.py results/hnsw-grid/grid.json --recall-floor -1
+Recommended defaults (knee at recall ≥ -1.00): M=8 ef_construction=50 ef_search=16
+  →  recall=0.102  p95=0.08ms
+exit=0
+```
+
+A published **"Recommended default" with 10.2% recall**: a configuration
+that finds the right neighbour one time in ten. A negative floor admits
+every cell, so `min(p95)` picks the fastest and therefore the worst.
+`-0.95` mistyped for `0.95` gets you there in silence.
+
+The other end is different but no better:
+
+```
+--recall-floor nan  →  No grid cell achieves recall ≥ nan; expand the grid (higher ef_search)...
+--recall-floor 5    →  No grid cell achieves recall ≥ 5.00; expand the grid (higher ef_search)...
+```
+
+Also exit 0. "Expand the grid" is advice the operator can act on — by
+spending real benchmark compute — and no grid at any size can satisfy
+either floor. Every comparison against `NaN` is False, and recall is a
+proportion, so nothing clears 5.0.
+
+The asymmetry in one sentence: on the same run, a `NaN` **in the grid
+JSON** exits 2 because it "would render as `nan` in the published
+table"; a `NaN` **on the command line** silently changed the published
+recommendation and exited 0.
+
+### Deriving the domain
+
+`mean_recall_at_k` is a proportion, and the repo already says so twice:
+`BenchmarkResult.__post_init__` enforces "a finite number in [0, 1]",
+and `_coerce_number` re-checks finiteness on the read path. The guard
+applies that same domain to the flag, and a lock test inspects both
+sources so they can't drift apart.
+
+It's checked first in `main`, before the file read, the cell validation
+and the chart render — the flag costs nothing to check, so the operator
+isn't made to wait to be told it's wrong.
+
+Both endpoints stay accepted: `0.0` is an explicit "no floor", `1.0` a
+legitimate "exact recall only" request. The default `0.95` path is
+byte-identical, pinned by a test that diffs the default invocation
+against the explicit one — #78 (the knee *value*) is a separate,
+maintainer-gated question and this must not touch it.
+
+### Why the portfolio sweep missed it
+
+"`type=float` is not validation" was swept portfolio-wide once and
+recorded llm-cost-optimizer as the sole gap. That sweep enumerated
+library and validator entry points. `scripts/` was never visited.
+
+That's the same miss shape as chunking-strategies-lab#149, filed the
+same night: a contract hardened on `chunking_lab/validate.py` while the
+flagship script never got it. **When a sweep reports "one gap", check
+which entry points it enumerated.** Two of tonight's findings came from
+re-running a sweep that had been declared exhausted, over the
+directories it never looked at.
+
+The rest of this repo's scripts were probed too — `cost_table.py` and
+`hnsw_grid.py` were hardened this week, `plot_latency.py` came back
+clean — so this was the last one.
+
+### Two testing notes
+
+`--recall-floor -inf` as a separate argument is rejected by *argparse
+itself* ("expected one argument"), because a leading `-` reads as an
+option prefix; it never reaches the guard. The tests use
+`--recall-floor=-inf` so they actually exercise it.
+
+And the negative-floor harm test first *measures*, through the untouched
+library function, that a `-1` floor really does select a lower-recall
+cell than `0.95` does — so the assertion that follows means something. My
+first draft of it contained an `assert ... or True`, which is exactly the
+kind of guard-that-doesn't-guard this PR is about. Caught and rewritten.
+
+435 green, ruff clean. Anti-vacuous check: reverting only the guard block
+fails 10 of the 13 new tests; the three that stay green are the in-domain
+and default-path locks, true either way by design.

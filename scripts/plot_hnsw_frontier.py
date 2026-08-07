@@ -210,6 +210,33 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--title", default=None)
     args = p.parse_args(argv)
 
+    # `--recall-floor` is operator input and `type=float` is not validation: it
+    # parses `nan`, `inf` and any real, and every out-of-domain value corrupts
+    # this script's headline output at exit 0 (#119). A negative floor admits
+    # every cell, so `min(p95)` picked the fastest and worst — `--recall-floor -1`
+    # published `Recommended defaults ... recall=0.102`, a config that finds the
+    # right neighbour one time in ten, from a typo of `-0.95`. A `NaN` or a floor
+    # above 1.0 is unsatisfiable, and the else-branch then advised "expand the
+    # grid (higher ef_search)" — advice the operator can act on by spending real
+    # benchmark compute, and which no grid at any size can satisfy (every
+    # comparison against NaN is False; recall is a proportion).
+    #
+    # Checked *first*: it costs nothing, so the operator isn't made to wait on a
+    # file read, cell validation and a chart render to be told the flag is wrong.
+    # The domain is `mean_recall_at_k`'s own, stated by
+    # `BenchmarkResult.__post_init__` and re-checked by `_coerce_number` on the
+    # read path — the asymmetry this closes is that a NaN *in the grid JSON*
+    # already exited 2 ("would render as `nan` in the published table") while a
+    # NaN *on the command line* silently changed the recommendation.
+    if not math.isfinite(args.recall_floor) or not (0.0 <= args.recall_floor <= 1.0):
+        sys.stderr.write(
+            f"--recall-floor must be a finite number in [0, 1]; got {args.recall_floor!r} — "
+            "it is compared against mean_recall_at_k, a proportion, so a value outside "
+            "that range is either unsatisfiable by any grid or admits every cell and "
+            "publishes the worst one as the recommended default\n"
+        )
+        return 2
+
     if not args.grid_json.is_file():
         sys.stderr.write(f"{args.grid_json} not found\n")
         return 2
