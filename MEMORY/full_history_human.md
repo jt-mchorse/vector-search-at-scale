@@ -976,3 +976,51 @@ kind of guard-that-doesn't-guard this PR is about. Caught and rewritten.
 435 green, ruff clean. Anti-vacuous check: reverting only the guard block
 fails 10 of the 13 new tests; the three that stay green are the in-domain
 and default-path locks, true either way by design.
+
+## 2026-08-07 — the chart writer threw away half the comparison and said it hadn't (#121)
+
+`plot_latency.py` named each chart after the backend and the vector count.
+It never used `run_id` — the field the whole results tree is keyed by, and
+the only thing distinguishing two runs of the same backend at the same
+scale. Pass it a baseline and a re-tune and both charts resolve to one path:
+the second overwrites the first, stderr prints two "# wrote" lines for the
+same file, and the process exits 0.
+
+The tell was inside the script itself. The markdown table it prints rendered
+both series correctly, six data columns, everything preserved. One half of
+the same command kept the comparison the other half silently dropped. That
+kind of internal asymmetry is usually worth chasing.
+
+What turned this from a naming preference into a clear defect was reading the
+repo's own decisions. D-007 says results are one JSON file per run_id and
+that overwriting is refused without an explicit force flag, and its recorded
+rationale is, word for word, a "clear failure mode when operator typos run_id
+collision". `plot_latency` renders the very files that decision governs, and
+it produced exactly the failure mode the decision exists to prevent. So the
+fix isn't a new decision — it brings a downstream renderer into line with an
+old one.
+
+The bug hid the same way llm-cost-optimizer#176 did: the docstring's usage
+example compares two *different* backends, which is the one input shape where
+the names can't collide. The documented invocation was the one that masked
+it. The docstring also claimed charts were keyed by backend and scale — which
+described the code, but the code didn't honour that contract either. Under a
+genuine backend-and-scale contract the two runs would be merged into a single
+chart, the way the table merges them. Drawing two figures and discarding one
+isn't a contract at all. A docstring describing current behaviour doesn't by
+itself make that behaviour deliberate.
+
+Charts are now keyed by run_id, and two inputs that would still collide are
+rejected with exit 2 before anything is drawn and before the table prints —
+so a rejected run leaves neither a half-written chart set nor a table that
+reads as success. Re-running the same command still overwrites its own
+output, which matters: D-007's force check is about the results JSON, and
+breaking idempotent regeneration of derived plots would have been a worse bug
+than the one being fixed.
+
+The anti-vacuous check earned its keep, against my own work. One of the new
+tests compared the reported paths to the files on disk as *sets* — and a set
+quietly collapses the duplicate "# wrote" line that was the entire symptom,
+so it passed on the unfixed tree. Comparing sorted lists instead took it from
+passing to failing pre-fix. When the bug class is double-reporting, set
+equality is structurally blind to it.
