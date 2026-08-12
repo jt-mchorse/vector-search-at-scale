@@ -26,6 +26,7 @@ from __future__ import annotations
 import json
 import math
 import time
+from collections import Counter
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from pathlib import Path
@@ -331,23 +332,55 @@ def dump_load_matrix_json(
     return matrix_path
 
 
+def _column_labels(matrices: list[LoadMatrix]) -> list[str]:
+    """One label per matrix, disambiguated by ``run_id`` only when needed (#123).
+
+    Headers were built from ``m.backend`` alone, so rendering two matrices of
+    the *same* backend — a baseline and a re-tune, which is the workload the
+    per-run_id results tree exists for — produced six identically-labelled
+    columns. No data was lost; both series were present and correct in input
+    order. But the table's docstring says it is "designed to drop into a
+    README", and once it is in a README the input order that disambiguated it
+    is no longer visible to the reader.
+
+    ``run_id`` is the disambiguator rather than a positional index because the
+    repo already answers "which run is this?" that way: D-007 keys the results
+    tree one JSON file per run_id, and #121 keyed the chart filenames by
+    run_id for this exact baseline-vs-re-tune case. This follows that identity
+    instead of inventing a competing one.
+
+    The fallback is *conditional* — a backend appearing once keeps its short
+    label. That keeps every existing invocation byte-identical (notably the
+    committed README "Latency under load" table and `cli.py --render-table`,
+    which passes a single matrix), so the new label appears only in the case
+    that is ambiguous today.
+    """
+    counts = Counter(m.backend for m in matrices)
+    return [f"{m.backend} @ {m.run_id}" if counts[m.backend] > 1 else m.backend for m in matrices]
+
+
 def render_table(matrices: list[LoadMatrix]) -> str:
     """Markdown table summarizing latency under load across backends.
 
     Rows: concurrency level. Columns: per-backend p50 / p95 / p99 ms.
     Designed to drop into a README. Header is one row per
     backend-column (Markdown doesn't support stacked headers cleanly).
+
+    When one backend appears more than once in ``matrices``, that backend's
+    columns are labelled ``{backend} @ {run_id}`` so the reader can tell the
+    runs apart; backends appearing once keep the short label (#123).
     """
     if not matrices:
         return "_(no matrices to render)_"
 
     concurrencies = sorted({cell.concurrency for m in matrices for cell in m.cells})
 
+    labels = _column_labels(matrices)
     header = ["concurrency"]
-    for m in matrices:
-        header.append(f"{m.backend} p50 ms")
-        header.append(f"{m.backend} p95 ms")
-        header.append(f"{m.backend} p99 ms")
+    for label in labels:
+        header.append(f"{label} p50 ms")
+        header.append(f"{label} p95 ms")
+        header.append(f"{label} p99 ms")
 
     lines: list[str] = []
     lines.append("| " + " | ".join(header) + " |")
