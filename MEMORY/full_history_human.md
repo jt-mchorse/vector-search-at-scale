@@ -1024,3 +1024,36 @@ quietly collapses the duplicate "# wrote" line that was the entire symptom,
 so it passed on the unfixed tree. Comparing sorted lists instead took it from
 passing to failing pre-fix. When the bug class is double-reporting, set
 equality is structurally blind to it.
+
+## 2026-08-12 — resolving a judgement call by precedent, not preference (#123)
+
+`render_table` labelled its columns by backend alone, so two runs of one
+backend produced six identically-named columns. No data was lost — both series
+were there, in input order. What was lost was provenance, and the docstring
+says the table is "designed to drop into a README", where input order stops
+being visible.
+
+The issue was unusually good: it laid out two defensible readings and declined
+to pick. Either the contract is right and comparing two runs of one backend is
+out of scope, or the contract is too narrow and the header should disambiguate.
+
+What settled it wasn't preference. The repo had already answered "which run is
+this?" twice, the same way — D-007 keys the results tree one JSON file per
+`run_id`, and #121 keyed chart filenames by `run_id` for this exact
+baseline-vs-re-tune case. Following that identity is different from inventing
+one. (Rejecting duplicate backends, the other option, would also have
+contradicted `plot_latency`'s `nargs="+"`, which explicitly takes arbitrary
+matrices.) When an issue offers two readings, the useful question is where the
+codebase already decided the same thing.
+
+The conditional fallback is the entire safety argument: a backend appearing
+once keeps its short label, so every existing call renders byte-identically.
+The test that turns that from an observation into a guarantee re-renders the
+committed README table and compares against the markdown actually in the file —
+so a future widening of the condition fails loudly instead of quietly rewriting
+published output.
+
+One test shape worth reusing. When the bug is *ambiguity* rather than data
+loss, write a test that pins the data is still all there. An implementation
+that "resolved" this by dropping a duplicate column would have satisfied every
+label assertion while making the table strictly worse.
