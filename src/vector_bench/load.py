@@ -356,7 +356,38 @@ def _column_labels(matrices: list[LoadMatrix]) -> list[str]:
     that is ambiguous today.
     """
     counts = Counter(m.backend for m in matrices)
-    return [f"{m.backend} @ {m.run_id}" if counts[m.backend] > 1 else m.backend for m in matrices]
+    return [
+        f"{_escape_cell(m.backend)} @ {_escape_cell(m.run_id)}"
+        if counts[m.backend] > 1
+        else _escape_cell(m.backend)
+        for m in matrices
+    ]
+
+
+def _escape_cell(value: str) -> str:
+    """Escape `|` so a free-form value can't add a column to a GFM table.
+
+    `render_table` builds its separator row from `len(header)` — the *list*
+    length — while the header row is a rendered string. So a `|` inside a label
+    adds a rendered column the separator does not have, and the two rows desync
+    into a table GitHub renders as a mangled grid (#125). Both label shapes were
+    exposed: the disambiguated `{backend} @ {run_id}` form and the short
+    `{backend}` fallback.
+
+    Escaping here rather than at the join covers both paths in one place and
+    means a future caller of `_column_labels` inherits it.
+
+    `\\|`, not stripping: GitHub renders it as a literal pipe contributing zero
+    column delimiters, so a genuinely pipe-bearing name still displays
+    correctly. Same idiom as `scripts/cost_table.py`'s `source_cell` in this
+    repo, and the same recurring class as llm-eval-harness#134,
+    embedding-model-shootout#79, chunking-strategies-lab#100 and
+    rag-production-kit#130.
+
+    Backticks and newlines are deliberately not handled: no cell in this table
+    is an inline-code span, and `run_id` / `backend` have no multi-line loader.
+    """
+    return value.replace("|", "\\|")
 
 
 def render_table(matrices: list[LoadMatrix]) -> str:
