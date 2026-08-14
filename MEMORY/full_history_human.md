@@ -1057,3 +1057,17 @@ One test shape worth reusing. When the bug is *ambiguity* rather than data
 loss, write a test that pins the data is still all there. An implementation
 that "resolved" this by dropping a duplicate column would have satisfied every
 label assertion while making the table strictly worse.
+
+## 2026-08-13 — Free-form column labels could break the rendered table (#125)
+
+**Duration:** ~30 min · **Issue:** #125 · **PR:** #126
+
+`render_table` builds its separator row from the *length of the header list*, while the header row itself is a rendered string. That asymmetry is the whole bug: a `|` inside a column label adds a rendered column the separator doesn't have, and the two rows desync. GitHub then draws a mangled grid rather than a table — the failure mode that survives review, because a reader sees a broken layout instead of a number they'd question. Measured on main: a pipe in `run_id` gives a 10-column header against a 7-column separator.
+
+Both label shapes were exposed, and #124 — merged an hour earlier in this same run — is what doubled the free-form surface by adding `run_id` into the label. The hazard predated it, but that's where the second source came from.
+
+The useful pattern here repeated something from earlier today: the correct idiom was already in the repo. `scripts/cost_table.py` escapes its one free-form cell exactly this way; `render_table` is just the site it never reached. That's the second time in this run that finding an unescaped or hand-rolled site and then grepping the same repo for the same job done properly turned up the fix sitting a file away.
+
+Scope stayed deliberately small. Every data cell is a formatted number, so the header was the only exposed row, and backticks and newlines aren't handled because no cell here is a code span and neither field has a multi-line loader — stated in the code as unreachable rather than defended against.
+
+With this, the recurring GFM free-form-cell class is closed everywhere I could find it: I swept the remaining markdown row builders across all repos and the rest already escape.
