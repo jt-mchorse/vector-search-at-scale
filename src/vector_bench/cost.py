@@ -43,6 +43,67 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
+from typing import Any
+
+# ----------------------------------------------------------------------
+# Shared field guard
+# ----------------------------------------------------------------------
+
+
+def _require_whole_number(value: Any, name: str, *, minimum: int) -> None:
+    """Reject anything an ``int``-annotated sizing field can't actually be (#127).
+
+    ``#53`` widened this module's sign-only bound checks to finiteness and
+    covered the ``float`` fields only. Every ``int``-annotated field kept a bare
+    ``value < N``, on the reasoning ``InstancePrice`` states outright: "vcpus is
+    an int (``< 1`` guard) and **cannot be non-finite**, so it is left as-is."
+    That is a claim about the annotation. At runtime an ``int``-annotated field
+    holds whatever it is handed, and all six of them did.
+
+    The harm is worse on the int side than it was on the float side, because the
+    clamp in ``monthly_cost`` hides it. ``max(0, nan)`` is ``0`` in Python
+    (``nan > 0`` is ``False``, so the clamp keeps its seed), so where a
+    non-finite *rate* surfaced as a visible ``nan`` in the table, a non-finite
+    *IOPS count* is laundered into a plausible ``$0.00`` line item — exactly the
+    outcome ``InfraSpec.__post_init__``'s docstring says it exists to prevent
+    ("silently turn a negative provisioned_iops ... into a zero cost line —
+    omitting a real line item without raising"), reached through ``nan`` rather
+    than through a negative. Measured, against a correct ``$15.00``:
+
+        provisioned_iops = nan   -> iops_usd_month = 0.0
+        provisioned_iops = inf   -> iops_usd_month = inf
+        provisioned_iops = True  -> iops_usd_month = 0.0    (max(0, 1 - 3000))
+        provisioned_iops = 6000.5-> iops_usd_month = 15.0025
+        included_iops    = nan   -> iops_usd_month = 0.0
+        included_iops    = inf   -> iops_usd_month = 0.0    (max(0, -inf))
+        included_iops    = True  -> iops_usd_month = 29.995 (~2x, and plausible)
+
+    ``included_iops = True`` is the sharpest of those: a doubled IOPS bill that
+    reads as an ordinary number, which nothing downstream can flag.
+
+    One helper rather than six inline copies. A duplicated rule diverges on the
+    half that matters — which is how the ``float`` half of this same sweep ended
+    up ahead of the ``int`` half in the first place.
+
+    ``bool`` is excluded explicitly (it subclasses ``int``, and it is the row
+    that produces the doubled bill). A non-integral ``float`` is rejected rather
+    than truncated, matching the ``int`` annotation. A ``str``/``None`` raises
+    this ``ValueError`` instead of a ``TypeError`` from the bare ``<``.
+    """
+    if isinstance(value, bool):
+        raise ValueError(f"{name} must be an int, not a bool; got {value!r} (pass {int(value)})")
+    if not isinstance(value, (int, float)):
+        raise ValueError(f"{name} must be a number; got {value!r}")
+    if not math.isfinite(value):
+        raise ValueError(
+            f"{name} must be finite; got {value!r} — the max(0, ...) clamp in monthly_cost "
+            "turns a non-finite count into a silent $0.00 line item"
+        )
+    if isinstance(value, float) and not value.is_integer():
+        raise ValueError(f"{name} must be a whole number; got {value!r}")
+    if value < minimum:
+        raise ValueError(f"{name} must be >= {minimum}; got {value}")
+
 
 # ----------------------------------------------------------------------
 # Public dataclasses
@@ -76,8 +137,14 @@ class InstancePrice:
         # memory_gib slipped past the negative guard and poisoned monthly_cost()
         # -> total_usd_month -> cost_per_query (a nan rate makes usd_per_query
         # nan, +Inf makes it Inf), surfacing a fabricated row in the published
-        # cost table with no diagnostic. vcpus is an int (< 1 guard) and cannot
-        # be non-finite, so it is left as-is.
+        # cost table with no diagnostic.
+        #
+        # This comment used to end "vcpus is an int (< 1 guard) and cannot be
+        # non-finite, so it is left as-is." That was a claim about the
+        # annotation, not the runtime, and it is what kept every int-typed field
+        # in this module on a sign-only check while the float fields were
+        # widened. Corrected in #127; `vcpus` now goes through
+        # `_require_whole_number` like the five sizing fields below it.
         if not self.instance_type:
             raise ValueError("instance_type must be a non-empty string")
         if not self.region:
@@ -86,8 +153,10 @@ class InstancePrice:
             raise ValueError(
                 f"usd_per_hour must be a finite number >= 0.0; got {self.usd_per_hour}"
             )
-        if self.vcpus < 1:
-            raise ValueError(f"vcpus must be >= 1; got {self.vcpus}")
+        # Was `if self.vcpus < 1`, on the premise stated three lines up that an
+        # int "cannot be non-finite" (#53). That premise is about the annotation,
+        # not the runtime — see `_require_whole_number` (#127).
+        _require_whole_number(self.vcpus, "vcpus", minimum=1)
         if not math.isfinite(self.memory_gib) or self.memory_gib < 0.0:
             raise ValueError(f"memory_gib must be a finite number >= 0.0; got {self.memory_gib}")
 
@@ -122,12 +191,14 @@ class EbsGp3Price:
         ):
             if not math.isfinite(value) or value < 0.0:
                 raise ValueError(f"{name} must be a finite number >= 0.0; got {value}")
-        if self.included_iops < 0:
-            raise ValueError(f"included_iops must be >= 0; got {self.included_iops}")
-        if self.included_throughput_mibps < 0:
-            raise ValueError(
-                f"included_throughput_mibps must be >= 0; got {self.included_throughput_mibps}"
-            )
+        # These two are the OTHER operand of `monthly_cost`'s subtractions, and
+        # they had the same int-field gap (#127): `included_iops = nan` or `inf`
+        # both make `max(0, provisioned - included)` return 0, and `True` turns a
+        # 3000-IOPS baseline into 1 — measured as $29.995 where $15.00 was due.
+        _require_whole_number(self.included_iops, "included_iops", minimum=0)
+        _require_whole_number(
+            self.included_throughput_mibps, "included_throughput_mibps", minimum=0
+        )
 
 
 @dataclass(frozen=True)
@@ -196,8 +267,10 @@ class InfraSpec:
             ("provisioned_iops", self.provisioned_iops),
             ("provisioned_throughput_mibps", self.provisioned_throughput_mibps),
         ):
-            if value < 0:
-                raise ValueError(f"{name} must be >= 0; got {value}")
+            # `value < 0` closed only the negative branch of the harm this
+            # docstring names. `max(0, nan)` is 0, so the NaN branch produced the
+            # SAME silent zero cost line and walked straight through (#127).
+            _require_whole_number(value, name, minimum=0)
 
 
 @dataclass(frozen=True)

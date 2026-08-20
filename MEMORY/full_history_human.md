@@ -1071,3 +1071,68 @@ The useful pattern here repeated something from earlier today: the correct idiom
 Scope stayed deliberately small. Every data cell is a formatted number, so the header was the only exposed row, and backticks and newlines aren't handled because no cell here is a code span and neither field has a multi-line loader — stated in the code as unreachable rather than defended against.
 
 With this, the recurring GFM free-form-cell class is closed everywhere I could find it: I swept the remaining markdown row builders across all repos and the rest already escape.
+
+## 2026-08-19 — a finiteness sweep that stopped at the type annotation (#127)
+
+This one came from a lens I'd learned an hour earlier in
+embedding-model-shootout#121: a `max`/`min` clamp can launder a bad value past
+its own guard. I grepped all twelve repos for `max(<var>, <const>)` outside
+tests, and `vector_bench.cost`'s `iops_over = max(0, provisioned - included)`
+was the top hit.
+
+What made it fileable rather than speculative was a comment.
+`InstancePrice.__post_init__` says, explaining why `#53`'s finiteness widening
+skipped one field: *"vcpus is an int (`< 1` guard) and cannot be non-finite, so
+it is left as-is."* That is a claim about the annotation, not about the
+runtime — and it is the premise that left all six int-annotated fields in the
+module on a bare sign check while every float field got widened.
+
+The int side turns out to be worse than the float side, for a specific reason.
+`max(0, nan)` is `0` in Python: `nan > 0` is `False`, so the clamp keeps its
+seed. Where a non-finite *rate* surfaced as a visible `nan` in the published
+table, a non-finite *IOPS count* is laundered into a plausible `$0.00` line
+item — which is precisely the outcome `InfraSpec.__post_init__`'s own docstring
+says it exists to prevent ("silently turn a negative provisioned_iops into a
+zero cost line — omitting a real line item without raising"), reached through
+`nan` rather than through a negative. And `cost_per_query`, sixty lines below in
+the same file, already spells out the identical reasoning for its own argument.
+
+Measured against correct line items of iops `$15.00`, throughput `$5.00`,
+storage `$8.00`:
+
+```
+provisioned_iops = nan       iops_usd = 0.0        silent zero
+provisioned_iops = inf       iops_usd = inf
+provisioned_iops = -inf      ValueError            caught
+provisioned_iops = True      iops_usd = 0.0        max(0, 1 - 3000)
+provisioned_iops = 6000.5    iops_usd = 15.0025
+data_volume_gb = True        storage_usd = 0.08    fabricated 1 GB
+included_iops = nan          iops_usd = 0.0        the other operand
+included_iops = inf          iops_usd = 0.0        max(0, -inf)
+included_iops = True         iops_usd = 29.995     ~2x, and plausible
+```
+
+`-inf` was caught and `nan` was not, inside the same guard. And
+`included_iops = True` is the sharpest row: a doubled IOPS bill that reads as an
+entirely ordinary number, which nothing downstream can flag.
+
+That's the third time today the same lens paid — a guard protecting an
+expression covering only one of its operands. llm-eval-harness#204 validated
+`threshold_kappa` and not `result.cohens_kappa` across the same `>=`;
+rag-production-kit#178 validated `--port` and not `--host` in the same bind
+tuple; here it's `provisioned` and not `included` in the same subtraction.
+
+The fix is one shared `_require_whole_number` rather than six inline copies,
+because a duplicated rule diverges on the half that matters — which is
+literally how the float half of this sweep got ahead of the int half. `vcpus`
+is included even though the cost math never consumes it: its exempting comment
+carried the wrong premise, and leaving the field would have left the wrong
+reasoning in the file. `max(0, ...)` is untouched; the clamp is correct for its
+stated purpose, and the fix is to reject the value before it gets there.
+
+One deliberate behaviour change. `-inf` now reports "must be finite" rather
+than "must be >= 0". It was already rejected and the new diagnosis is more
+specific; nothing existing depends on the old string. My own test caught this,
+having asserted the old message — I resolved it by recording the new behaviour
+in a named test rather than by reordering the checks to preserve a message
+nobody reads.
