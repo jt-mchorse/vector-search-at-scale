@@ -373,11 +373,51 @@ def cost_per_query(
     # query time rounds to 0, and that round-trips through JSON into this API.
     if not math.isfinite(throughput_qps) or throughput_qps <= 0:
         raise ValueError(f"throughput_qps must be positive and finite, got {throughput_qps}")
-    if seconds_per_month <= 0:
-        raise ValueError(f"seconds_per_month must be positive, got {seconds_per_month}")
+    # `seconds_per_month` is the *other* factor of the `monthly_queries` product
+    # below, so the comment above applied to it verbatim and it was sign-checked
+    # only (#129). Measured, against the guarded operand's behaviour on the same
+    # two inputs:
+    #
+    #   throughput_qps=nan   -> ValueError        seconds_per_month=nan   -> usd_per_query=nan
+    #   throughput_qps=inf   -> ValueError        seconds_per_month=inf   -> usd_per_query=0.0
+    #
+    # A fabricated `$0.00/query`, in a benchmark whose entire output is cost per
+    # query.
+    #
+    # Routed through `_require_whole_number` rather than given a copy of the
+    # `isfinite` check, because finiteness is not the whole rule here:
+    #
+    #   seconds_per_month=1e308 -> usd_per_query=0.0   (finite; the division underflows)
+    #   seconds_per_month=True  -> usd_per_query=1.92  (one second/month, and it reads plausible)
+    #   seconds_per_month=2.5   -> accepted, despite the `int` annotation
+    #   seconds_per_month="..." -> raw TypeError from the bare `<=`, escaping this
+    #                              module's ValueError contract
+    #
+    # The helper closes three of those four with the rule the rest of the module
+    # already uses for its integer fields. Do not simplify it back to
+    # `isfinite(...) or ... <= 0`: that would still accept `True` and `2.5`.
+    _require_whole_number(seconds_per_month, "seconds_per_month", minimum=1)
     breakdown = monthly_cost(infra, prices)
     monthly_queries = throughput_qps * seconds_per_month
     per_query = breakdown.total_usd_month / monthly_queries
+    # The fourth case needs a different guard, and it is worth being precise
+    # about why. `1e308` passes every input check above -- it is finite, whole,
+    # and >= 1 -- and still yields `usd_per_query = 0.0`, because the division
+    # underflows. No input-domain rule catches that without inventing an
+    # arbitrary ceiling on the amortization window, so guard the *outcome*
+    # instead: a strictly positive monthly bill can never amortize to exactly
+    # $0.00 per query. That is the fabricated number, whatever produced it.
+    #
+    # Deliberately conditioned on `total_usd_month > 0`: a genuinely free
+    # configuration (every price zero) amortizes to a truthful $0.00 and must
+    # still be allowed through.
+    if breakdown.total_usd_month > 0 and per_query == 0.0:
+        raise ValueError(
+            f"usd_per_query underflowed to 0.0 from a positive monthly cost of "
+            f"${breakdown.total_usd_month} over {monthly_queries} queries "
+            f"(throughput_qps={throughput_qps}, seconds_per_month={seconds_per_month}); "
+            "a fabricated $0.00/query is the one number this benchmark must not report"
+        )
     return CostPerQuery(
         scale_tier=infra.scale_tier,
         engine=infra.engine,
