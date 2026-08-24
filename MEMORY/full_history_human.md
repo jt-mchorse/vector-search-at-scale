@@ -1136,3 +1136,65 @@ specific; nothing existing depends on the old string. My own test caught this,
 having asserted the old message — I resolved it by recording the new behaviour
 in a named test rather than by reordering the checks to preserve a message
 nobody reads.
+
+---
+
+## 2026-08-21 — the other half of the multiplication (#129)
+
+`cost_per_query` works out how many queries a month's worth of infrastructure
+would serve — `throughput_qps * seconds_per_month` — and divides the monthly bill
+by that. One of those two factors was carefully guarded. The other wasn't.
+
+The guarded one carries a comment explaining itself: a sign-only check "would let
+nan qps yield `usd_per_query=nan` and inf qps a fabricated `$0.00/query`",
+because `nan <= 0` and `inf <= 0` are both false. That reasoning is exactly
+right. It is also, word for word, a description of what the *next line* did,
+where `seconds_per_month` got the sign-only check the comment had just warned
+about. Same product, same two harms, opposite treatment.
+
+Beyond the two non-finite cases there were two more. `True` is an `int` in
+Python, so it amortized the entire monthly bill over **one second** and reported
+`$1.92/query` — a number that looks perfectly ordinary and that nothing
+downstream could flag. And a string escaped as a raw `TypeError` from the bare
+`<=`, sidestepping the `ValueError` contract every other validated field in the
+module honours.
+
+The fix routes the parameter through `_require_whole_number`, the validator this
+module already applies to its integer fields — which is satisfying, because the
+right rule was sitting fifteen lines up the same file the whole time.
+
+Except it wasn't the whole fix, and that's the part worth writing down. I had
+already claimed in the issue that the helper would close all four cases. When I
+re-ran the measured table afterwards, `1e308` was still there, still reporting
+`$0.00/query`. It's finite, it's a whole number, it's greater than one — it
+passes every input check, and the division simply underflows. There is no
+input-domain rule that catches it without inventing an arbitrary ceiling on how
+long an amortization window is allowed to be.
+
+So the second half guards the outcome instead of the input: a strictly positive
+monthly bill cannot amortize to exactly zero dollars per query. That's the
+fabricated number, whatever produced it. It's conditioned on the bill actually
+being positive, so a genuinely free configuration still reports a truthful
+`$0.00` — and as a bonus it now protects the throughput side symmetrically too.
+
+The lesson I'd keep: re-run the measured table *after* applying the fix, not
+just before. I'd have shipped a PR whose description didn't match its code
+otherwise.
+
+One thing I deliberately left alone. The helper accepts an integral float like
+`328500.0` and rejects a fractional one — that's the module-wide rule, and
+`SECONDS_PER_MONTH / 8`, the obvious way to write "an eighth of a month", lands
+as exactly that. My first test asserted it should be rejected, which was me
+inventing a stricter rule for one parameter than its siblings have. The test now
+pins the boundary where it is.
+
+I also changed an existing test's asserted message, since a zero now reports
+"must be >= 1" instead of "must be positive". The behaviour is identical; I
+updated the wording with a note rather than loosening the assertion into
+something that would pass either way.
+
+Also examined and found clean: embedding-model-shootout. `SweepResult`
+round-trips exactly through `to_dict`/`from_dict` across eleven adversarial
+shapes, and the markdown aggregator escapes backslashes as well as pipes, so
+column counts hold even for names built to break a GFM table. That escaping
+class is genuinely closed there.

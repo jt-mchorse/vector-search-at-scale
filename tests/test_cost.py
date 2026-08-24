@@ -174,8 +174,14 @@ def test_cost_per_query_rejects_non_finite_qps(bad_qps: float):
 
 
 def test_cost_per_query_rejects_non_positive_seconds_per_month():
+    # Message wording changed in #129: `seconds_per_month` now routes through
+    # `_require_whole_number(..., minimum=1)` like every other integer field in
+    # this module, so a zero reports "must be >= 1" rather than "must be
+    # positive". The behaviour under test -- a `ValueError` naming the field --
+    # is unchanged; only the phrasing moved. Wider domain coverage lives in
+    # tests/test_cost_per_query_operand_symmetry.py.
     spec = _spec()
-    with pytest.raises(ValueError, match="seconds_per_month must be positive"):
+    with pytest.raises(ValueError, match="seconds_per_month must be >= 1"):
         cost_per_query(spec, FIXTURE_PRICES, 100.0, seconds_per_month=0)
 
 
