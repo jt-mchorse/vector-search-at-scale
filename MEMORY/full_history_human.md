@@ -1198,3 +1198,53 @@ round-trips exactly through `to_dict`/`from_dict` across eleven adversarial
 shapes, and the markdown aggregator escapes backslashes as well as pipes, so
 column counts hold even for names built to break a GFM table. That escaping
 class is genuinely closed there.
+
+## 2026-08-25 — three of five backends let a surplus id vanish (#131)
+
+**What got done.** `StubBackend` and `HnswSimBackend` both open `ingest` with a
+length check raising `ValueError("ingest mismatch: N vectors but M ids")`. The
+three real-engine adapters — `pgvector`, `qdrant`, `weaviate` — did not. All five
+now call one `check_ingest_shape` in `types.py`, so a sixth adapter gets it by
+construction.
+
+**The surplus row is the finding.** `4 ids for 3 vectors` returned *normally* on
+all three real engines, having indexed three rows. The harness then scores recall
+over the four ids it believes it ingested — and the fourth is retrievable by no
+query, because it was never stored. Recall is silently deflated and the published
+benchmark number is wrong. The deficit rows raise a raw `IndexError`: the wrong
+type, but at least loud.
+
+**The repo handed me the framing.** `#63/#64` hardened `WeaviateBackend.query`;
+`#69/#70` hardened it again; `#79` carried both to `QdrantBackend.query`. Three
+issues, all on `query`. Nobody had enumerated `ingest`. And the harm is named in
+this repo's own test docstring — "a contract violation that deflates recall with
+no diagnostic" — about the other method.
+
+**The exception type was decided by a docstring, not a preference.**
+`BackendError` says it is "Distinct from `ValueError` (which is for caller
+mistakes)". A length mismatch is a caller mistake caught before any engine is
+touched, so `ValueError` it is — which also leaves the two backends that already
+worked byte-for-byte unchanged, message included.
+
+**A documented exemption has a scope.** `pgvector` is the one adapter with no test
+file, and `test_qdrant_backend.py` explains it was skipped *on purpose* for the
+`query` contract, because its `id TEXT PRIMARY KEY` schema makes that
+unviolatable. That reasoning is sound and specific to `query`; it does not extend
+to `ingest`, where pgvector behaves exactly like the other two. This is the first
+test to exercise `PgVectorBackend.ingest` at all.
+
+**On this repo's two prior empty hunts.** 2026-08-20 recorded two thorough empty
+hunts here, and both were *numerical* — cosine ties at the top-k boundary, and
+percentile agreement with numpy. A contract/Protocol lens is a different axis, and
+it paid. Two empty hunts mean those two axes are exhausted, not the repo.
+
+**Open questions.** None. Other `ingest` divergences — dimension consistency
+across calls, duplicate ids within a batch — are real questions but each needs its
+own measurement.
+
+**Tests.** 30 new, five backends × the four measured cases, driven through
+`object.__new__` + fake clients so no SDK and no live engine is needed. The fakes
+record which ids reached the engine, so the control asserts rows were really
+stored rather than merely that nothing raised. Neutering the single length
+comparison turns 24 of 30 red while all five control rows stay green. Suite
+513 → 543 green, ruff clean.
