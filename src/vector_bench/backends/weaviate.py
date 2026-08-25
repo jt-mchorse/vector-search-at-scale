@@ -13,7 +13,7 @@ from collections.abc import Sequence
 
 import numpy as np
 
-from vector_bench.types import BackendError
+from vector_bench.types import BackendError, check_ingest_shape
 
 DEFAULT_COLLECTION = "VectorBench"
 
@@ -58,6 +58,7 @@ class WeaviateBackend:
         self._hnsw_ef = hnsw_ef
 
     def ingest(self, vectors: np.ndarray, ids: Sequence[str]) -> None:
+        check_ingest_shape(vectors, ids)
         wvcc = self._wvcc
         if self._client.collections.exists(self._collection_name):
             self._client.collections.delete(self._collection_name)

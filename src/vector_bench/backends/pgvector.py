@@ -14,7 +14,7 @@ from collections.abc import Sequence
 
 import numpy as np
 
-from vector_bench.types import BackendError
+from vector_bench.types import BackendError, check_ingest_shape
 
 TABLE_NAME = "vector_bench"
 
@@ -70,6 +70,7 @@ class PgVectorBackend:
         conn.commit()
 
     def ingest(self, vectors: np.ndarray, ids: Sequence[str]) -> None:
+        check_ingest_shape(vectors, ids)
         dim = vectors.shape[1]
         self._dim = dim
         self._ensure_table(dim)

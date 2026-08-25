@@ -39,6 +39,8 @@ from dataclasses import dataclass
 
 import numpy as np
 
+from vector_bench.types import check_ingest_shape
+
 
 @dataclass
 class HnswSimBackend:
@@ -89,8 +91,7 @@ class HnswSimBackend:
         self._rng = np.random.default_rng(self.seed)
 
     def ingest(self, vectors: np.ndarray, ids: Sequence[str]) -> None:
-        if len(ids) != vectors.shape[0]:
-            raise ValueError(f"ingest mismatch: {vectors.shape[0]} vectors but {len(ids)} ids")
+        check_ingest_shape(vectors, ids)
         n = vectors.shape[0]
         vecs = vectors.astype(np.float32, copy=False)
 
