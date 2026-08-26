@@ -14,13 +14,19 @@ from collections.abc import Sequence
 
 import numpy as np
 
-from vector_bench.types import BackendError, check_ingest_shape
+from vector_bench.types import BackendError, check_ingest_shape, check_open
 
 TABLE_NAME = "vector_bench"
 
 
 class PgVectorBackend:
     name = "pgvector"
+
+    # Class-level, not an instance field: it must be present on an instance
+    # built by `object.__new__` too -- that is how this repo's adapter tests
+    # drive the SDK-backed backends without a live engine. Also keeps it out
+    # of the dataclass field list, so it is not a constructor argument (#133).
+    _closed = False
 
     def __init__(
         self,
@@ -70,6 +76,7 @@ class PgVectorBackend:
         conn.commit()
 
     def ingest(self, vectors: np.ndarray, ids: Sequence[str]) -> None:
+        check_open(self._closed, backend="PgVectorBackend", method="ingest")
         check_ingest_shape(vectors, ids)
         dim = vectors.shape[1]
         self._dim = dim
@@ -85,6 +92,7 @@ class PgVectorBackend:
         conn.commit()
 
     def query(self, vector: np.ndarray, k: int) -> list[tuple[str, float]]:
+        check_open(self._closed, backend="PgVectorBackend", method="query")
         conn = self._ensure_conn()
         with conn.cursor() as cur:
             cur.execute(
@@ -99,6 +107,10 @@ class PgVectorBackend:
             with contextlib.suppress(Exception):
                 self._conn.close()
             self._conn = None
+        # Set last, so the flag is only raised once teardown has actually run
+        # (#133). `close()` stays idempotent: a second call re-runs the
+        # already-safe teardown above and re-sets a flag that is already True.
+        self._closed = True
 
 
 def _to_pgvector_literal(vec: np.ndarray) -> str:

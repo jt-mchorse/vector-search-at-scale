@@ -13,13 +13,19 @@ from collections.abc import Sequence
 
 import numpy as np
 
-from vector_bench.types import BackendError, check_ingest_shape
+from vector_bench.types import BackendError, check_ingest_shape, check_open
 
 DEFAULT_COLLECTION = "VectorBench"
 
 
 class WeaviateBackend:
     name = "weaviate"
+
+    # Class-level, not an instance field: it must be present on an instance
+    # built by `object.__new__` too -- that is how this repo's adapter tests
+    # drive the SDK-backed backends without a live engine. Also keeps it out
+    # of the dataclass field list, so it is not a constructor argument (#133).
+    _closed = False
 
     def __init__(
         self,
@@ -58,6 +64,7 @@ class WeaviateBackend:
         self._hnsw_ef = hnsw_ef
 
     def ingest(self, vectors: np.ndarray, ids: Sequence[str]) -> None:
+        check_open(self._closed, backend="WeaviateBackend", method="ingest")
         check_ingest_shape(vectors, ids)
         wvcc = self._wvcc
         if self._client.collections.exists(self._collection_name):
@@ -82,6 +89,7 @@ class WeaviateBackend:
                 )
 
     def query(self, vector: np.ndarray, k: int) -> list[tuple[str, float]]:
+        check_open(self._closed, backend="WeaviateBackend", method="query")
         coll = self._client.collections.get(self._collection_name)
         res = coll.query.near_vector(
             near_vector=vector.tolist(), limit=k, return_metadata=["distance"]
@@ -121,3 +129,7 @@ class WeaviateBackend:
     def close(self) -> None:
         with contextlib.suppress(Exception):
             self._client.close()
+        # Set last, so the flag is only raised once teardown has actually run
+        # (#133). `close()` stays idempotent: a second call re-runs the
+        # already-safe teardown above and re-sets a flag that is already True.
+        self._closed = True

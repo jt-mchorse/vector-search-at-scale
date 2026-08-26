@@ -18,17 +18,24 @@ from collections.abc import Sequence
 
 import numpy as np
 
-from vector_bench.types import check_ingest_shape
+from vector_bench.types import check_ingest_shape, check_open
 
 
 class StubBackend:
     name = "stub"
+
+    # Class-level, not an instance field: it must be present on an instance
+    # built by `object.__new__` too -- that is how this repo's adapter tests
+    # drive the SDK-backed backends without a live engine. Also keeps it out
+    # of the dataclass field list, so it is not a constructor argument (#133).
+    _closed = False
 
     def __init__(self) -> None:
         self._vectors: np.ndarray | None = None
         self._ids: list[str] = []
 
     def ingest(self, vectors: np.ndarray, ids: Sequence[str]) -> None:
+        check_open(self._closed, backend="StubBackend", method="ingest")
         check_ingest_shape(vectors, ids)
         if self._vectors is None:
             self._vectors = vectors.astype(np.float32, copy=False)
@@ -38,6 +45,7 @@ class StubBackend:
             self._ids.extend(ids)
 
     def query(self, vector: np.ndarray, k: int) -> list[tuple[str, float]]:
+        check_open(self._closed, backend="StubBackend", method="query")
         if self._vectors is None or not self._ids:
             return []
         sims = self._vectors @ vector
@@ -47,3 +55,7 @@ class StubBackend:
     def close(self) -> None:
         self._vectors = None
         self._ids = []
+        # Set last, so the flag is only raised once teardown has actually run
+        # (#133). `close()` stays idempotent: a second call re-runs the
+        # already-safe teardown above and re-sets a flag that is already True.
+        self._closed = True
