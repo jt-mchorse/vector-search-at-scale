@@ -14,7 +14,7 @@ from collections.abc import Sequence
 
 import numpy as np
 
-from vector_bench.types import BackendError
+from vector_bench.types import BackendError, check_ingest_shape
 
 DEFAULT_COLLECTION = "vector_bench"
 
@@ -49,6 +49,7 @@ class QdrantBackend:
         self._hnsw_ef = hnsw_ef
 
     def ingest(self, vectors: np.ndarray, ids: Sequence[str]) -> None:
+        check_ingest_shape(vectors, ids)
         q = self._qmodels
         dim = int(vectors.shape[1])
         self._client.recreate_collection(
