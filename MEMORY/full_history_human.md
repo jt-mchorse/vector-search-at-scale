@@ -1248,3 +1248,62 @@ record which ids reached the engine, so the control asserts rows were really
 stored rather than merely that nothing raised. Neutering the single length
 comparison turns 24 of 30 red while all five control rows stay green. Suite
 513 → 543 green, ruff clean.
+
+## 2026-08-26 — the Protocol's smallest method was the one nobody had read (#133)
+
+**What got done.** `Backend.close()` documented itself as "Release any held
+resources. Idempotent." The idempotence half was true on all five adapters and is
+now pinned by a test. What it never said is what the object *is* afterwards —
+and `check_open`, beside `check_ingest_shape` in `types.py`, now makes all five
+answer the same way.
+
+**The lens was counting issues per Protocol method, and it is now three for
+three.** `ingest` got `#131` last run; `query` has `#63/#64`, `#69/#70`, `#79`;
+`close` had zero. A Protocol is exhausted when every method has been enumerated,
+not when the interesting ones have. And `close` looked like the boring one —
+two to four lines per adapter, no arguments, no return value — which is exactly
+why it survived.
+
+**The docstring claim was true, and that is worth recording.** I pinned it with a
+test instead of filing it. A prose assertion is a test case; sometimes the test
+passes, and you ship the test anyway.
+
+**The finding was in what the docstring did not say.** It described what `close`
+*releases* and never what is legal to call next. The answer was five different
+things: two adapters returned an empty result list, one raised a raw
+`AttributeError` on `None`, two handed a closed SDK client to the next call.
+
+**The silent row is the one that publishes a number.** The harness scores `hits`
+against ground truth, so an empty list is not an error — it is `recall = 0.0`,
+written to `results/<run_id>/*.json` and rendered into the comparison table. That
+is the fifth time this repo has hit "a contract violation that deflates recall
+with no diagnostic".
+
+**And a transferable observation: `close()` erased the evidence that it ran.**
+`self._vectors = None; self._ids = []` is precisely the fresh-instance state, so
+a closed backend was indistinguishable from an empty one and no downstream check
+could ever have told them apart. When a teardown resets to the initial state, it
+has erased its own footprint.
+
+**An implementation note worth reusing.** The flag is a *class* attribute, not an
+instance field. This repo's adapter tests build backends with `object.__new__` to
+avoid a live engine, and a field set in `__init__` would not exist on them — and
+a class attribute also stays out of the dataclass field list, so it is not a
+constructor argument.
+
+**The third pre-existing test tonight that blocked me, and the clearest-cut.**
+`test_close_is_idempotent_and_clears_index` proved "clears index" by querying
+after close and expecting `[]` — the defect itself. A test name with "and" in it
+is two claims, and one of them may be asserted *through* the other. The split
+weakens nothing: both claims are still checked, and "clears index" now asserts
+the state directly. I checked `test_hnsw_sim.py` first; it needed no change, so
+this was one test rather than a pattern.
+
+**An honesty limit, stated.** I cannot measure what the qdrant or weaviate SDK
+raises on a closed client without a live engine, so I claimed only the provable
+part — `close()` does not null `self._client`, so the next call reaches a closed
+one. Same discipline as `#119` and `aop#124`.
+
+**Tests.** 45 new. Neutering `check_open` turns 22 red across three files with no
+control affected. Suite 543 → 588 green, ruff clean; the one pre-existing mypy
+finding (`cost.py:265`) is unchanged, verified by stashing.

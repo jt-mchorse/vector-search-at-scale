@@ -14,13 +14,19 @@ from collections.abc import Sequence
 
 import numpy as np
 
-from vector_bench.types import BackendError, check_ingest_shape
+from vector_bench.types import BackendError, check_ingest_shape, check_open
 
 DEFAULT_COLLECTION = "vector_bench"
 
 
 class QdrantBackend:
     name = "qdrant"
+
+    # Class-level, not an instance field: it must be present on an instance
+    # built by `object.__new__` too -- that is how this repo's adapter tests
+    # drive the SDK-backed backends without a live engine. Also keeps it out
+    # of the dataclass field list, so it is not a constructor argument (#133).
+    _closed = False
 
     def __init__(
         self,
@@ -49,6 +55,7 @@ class QdrantBackend:
         self._hnsw_ef = hnsw_ef
 
     def ingest(self, vectors: np.ndarray, ids: Sequence[str]) -> None:
+        check_open(self._closed, backend="QdrantBackend", method="ingest")
         check_ingest_shape(vectors, ids)
         q = self._qmodels
         dim = int(vectors.shape[1])
@@ -64,6 +71,7 @@ class QdrantBackend:
         self._client.upsert(collection_name=self._collection, points=points)
 
     def query(self, vector: np.ndarray, k: int) -> list[tuple[str, float]]:
+        check_open(self._closed, backend="QdrantBackend", method="query")
         q = self._qmodels
         results = self._client.search(
             collection_name=self._collection,
@@ -101,3 +109,7 @@ class QdrantBackend:
     def close(self) -> None:
         with contextlib.suppress(Exception):
             self._client.close()
+        # Set last, so the flag is only raised once teardown has actually run
+        # (#133). `close()` stays idempotent: a second call re-runs the
+        # already-safe teardown above and re-sets a flag that is already True.
+        self._closed = True

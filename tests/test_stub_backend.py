@@ -34,12 +34,26 @@ class TestStubBackend:
         with pytest.raises(ValueError, match="ingest mismatch"):
             backend.ingest(vecs, ["a", "b"])
 
-    def test_close_is_idempotent_and_clears_index(self) -> None:
+    def test_close_is_idempotent(self) -> None:
         backend = StubBackend()
         backend.ingest(_normed([[1.0, 0.0]]), ["a"])
         backend.close()
         backend.close()  # no raise
-        assert backend.query(np.array([1.0, 0.0], dtype=np.float32), k=1) == []
+
+    def test_close_clears_the_index(self) -> None:
+        """Split out of `test_close_is_idempotent_and_clears_index` (#133).
+
+        That test proved "clears index" by querying after `close()` and
+        expecting `[]` — which is the behaviour #133 is about. An empty result
+        list from a closed backend is not a statement about the index; the
+        harness scores it as `recall = 0.0` and publishes it. The claim is about
+        the released state, so it is asserted against the state.
+        """
+        backend = StubBackend()
+        backend.ingest(_normed([[1.0, 0.0]]), ["a"])
+        backend.close()
+        assert backend._vectors is None
+        assert backend._ids == []
 
     def test_appends_on_repeated_ingest(self) -> None:
         backend = StubBackend()

@@ -39,7 +39,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from vector_bench.types import check_ingest_shape
+from vector_bench.types import check_ingest_shape, check_open
 
 
 @dataclass
@@ -68,6 +68,12 @@ class HnswSimBackend:
     seed: int = 42
     name: str = "hnsw-sim"
 
+    # Class-level, not an instance field: it must be present on an instance
+    # built by `object.__new__` too -- that is how this repo's adapter tests
+    # drive the SDK-backed backends without a live engine. Also keeps it out
+    # of the dataclass field list, so it is not a constructor argument (#133).
+    _closed = False
+
     def __post_init__(self) -> None:
         # Integer guards (#31). Pre-#31 the sign-only `<= 0` accepted `True`
         # (silently bound `M=True`; `topk_local = argsort(-sims)[:True]` returned
@@ -91,6 +97,7 @@ class HnswSimBackend:
         self._rng = np.random.default_rng(self.seed)
 
     def ingest(self, vectors: np.ndarray, ids: Sequence[str]) -> None:
+        check_open(self._closed, backend="HnswSimBackend", method="ingest")
         check_ingest_shape(vectors, ids)
         n = vectors.shape[0]
         vecs = vectors.astype(np.float32, copy=False)
@@ -135,6 +142,7 @@ class HnswSimBackend:
         return np.random.default_rng(seq)
 
     def query(self, vector: np.ndarray, k: int) -> list[tuple[str, float]]:
+        check_open(self._closed, backend="HnswSimBackend", method="query")
         if self._vectors is None or not self._ids:
             return []
         n = self._vectors.shape[0]
@@ -181,3 +189,7 @@ class HnswSimBackend:
         self._vectors = None
         self._ids = []
         self._neighbors = []
+        # Set last, so the flag is only raised once teardown has actually run
+        # (#133). `close()` stays idempotent: a second call re-runs the
+        # already-safe teardown above and re-sets a flag that is already True.
+        self._closed = True
