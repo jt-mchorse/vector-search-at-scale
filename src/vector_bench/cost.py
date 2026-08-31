@@ -216,6 +216,42 @@ class PriceTable:
     ebs: EbsGp3Price
     source_url: str
 
+    def __post_init__(self) -> None:
+        """Copy `instances` in, so "never mutated" above is enforced not asserted.
+
+        `frozen=True` stops the *field* being rebound and does nothing about the
+        dict behind it. Measured before this (#135)::
+
+            mine = {"x": InstancePrice("x", "r", 1.0, 1, 1.0)}
+            t = PriceTable(snapshot_date="d", instances=mine, ...)
+            mine["INJECTED"] = ...;  mine["x"] = InstancePrice("x", "r", 999.0, 1, 1.0)
+            -> "INJECTED" in t.instances        True
+            -> t.instances["x"].usd_per_hour    999.0
+
+        That matters more here than in an ordinary container because this table
+        is what makes a published cost attributable. It carries `snapshot_date`
+        and `source_url` for that purpose, and `prices.py`'s module docstring
+        sets the editing rule -- bump the date, update the source, re-run
+        `scripts/cost_table.py`. An aliased dict routes around all three: the
+        table still truthfully reports `snapshot_date` while holding prices that
+        are not the snapshot's.
+
+        **Shallow on purpose.** `InstancePrice` is frozen and every one of its
+        fields is a scalar, so the values cannot be mutated behind this copy and
+        a deep copy would buy nothing. That is a property of `InstancePrice`
+        rather than an assumption, so `tests/test_frozen_dataclass_ingress.py`
+        asserts it -- if `InstancePrice` ever grows a mutable field, the
+        reasoning here fails loudly instead of silently becoming wrong.
+        `BenchmarkResult.extra` is `dict[str, Any]` with no such guarantee and
+        takes a deep copy for that reason; the sibling repo
+        `python-async-llm-pipelines` measured shallow as "exactly the half that
+        failed" for nested values (#100 there).
+
+        `ebs` needs nothing: `EbsGp3Price` is frozen with scalar fields only, so
+        the alias to the module-level default is unreachable as a mutation.
+        """
+        object.__setattr__(self, "instances", dict(self.instances))
+
     def get_instance(self, instance_type: str) -> InstancePrice:
         try:
             return self.instances[instance_type]

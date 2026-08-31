@@ -25,6 +25,7 @@ recorded in the output JSON.
 
 from __future__ import annotations
 
+import copy
 import json
 import math
 import time
@@ -158,6 +159,28 @@ class BenchmarkResult:
     extra: dict[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
+        # Ingress copy (#135). `to_dict` already copies on the way *out*, and
+        # its comment states the goal: "`extra` is shallow-copied so callers
+        # can't mutate the frozen dataclass through the dict." That is one of
+        # the two directions. A caller who keeps the dict they passed in
+        # reaches the same field the same way, and `frozen=True` stops the
+        # field being rebound, not the object behind it. Measured::
+        #
+        #     mine = {"note": "original"}
+        #     r = BenchmarkResult(..., extra=mine)
+        #     mine["INJECTED"] = ...;  mine["note"] = "MUTATED"
+        #     -> "INJECTED" in r.extra   True
+        #     -> r.extra["note"]         "MUTATED"
+        #
+        # **Deep**, unlike `PriceTable.instances`, and the difference is the
+        # field's own type guarantee rather than taste: `instances` is
+        # `dict[str, InstancePrice]` whose values are frozen scalars-only, while
+        # `extra` is `dict[str, Any]` and free-form by definition, so a nested
+        # container is exactly what a caller puts there. The sibling repo
+        # `python-async-llm-pipelines` measured shallow as "exactly the half
+        # that failed" for this shape (#100 there, repeated in #102).
+        object.__setattr__(self, "extra", copy.deepcopy(self.extra))
+
         # Finiteness/range guards (#55) — `BenchmarkResult` was the one result
         # dataclass without a `__post_init__`, while `Workload` (#29),
         # `InstancePrice`/`EbsGp3Price` (#53), and `cost_per_query` (#51) all

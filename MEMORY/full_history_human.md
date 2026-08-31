@@ -1307,3 +1307,43 @@ one. Same discipline as `#119` and `aop#124`.
 **Tests.** 45 new. Neutering `check_open` turns 22 red across three files with no
 control affected. Suite 543 → 588 green, ruff clean; the one pre-existing mypy
 finding (`cost.py:265`) is unchanged, verified by stashing.
+
+## 2026-08-28 - issue #135: a frozen table whose prices could change
+
+Both open issues here are decision revisits waiting on JT, so this was a hunt.
+Counting commits per file pointed at the pricing snapshot module - eighty lines, one
+commit, the least-touched thing in the repo. Its function docstring promises that
+callers can mutate their copy without side effects, so I ran that claim. It holds.
+But running it put the neighbouring types in front of me, and one of them does not.
+
+The price table is a frozen dataclass holding a dictionary, and it stored the
+caller's dictionary rather than a copy. Freezing stops the field being rebound and
+does nothing about the object behind it, so a caller who keeps their dictionary can
+add instance types and rewrite prices after the table is built.
+
+What makes that more than a memory-safety nit is what the table is *for*. It carries
+a snapshot date and a source URL precisely so a published cost is attributable, and
+the module states the rule for changing a price: bump the date, update the source,
+regenerate the committed cost document. An aliased dictionary routes around all
+three. The table still truthfully reports its snapshot date while holding prices
+that are not the snapshot's. Its own class docstring says "passed in, never
+mutated".
+
+The benchmark result type had the same shape, and the interesting detail there is
+that the outbound half of the guard already existed - its serializer copies on the
+way out, with a comment saying it does so "so callers can't mutate the frozen
+dataclass through the dict". That is one of two directions, and the inbound one was
+open.
+
+The lens that found all of this came from another repo. The async-pipelines package
+fixed exactly this class twice and its docstring surveys *its own* frozen dataclasses
+and finds two - true within that package. I had actually run that same walk against
+that package earlier tonight and confirmed its survey held, then moved on. The move I
+missed for an hour was running the same walk somewhere else. A probe that comes back
+clean is a reusable probe, not a closed question.
+
+I decided copy depth per field from that field's own type guarantee rather than
+copying a sibling's choice: shallow where the values are frozen scalars, deep where
+the field is free-form. And I asserted the property the shallow choice depends on, so
+if that type ever grows a mutable field the reasoning fails loudly instead of the
+copy quietly becoming the wrong one. The depth decision has its own revert arm.
