@@ -54,6 +54,19 @@ def _fs_len(text: str) -> int:
     return len(os.fsencode(text))
 
 
+def _decode(stream: bytes) -> str:
+    """Decode a child process stream that may carry a raw non-UTF-8 byte.
+
+    The CLI tests below capture bytes rather than passing `text=True`. On a
+    filesystem that accepts the name (ext4, i.e. CI) the write succeeds, the
+    child prints the path, and `sys.stdout`'s `surrogateescape` handler puts
+    the original raw byte on the stream. `text=True` decodes that strictly *in
+    the parent* and raises `UnicodeDecodeError` inside `subprocess` — a failure
+    of the harness, not of the code under test.
+    """
+    return stream.decode("utf-8", errors="replace")
+
+
 # ---------------------------------------------------------------------------
 # The variant table. Axes: length (fits / overflows) x encoding class
 # (pure ASCII / multibyte UTF-8 / surrogate-bearing / mixed).
@@ -199,15 +212,15 @@ def test_cost_table_unencodable_out_has_no_traceback(tmp_path: Path) -> None:
         [sys.executable, "scripts/cost_table.py", "--out", str(out)],
         cwd=str(_REPO_ROOT),
         capture_output=True,
-        text=True,
         check=False,
     )
+    stderr = _decode(proc.stderr)
 
-    assert "Traceback" not in proc.stderr, proc.stderr
-    assert "UnicodeEncodeError" not in proc.stderr, proc.stderr
+    assert "Traceback" not in stderr, stderr
+    assert "UnicodeEncodeError" not in stderr, stderr
     if not out.exists():
         assert proc.returncode == 2
-        assert "could not write" in proc.stderr
+        assert "could not write" in stderr
 
 
 def test_run_unencodable_run_id_reports_the_path_not_a_bare_codec_error(tmp_path: Path) -> None:
@@ -247,24 +260,22 @@ def test_run_unencodable_run_id_reports_the_path_not_a_bare_codec_error(tmp_path
         ],
         cwd=str(_REPO_ROOT),
         capture_output=True,
-        text=True,
         check=False,
     )
+    stderr = _decode(proc.stderr)
 
-    assert "Traceback" not in proc.stderr, proc.stderr
+    assert "Traceback" not in stderr, stderr
     written = results_dir / ("run" + SURROGATE + ".json")
     if written.exists():
         assert proc.returncode == 0
         return
 
     assert proc.returncode == 2
-    assert "codec can't encode" not in proc.stderr, (
+    assert "codec can't encode" not in stderr, (
         "the error must describe the failed write, not the helper's own "
-        f"inability to measure the name:\n{proc.stderr}"
+        f"inability to measure the name:\n{stderr}"
     )
-    assert "run" in proc.stderr, (
-        f"stderr must name the --run-id the write failed on:\n{proc.stderr}"
-    )
-    assert ".json" in proc.stderr, (
-        f"stderr must name the destination file the write failed on:\n{proc.stderr}"
+    assert "run" in stderr, f"stderr must name the --run-id the write failed on:\n{stderr}"
+    assert ".json" in stderr, (
+        f"stderr must name the destination file the write failed on:\n{stderr}"
     )
