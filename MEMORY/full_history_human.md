@@ -1347,3 +1347,73 @@ copying a sibling's choice: shallow where the values are frozen scalars, deep wh
 the field is free-form. And I asserted the property the shallow choice depends on, so
 if that type ever grows a mutable field the reasoning fails loudly instead of the
 copy quietly becoming the wrong one. The depth decision has its own revert arm.
+
+## 2026-09-02 — #137: one seam was already green, and green for the wrong reason
+
+`io_utils._cap_base_for_temp` shortens a destination's basename before it goes
+into the temp filename `.<base>.<random>.tmp`. Its comment says "Budget is in
+BYTES (NAME_MAX is a byte limit)", and that is true. The code under it counted
+`base.encode("utf-8")` with the strict error handler, which is a *different*
+set of bytes from the ones NAME_MAX limits.
+
+The two counts agree for every name that is valid UTF-8 and disagree for the
+rest by raising: POSIX path bytes and `sys.argv` decode through
+`surrogateescape`, so a byte that isn't valid UTF-8 arrives as a lone surrogate
+in U+DC80–U+DCFF, and strict encoding refuses it.
+
+**Two operator-controlled basenames reach the cap here, and they failed
+differently.**
+
+`scripts/cost_table.py --out` catches `OSError` alone. `UnicodeEncodeError` is
+a `ValueError`, so an unencodable `--out` reproduced verbatim the failure that
+guard's own comment describes — "a raw traceback at exit 1" — after the whole
+cost model had already run. Measured: rc 1 with a traceback.
+
+`vector-bench run --run-id` is the interesting one. `run_benchmark` builds
+`Path(results_dir) / f"{run_id}.json"`, so `--run-id` *is* the basename. And it
+already returned exit 2 before the fix. It was right by accident: `_do_run`
+catches `(ValueError, OSError)` because #101 widened it for the run-id-collision
+case, and `UnicodeEncodeError` happens to be a `ValueError`. What the operator
+actually got was `error: 'utf-8' codec can't encode character '\udcff' in
+position 3` — a message naming neither the path, nor the write, nor the
+`--run-id` they typed.
+
+That changes how the test has to be written. **An exit-code assertion on that
+seam passes against the unfixed code and proves nothing.** The separating
+observable is the message: before, a bare codec complaint; after, an `OSError`
+carrying the full path. So the test asserts the path appears in stderr and that
+`codec can't encode` does not. When a seam is already green, find the observable
+that isn't.
+
+The widening comment also states the assumption that quietly stopped holding:
+"The computation is pure, so `OSError` here only ever comes from the output
+write". True of `OSError` — and the failure actually hit is not one. A claim
+scoped to a class says nothing about what else the same call can raise.
+
+Worth recording alongside that: `_do_load` takes a `--run-id` too, and it is
+*not* exposed. There the id names only a directory (`results/load/<run_id>/`)
+and the basenames under it are the derived `matrix.json` and `c<NNN>.json`, so
+`_cap_base_for_temp` never sees an operator byte. One flag name, two different
+exposures in the same CLI — worth checking which one you have before calling a
+seam reachable.
+
+The fix is one line: measure with `os.fsencode`, the filesystem encoding plus
+its own error handler. Measured after: `cost_table` gives `could not write …:
+[Errno 92] Illegal byte sequence` at exit 2, and `run` gives `error: [Errno 92]
+Illegal byte sequence: <path>` at exit 2.
+
+Reverting the single measurement line turns 10 of the 16 new assertions red —
+including the `run --run-id` message assertion, the row most at risk of being
+vacuous — and leaves the 6 encodable-name controls green.
+
+**Why this work, this session:** found by grepping the portfolio for
+`_MAX_TEMP_BASE_BYTES` after hitting the same defect in `llm-eval-harness#226`.
+Both of this repo's own open issues are JT-gated decision-revisits, so this
+class was the actionable work here.
+
+**Open questions / blockers:** none. Note for future sessions: this repo's
+`.venv` has no `mypy` installed, so `ruff check` and `ruff format --check` are
+the local gates.
+
+**Next session:** the remaining copies of the helper live in
+`python-async-llm-pipelines` and `mcp-server-cookbook`'s `filesystem-sandbox-py`.
