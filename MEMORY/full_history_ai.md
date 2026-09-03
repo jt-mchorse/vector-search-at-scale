@@ -1540,3 +1540,29 @@ context_for_next_session:
 decisions_made: []
 followups: []
 ---
+
+---
+session: 2026-09-02T07:47Z
+issue: 137
+focus: the_temp_name_byte_budget_was_measured_in_strict_utf8_and_one_of_the_two_seams_was_already_green_for_the_wrong_reason
+phase: night_session_multi_issue_loop_issue_7
+delta:
+  files_changed: 2
+  tests_added: 16
+  suite: 595_to_611_green
+measured:
+  cost_table_pre_fix: "python scripts/cost_table.py --out <tmp>/cost<U+DCFF>.md -> rc 1 with a UnicodeEncodeError TRACEBACK; post-fix rc 2 with 'could not write ...: [Errno 92] Illegal byte sequence'"
+  run_pre_fix: "python -m vector_bench.cli run --backend stub --run-id run<U+DCFF> -> rc 2 ALREADY, message 'error: utf-8 codec cant encode character in position 3' naming NEITHER the path NOR the write; post-fix rc 2 with 'error: [Errno 92] Illegal byte sequence: <full path>'"
+  equivalence: "os.fsencode and str.encode('utf-8') give the same count for every valid-utf8 NAME_VARIANTS row"
+  anti_vacuous: "reverting the single measurement line turns 10 of 16 red INCLUDING the run --run-id message assertion, and leaves the 6 encodable-name controls green"
+context_for_next_session:
+  - PORTFOLIO_CLASS_SEVENTH_OF_NINE_leh_226_lco_205_rag_199_csl_178_prs_159_ems_135_and_this
+  - THE_MOST_IMPORTANT_THING_HERE_ONE_OF_THE_TWO_SEAMS_WAS_ALREADY_RETURNING_THE_RIGHT_EXIT_CODE_AND_IT_WAS_RIGHT_BY_ACCIDENT_do_run_catches_ValueError_comma_OSError_because_101_WIDENED_IT_FOR_RUN_ID_COLLISIONS_and_UnicodeEncodeError_IS_A_ValueError_SO_AN_EXIT_CODE_ASSERTION_ON_THAT_SEAM_PASSES_AGAINST_THE_UNFIXED_CODE_AND_PROVES_NOTHING_THE_SEPARATING_OBSERVABLE_IS_THE_MESSAGE_before_it_was_a_bare_codec_complaint_naming_neither_the_path_nor_the_write_after_it_is_an_OSError_carrying_the_path_WHEN_A_SEAM_IS_ALREADY_GREEN_FIND_THE_OBSERVABLE_THAT_IS_NOT
+  - AND_THE_WIDENING_COMMENT_STATED_THE_ASSUMPTION_THAT_STOPPED_HOLDING_the_computation_is_pure_so_OSError_HERE_ONLY_EVER_COMES_FROM_THE_OUTPUT_WRITE_which_is_TRUE_OF_OSError_and_the_failure_actually_hit_IS_NOT_ONE_A_CLAIM_SCOPED_TO_A_CLASS_SAYS_NOTHING_ABOUT_WHAT_ELSE_THE_SAME_CALL_CAN_RAISE
+  - CHECK_WHETHER_THE_OPERATOR_CONTROLS_THE_BASENAME_OR_ONLY_THE_DIRECTORY_run_id_IS_the_basename_via_Path_results_dir_slash_f_run_id_dot_json_SO_IT_REACHES_cap_base_for_temp_while_do_load_s_run_id_names_only_a_DIRECTORY_and_its_basenames_matrix_json_and_c_NNN_json_are_DERIVED_so_it_does_not_ONE_FLAG_NAME_TWO_DIFFERENT_EXPOSURES_IN_THE_SAME_CLI
+  - HOST_SKEW_ext4_ACCEPTS_ANY_NON_NUL_BYTE_IN_A_NAME_so_ON_CI_BOTH_WRITES_SUCCEED_while_APFS_RETURNS_EILSEQ_every_seam_assertion_is_written_as_no_traceback_plus_IF_NOTHING_WAS_WRITTEN_the_code_is_2
+  - PROCESS_ruff_PT018_REJECTS_assert_a_in_x_and_b_in_x_split_it_into_two_asserts_which_is_better_anyway_because_the_failure_message_then_says_WHICH_HALF
+  - NOTE_THIS_REPOS_VENV_HAS_NO_MYPY_INSTALLED_ruff_check_and_ruff_format_check_are_the_local_gates
+decisions_made: []
+followups: []
+---
