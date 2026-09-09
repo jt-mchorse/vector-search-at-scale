@@ -1417,3 +1417,61 @@ the local gates.
 
 **Next session:** the remaining copies of the helper live in
 `python-async-llm-pipelines` and `mcp-server-cookbook`'s `filesystem-sandbox-py`.
+
+## 2026-09-09 — Issue #139: the bool arm landed on every reader and none of the writers
+**Duration:** ~55 min · **Branch:** `session/2026-09-09-0722-issue-139`
+
+`bool` subclasses `int`, so `math.isfinite(True)` is `True` and `True < 0` is
+`False`. Three reader-side guards in this repo were hardened against exactly
+that, each carrying a docstring that explains the harm — `plot_hnsw_frontier`
+says a JSON `true` at `mean_recall_at_k` "silently coerces to 1.0 and
+fabricates a perfect benchmark row (and can hijack the recommended-defaults
+knee)". Nobody asked who *writes* that field.
+
+Fourteen numeric fields across six write-side dataclasses accepted a boolean;
+twelve rejected one. Every rejecting field belonged to a sweep that had a
+reason to think about booleans — #29's int fields, #127's int fields, #108's
+reader. The float half of each class sat two lines away and was skipped.
+`LatencyStats.__post_init__` even calls itself "Sibling of the BenchmarkResult
+guard (#55)", and `BenchmarkResult` is the one without the arm.
+
+What ended the severity argument was a round trip through the repo's own two
+halves rather than a judgement about it: build a `LoadCell` with three
+booleans, dump it, and run `scripts/plot_latency.py` on the file it produced.
+Exit 2, "ingest_seconds must be a number, not a bool". The reader wraps every
+numeric in `_reject_bool_numeric`; the writer wrapped none.
+
+The rule is now one shared **predicate** rather than a raiser, and that shape
+is what made it adoptable: six test files pin 22 of the existing messages
+verbatim, so a shared raiser would have churned all 22. The definition owns the
+rule, each site keeps its wording — and under the bool-arm revert all 22 stay
+green while 42 other tests go red, which is the evidence the split was right.
+
+Two fields belonged to no enumeration, which is precisely why they survived.
+`LoadCell.concurrency` reads as "already validated by `Workload`" and is not —
+different field, different object. `Workload.seed` sits outside #29's list
+because #29's rule is "a positive count" and a seed of 0 is legal.
+
+One existing lock had to be replaced rather than kept. `test_the_cli_domain_
+matches_the_dataclass_contract` opens "Derive, don't restate" and then restates:
+four `inspect.getsource` greps for literal source text. It pinned the guard's
+spelling, not its domain, so it went red on a pure refactor — and it could
+never have caught the hole that motivated the refactor, because the literal
+`math.isfinite(x)` it demanded is the very expression that accepts `True`. It
+now runs both sides over one probe table and asserts the accepted domains are
+equal.
+
+**Why this work, this session:** both of this repo's open issues (#71, #78) are
+maintainer-gated decision-revisits and it had gone six days untouched, so the
+hunt was the work. The Backend protocol's three methods each have an issue
+history; the entry point with none was the numeric-guard family, and the
+reader/writer asymmetry fell out of reading the reader guards' own docstrings.
+
+**Open questions / blockers:** none. Deferred: unifying `cost.py`'s
+`_require_whole_number` with the new predicate — genuinely different rules
+(whole-number vs finite-float), and merging them would churn
+`test_cost_int_field_domain.py`'s message pins for no defect closed.
+
+**Next session:** the reader/writer asymmetry question is portable. Every repo
+in the portfolio that hardened a JSON reader should be asked what writes that
+field.
