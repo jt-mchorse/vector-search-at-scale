@@ -24,7 +24,6 @@ See `MEMORY/core_decisions_human.md` D-008 for the deliberation.
 from __future__ import annotations
 
 import json
-import math
 import time
 from collections import Counter
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -45,7 +44,7 @@ from vector_bench.harness import (
     recall_at_k,
 )
 from vector_bench.io_utils import atomic_write_text
-from vector_bench.types import Backend
+from vector_bench.types import Backend, is_valid_number
 
 
 @dataclass(frozen=True)
@@ -72,16 +71,43 @@ class LoadCell:
         # (default allow_nan=True) and serializes as the bare token `Infinity` in
         # matrix.json / the per-cell JSON plot_latency.py reads — invalid JSON and
         # a fabricated number (handoff §10). Fail loud at construction.
+        #
+        # The rule is `is_valid_number` (#139). The inline expression this
+        # replaces accepted a `bool` -- `math.isfinite(True)` is True and
+        # `True < 0` is False -- and this class is the one where that costs the
+        # most, because `scripts/plot_latency.py::_load_matrix` wraps EVERY
+        # numeric it reads back in `_reject_bool_numeric` (#108). So the writer
+        # produced a `matrix.json` the reader refuses::
+        #
+        #     LoadCell(ingest_seconds=True, mean_recall_at_k=True, ...)   # accepted
+        #     -> matrix.json: {"ingest_seconds": true, "mean_recall_at_k": true}
+        #     -> plot_latency.py <that> --out-dir ...
+        #        "not a valid load matrix: ingest_seconds must be a number,
+        #         not a bool; got True"   (exit 2)
+        #
+        # It also let a `str`/`None` out as a raw `TypeError` from
+        # `math.isfinite` instead of this package's `ValueError`. Messages
+        # below are unchanged byte for byte.
         for name, value in [
             ("ingest_seconds", self.ingest_seconds),
             ("throughput_qps", self.throughput_qps),
         ]:
-            if not math.isfinite(value) or value < 0:
+            if not is_valid_number(value):
                 raise ValueError(f"{name} must be a finite number >= 0, got {value!r}")
-        if not math.isfinite(self.mean_recall_at_k) or not (0.0 <= self.mean_recall_at_k <= 1.0):
+        if not is_valid_number(self.mean_recall_at_k, maximum=1.0):
             raise ValueError(
                 f"mean_recall_at_k must be a finite number in [0, 1], got {self.mean_recall_at_k!r}"
             )
+        # `concurrency` had no guard at all -- it is the only numeric field on
+        # this class that #57's enumeration skipped, because it reads as
+        # "already validated by `Workload`" and is not: `Workload.concurrency`
+        # is a different field on a different object, and `run_under_load`
+        # builds each cell from its own `--concurrency` list. Same rule as
+        # `Workload.concurrency` (#29), same message, so the two cannot drift.
+        if not isinstance(self.concurrency, int) or isinstance(self.concurrency, bool):
+            raise ValueError(f"concurrency must be an int, got {self.concurrency!r}")
+        if self.concurrency <= 0:
+            raise ValueError(f"concurrency must be positive, got {self.concurrency}")
 
     def to_dict(self) -> dict[str, Any]:
         # Ten-field contract (#39). Nests `workload.to_dict()` +

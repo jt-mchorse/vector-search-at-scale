@@ -243,20 +243,115 @@ def test_default_floor_path_is_unchanged(tmp_path: Path, capsys) -> None:
     assert "Recommended defaults (knee at recall ≥ 0.95)" in out_default
 
 
-def test_the_cli_domain_matches_the_dataclass_contract() -> None:
-    """Derive, don't restate: the flag's accepted domain is the one
-    `BenchmarkResult.__post_init__` enforces for `mean_recall_at_k`, which is
-    what it is compared against. Locked so the two can't drift apart.
-    """
-    import inspect
+# Values spanning `mean_recall_at_k`'s domain and its complement, as *floats*,
+# because that is the only currency the two sides share: `--recall-floor` is
+# `type=float`, so argparse has already coerced by the time the flag's guard
+# runs. The bool and non-number rows are asserted separately below, on the
+# dataclass alone, since a command line cannot express them.
+_RECALL_DOMAIN_PROBES: tuple[float, ...] = (
+    0.0,
+    0.5,
+    0.95,
+    1.0,
+    -0.0,
+    -0.1,
+    1.0000001,
+    1.1,
+    float("nan"),
+    float("inf"),
+    float("-inf"),
+)
+
+
+def _dataclass_accepts_recall(value: float) -> bool:
+    """Does `BenchmarkResult.__post_init__` accept *value* for `mean_recall_at_k`?"""
     import sys
 
     sys.path.insert(0, str(REPO_ROOT / "src"))
-    from vector_bench.harness import BenchmarkResult
+    from vector_bench.harness import BenchmarkResult, LatencyStats, Workload
 
-    contract = inspect.getsource(BenchmarkResult.__post_init__)
-    assert "0.0 <= self.mean_recall_at_k <= 1.0" in contract
-    assert "math.isfinite(self.mean_recall_at_k)" in contract
-    guard = inspect.getsource(plot_hnsw_frontier.main)
-    assert "0.0 <= args.recall_floor <= 1.0" in guard
-    assert "math.isfinite(args.recall_floor)" in guard
+    try:
+        BenchmarkResult(
+            run_id="r",
+            backend="stub",
+            workload=Workload(n_vectors=10, dim=4, n_queries=2, top_k=3),
+            ingest_seconds=1.0,
+            ingest_rows_per_sec=1.0,
+            query_latency=LatencyStats(1.0, 2.0, 3.0, 4.0),
+            mean_recall_at_k=value,
+            started_at="t",
+            git_sha=None,
+            cost_per_query_usd=None,
+        )
+    except (ValueError, TypeError):
+        return False
+    return True
+
+
+def _cli_accepts_recall_floor(tmp_path: Path, capsys, value: float) -> bool:
+    """Does `--recall-floor=<value>` survive the flag's own domain guard?
+
+    `=` rather than a space: argparse consumes `--recall-floor -0.1` as a flag.
+    """
+    grid_path = _write_grid_with(tmp_path, lambda g: None)
+    rc = plot_hnsw_frontier.main([str(grid_path), f"--recall-floor={value!r}"])
+    capsys.readouterr()
+    return rc == 0
+
+
+@pytest.mark.parametrize("value", _RECALL_DOMAIN_PROBES, ids=repr)
+def test_the_cli_domain_matches_the_dataclass_contract(
+    tmp_path: Path, capsys, value: float
+) -> None:
+    """Derive, don't restate: `--recall-floor`'s accepted domain must equal the
+    one `BenchmarkResult.__post_init__` enforces for `mean_recall_at_k`, which
+    is the field it is compared against.
+
+    This used to be four `inspect.getsource` greps for the literal strings
+    `"0.0 <= self.mean_recall_at_k <= 1.0"` and `"math.isfinite(...)"`, under a
+    docstring that says "derive, don't restate" -- which is what a text grep
+    cannot do. It pinned the guard's *spelling*, not its *domain*, so it went
+    red the moment the identical rule moved behind `is_valid_number` (#139) and
+    it could never have seen the hole that motivated the move: the literal
+    `math.isfinite(x)` it required is exactly the expression that accepts
+    `True`.
+
+    Running both sides over one table is strictly stronger. It is also the only
+    form that stays green across a refactor of either side and red across a
+    change to either *domain*.
+    """
+    assert _cli_accepts_recall_floor(tmp_path, capsys, value) == _dataclass_accepts_recall(value), (
+        f"--recall-floor={value!r} and BenchmarkResult(mean_recall_at_k={value!r}) "
+        "disagree; the flag is compared against that field, so their domains "
+        "must be identical"
+    )
+
+
+def test_the_recall_domain_probe_table_covers_both_sides() -> None:
+    """Anti-vacuous: a table that were all-accepted or all-rejected would make
+    the equality above hold while testing nothing.
+    """
+    accepted = [v for v in _RECALL_DOMAIN_PROBES if _dataclass_accepts_recall(v)]
+    rejected = [v for v in _RECALL_DOMAIN_PROBES if not _dataclass_accepts_recall(v)]
+    assert len(accepted) >= 4, f"expected several in-domain probes, got {accepted}"
+    assert len(rejected) >= 4, f"expected several out-of-domain probes, got {rejected}"
+    # Both endpoints are in-domain: `0.0` is an explicit "no floor", `1.0` an
+    # "exact recall only" request. Just outside each is not.
+    assert _dataclass_accepts_recall(0.0)
+    assert _dataclass_accepts_recall(1.0)
+    assert not _dataclass_accepts_recall(-0.1)
+    assert not _dataclass_accepts_recall(1.0000001)
+
+
+@pytest.mark.parametrize("value", [True, False, "0.5", None, b"0.5"], ids=repr)
+def test_the_dataclass_rejects_what_a_command_line_cannot_express(value: object) -> None:
+    """The rows the shared table above cannot carry, asserted on the dataclass.
+
+    `--recall-floor` is `type=float`, so argparse rejects a non-number before
+    the flag's guard ever runs -- the CLI side of these is closed by
+    construction. The dataclass has no such coercion in front of it, and until
+    #139 `math.isfinite(True)` let `mean_recall_at_k=True` through as a
+    fabricated perfect recall that `to_dict()` then serialized as the JSON
+    token `true`.
+    """
+    assert not _dataclass_accepts_recall(value)  # type: ignore[arg-type]

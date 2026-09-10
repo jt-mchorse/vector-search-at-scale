@@ -27,7 +27,6 @@ from __future__ import annotations
 
 import copy
 import json
-import math
 import time
 from contextlib import contextmanager
 from dataclasses import dataclass, field
@@ -37,7 +36,7 @@ from typing import Any
 import numpy as np
 
 from vector_bench.io_utils import atomic_write_text
-from vector_bench.types import Backend
+from vector_bench.types import Backend, is_valid_number
 
 
 @dataclass(frozen=True)
@@ -73,6 +72,17 @@ class Workload:
                 raise ValueError(f"{name} must be an int, got {value!r}")
             if value <= 0:
                 raise ValueError(f"{name} must be positive, got {value}")
+        # `seed` sits outside the list above on purpose and stayed unguarded
+        # because of it (#139). #29's rule is "a positive count", and a seed of
+        # 0 is perfectly legal, so it could not join that loop -- but the bool
+        # half of the rule applies to every int-annotated field, not just the
+        # counting ones. `Workload.to_dict()` writes `seed` into the output JSON,
+        # so `seed=True` records `"seed": true` where every reader expects a
+        # number, while producing the identical rng stream to `seed=1`: two runs
+        # that are byte-identical in behaviour and different on the record.
+        # What a valid seed *value* is stays `np.random.default_rng`'s question.
+        if not isinstance(self.seed, int) or isinstance(self.seed, bool):
+            raise ValueError(f"seed must be an int, got {self.seed!r}")
         if self.top_k > self.n_vectors:
             raise ValueError(f"top_k ({self.top_k}) exceeds n_vectors ({self.n_vectors})")
 
@@ -129,7 +139,7 @@ class LatencyStats:
             # fabricated 1.0/0.0 ms into the benchmark (handoff §10). Sibling of
             # the int-field bool guards in `Workload` (#29) and the ems#108/#109
             # bool-before-coercion vein.
-            if isinstance(value, bool) or not math.isfinite(value) or value < 0:
+            if not is_valid_number(value):
                 raise ValueError(f"{name} must be a finite number >= 0, got {value!r}")
 
     def to_dict(self) -> dict[str, Any]:
@@ -190,19 +200,33 @@ class BenchmarkResult:
         # and a fabricated number in a benchmark whose whole point is honest
         # measured values (handoff §10). Sibling of rag-production-kit #80. Fail
         # loud at construction so corrupt data from any path can't reach the dump.
+        #
+        # The rule itself is `is_valid_number` (#139), not the inline
+        # `math.isfinite(...) or ... < 0` this used to be. That expression had two
+        # holes, and both were already closed on the *reader* side of the same
+        # fields: a `bool` passes it (it subclasses `int`, so `math.isfinite(True)`
+        # is True and `True < 0` is False) and serializes as the JSON token
+        # `true` -- a `mean_recall_at_k` of `true` is a fabricated PERFECT recall,
+        # which is what `scripts/plot_hnsw_frontier.py`'s guard is written to
+        # refuse -- and a `str`/`None` escaped as a raw `TypeError` from
+        # `math.isfinite` rather than the `ValueError` every other guard in this
+        # package raises. `LatencyStats` below got the bool arm in the #108
+        # sibling and this class, which its docstring calls the guard it is a
+        # sibling OF, did not.
+        #
+        # The messages are unchanged, byte for byte: the shared predicate owns
+        # the rule, each site owns its wording.
         for name, value in [
             ("ingest_seconds", self.ingest_seconds),
             ("ingest_rows_per_sec", self.ingest_rows_per_sec),
         ]:
-            if not math.isfinite(value) or value < 0:
+            if not is_valid_number(value):
                 raise ValueError(f"{name} must be a finite number >= 0, got {value!r}")
-        if not math.isfinite(self.mean_recall_at_k) or not (0.0 <= self.mean_recall_at_k <= 1.0):
+        if not is_valid_number(self.mean_recall_at_k, maximum=1.0):
             raise ValueError(
                 f"mean_recall_at_k must be a finite number in [0, 1], got {self.mean_recall_at_k!r}"
             )
-        if self.cost_per_query_usd is not None and (
-            not math.isfinite(self.cost_per_query_usd) or self.cost_per_query_usd < 0
-        ):
+        if self.cost_per_query_usd is not None and not is_valid_number(self.cost_per_query_usd):
             raise ValueError(
                 f"cost_per_query_usd must be a finite number >= 0 when set, "
                 f"got {self.cost_per_query_usd!r}"

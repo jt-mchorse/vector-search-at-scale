@@ -14,10 +14,66 @@ exceptions.
 
 from __future__ import annotations
 
+import math
 from collections.abc import Sequence
 from typing import Protocol, runtime_checkable
 
 import numpy as np
+
+
+def is_valid_number(value: object, *, minimum: float = 0.0, maximum: float | None = None) -> bool:
+    """True iff *value* is a real number in ``[minimum, maximum]``. A ``bool`` is not.
+
+    One definition of "this field holds an honest measured number", called by
+    every write-side numeric guard (#139). Four arms, each closing a class the
+    guards it replaced left open:
+
+    ``bool`` is rejected first. It subclasses ``int``, so ``math.isfinite(True)``
+    is ``True`` and ``True < 0`` is ``False`` -- a boolean sails through a
+    finiteness-plus-sign guard and serializes as the JSON token ``true``. Three
+    *reader*-side guards in this repo were hardened against exactly that, each
+    saying why; ``scripts/plot_hnsw_frontier.py`` puts it best: a JSON ``true``
+    at ``mean_recall_at_k``/``p95_ms`` "silently coerces to ``1.0`` and
+    fabricates a perfect benchmark row (and can hijack the recommended-defaults
+    knee)". The *writers* of those same fields were never enumerated -- so this
+    repo's ``LoadCell`` would build a ``matrix.json`` that its own
+    ``scripts/plot_latency.py`` refuses with exit 2.
+
+    A non-number is rejected as a ``ValueError`` rather than escaping as the
+    ``TypeError`` a bare ``math.isfinite("1.0")`` raises. ``_require_whole_number``
+    in ``cost.py`` already made that call for the int half (#127) and
+    ``tests/test_cost_int_field_domain.py`` locks it; the float half of the same
+    module still raised ``TypeError``.
+
+    Non-finiteness and the range are the two arms the old guards already had,
+    kept unchanged: ``nan``/``inf`` reach ``json.dumps`` (default
+    ``allow_nan=True``) as the bare tokens ``NaN``/``Infinity`` -- invalid JSON
+    that jq/JS/Go reject, and a fabricated number in a benchmark whose whole
+    point is honest measured values (handoff section 10).
+
+    A **predicate**, not a raiser, deliberately. Six test files pin 22 of the
+    existing messages verbatim, and each call site's wording is more specific
+    than a shared one could be ("must be a finite number in [0, 1]" vs "must be
+    a finite number >= 0.0"). So the shared definition owns the *rule* and each
+    site keeps its *message* -- which is the split that lets one rule cover
+    fourteen fields without touching a single assertion. The alternative,
+    fourteen inline ``isinstance(value, bool) or ...`` copies, is the shape
+    ``_require_whole_number``'s own docstring warns about: "A duplicated rule
+    diverges on the half that matters -- which is how the ``float`` half of this
+    same sweep ended up ahead of the ``int`` half in the first place."
+
+    ``maximum`` is inclusive and optional; ``mean_recall_at_k`` is the one field
+    with an upper bound (``[0, 1]``).
+    """
+    if isinstance(value, bool):
+        return False
+    if not isinstance(value, (int, float)):
+        return False
+    if not math.isfinite(value):
+        return False
+    if value < minimum:
+        return False
+    return maximum is None or value <= maximum
 
 
 class BackendError(RuntimeError):

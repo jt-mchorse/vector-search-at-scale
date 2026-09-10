@@ -45,6 +45,8 @@ import math
 from dataclasses import dataclass
 from typing import Any
 
+from vector_bench.types import is_valid_number
+
 # ----------------------------------------------------------------------
 # Shared field guard
 # ----------------------------------------------------------------------
@@ -149,7 +151,16 @@ class InstancePrice:
             raise ValueError("instance_type must be a non-empty string")
         if not self.region:
             raise ValueError("region must be a non-empty string")
-        if not math.isfinite(self.usd_per_hour) or self.usd_per_hour < 0.0:
+        # `is_valid_number` (#139), not the inline finiteness-plus-sign check.
+        # #127 corrected this comment's claim about the *int* fields; the float
+        # fields kept a second hole the same size. `usd_per_hour=True` is a
+        # $1.00/hour price that reads as an ordinary number all the way into the
+        # published cost table -- the same shape `_require_whole_number` calls
+        # "the sharpest of those" for `included_iops`. And a `str` escaped as a
+        # raw `TypeError` from `math.isfinite`, which is exactly what
+        # `test_non_numeric_sizing_field_raises_ValueError_not_TypeError` locks
+        # for the int half of this module.
+        if not is_valid_number(self.usd_per_hour):
             raise ValueError(
                 f"usd_per_hour must be a finite number >= 0.0; got {self.usd_per_hour}"
             )
@@ -157,7 +168,7 @@ class InstancePrice:
         # int "cannot be non-finite" (#53). That premise is about the annotation,
         # not the runtime — see `_require_whole_number` (#127).
         _require_whole_number(self.vcpus, "vcpus", minimum=1)
-        if not math.isfinite(self.memory_gib) or self.memory_gib < 0.0:
+        if not is_valid_number(self.memory_gib):
             raise ValueError(f"memory_gib must be a finite number >= 0.0; got {self.memory_gib}")
 
 
@@ -189,7 +200,10 @@ class EbsGp3Price:
             ("usd_per_iops_month_over_baseline", self.usd_per_iops_month_over_baseline),
             ("usd_per_mibps_month_over_baseline", self.usd_per_mibps_month_over_baseline),
         ):
-            if not math.isfinite(value) or value < 0.0:
+            # `is_valid_number` (#139) -- the float siblings of the two
+            # `_require_whole_number` fields below, which got the bool and
+            # non-number arms in #127 while these three kept neither.
+            if not is_valid_number(value):
                 raise ValueError(f"{name} must be a finite number >= 0.0; got {value}")
         # These two are the OTHER operand of `monthly_cost`'s subtractions, and
         # they had the same int-field gap (#127): `included_iops = nan` or `inf`
