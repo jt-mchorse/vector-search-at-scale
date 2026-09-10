@@ -1475,3 +1475,66 @@ reader/writer asymmetry fell out of reading the reader guards' own docstrings.
 **Next session:** the reader/writer asymmetry question is portable. Every repo
 in the portfolio that hardened a JSON reader should be asked what writes that
 field.
+
+---
+
+## 2026-09-10 — the document's headline column read $0.000000 on every row (#141)
+
+**Focus:** `scripts/cost_table.py`'s rendering of `$/query`, and the committed
+`docs/cost_per_query.md`.
+
+**How it was found.** This repo's code axes — numeric domains, frozen-dataclass
+ingress, bool-subclass guards — have been swept hard, twice to an empty result.
+So the angle this time was the published artifact: run the shipped generator and
+diff it against what is committed. The diff came back **byte-identical**, which
+is the check I actually set out to run, and it passed. The bug was in the values
+that scrolled past on the way: `$/query` reads `$0.000000` on all nine rows of a
+document titled "Cost per query". A reproducible artifact is not a correct one,
+and a regeneration diff can never say so.
+
+Both render sites used `f"${x:.6f}"`, and the committed snapshot's own tiers are
+1.7e-8, 5.2e-8 and 2.1e-7 dollars per query. Six decimals cannot hold any of
+them.
+
+**The sharpest part is that the repo already names this string as a defect.**
+`test_cost_per_query_operand_symmetry.py`'s module docstring says the #129 guard
+exists because a sign-only check "would let nan qps yield `usd_per_query=nan`
+and inf qps a fabricated `$0.00/query`". So #129 hardened the *computation*
+against producing a fake zero, while the *presentation* produced one for every
+real value. Every existing assertion in the repo is on the computed float; the
+harm #129 names is a string.
+
+And the README had already solved this once. Its own headline table is in
+**`$/M queries`** and never prints `$/query` — the honest unit was chosen in one
+place, and the artifact the README links to kept a column it could not render.
+When two renderings of one quantity disagree about unit, the one a human
+maintained is the hint.
+
+**The lock is the deliverable, and it is stated over the value.** #139 in this
+same repo learned that the expensive way: it grepped `inspect.getsource` for the
+literal `"math.isfinite(...)"`, which pinned the guard's *spelling* rather than
+its *domain*, and could never have caught the hole that motivated the fix —
+because the literal it required was precisely the expression that accepted
+`True`. So the new test asserts, over the *rendered text* of the markdown, the
+stdout path, and the committed file, that a strictly positive cost never renders
+as zeros. Exactly zero is allowed to, and is the one input for which a string of
+zeros is honest.
+
+The wrong-fix arm earned its keep by catching two failure modes rather than one.
+A fixed `.12f` still reads zero at 1e-15 and at a denormal, *and* renders
+`$123.456` as sixteen-plus characters. Hence a significant-figures rule with a
+width cap that falls back to scientific notation — a denormal otherwise renders
+about 330 characters of zeros, which is a worse table than the one being fixed.
+
+**Checked rather than reworded:** the "differences come from throughput"
+sentence in both the doc and the README. It is an explanatory claim about *why*
+three engines agree when they share one stub qps, not a claim that differences
+are visible, so it stays. Prose that is already true does not need editing.
+
+**Why this was prioritized.** Both open issues here are JT-gated
+decision-revisits, and the priority tier had already been worked this run.
+
+**Open questions / blockers:** none. Deliberately unchanged: the `$/M queries`
+column's `.2f`. It is lossy at the margin but it does carry the tier
+differences, and widening it is a separate judgement about the published
+headline figure and the README table that quotes it.
