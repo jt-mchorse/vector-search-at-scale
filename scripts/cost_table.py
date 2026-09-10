@@ -39,6 +39,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import re
 import sys
 from collections.abc import Iterable
@@ -205,6 +206,76 @@ def build_rows(
 # ----------------------------------------------------------------------
 
 
+#: Widest fixed-point cell `format_usd_per_query` will produce before falling
+#: back to scientific notation (#141). 12 decimals covers 1e-10 with two
+#: significant figures to spare, and `tests/test_cost_per_query_operand_symmetry.py`
+#: asserts `0.0 < usd_per_query < 1e-10` for one regime -- the smallest
+#: magnitude this repo's own suite contemplates.
+_MAX_USD_DECIMALS = 12
+
+
+def format_usd_per_query(value: float) -> str:
+    """Render a per-query dollar figure without truncating it to zero (#141).
+
+    Both render sites used ``f"${x:.6f}"``. Six decimals cannot represent this
+    quantity: the committed snapshot's own three tiers are
+
+        1m    $74.08/mo / 4,266,558,000 queries = $0.000000017363/query
+        10m   $219.96/mo                        = $0.000000051554/query
+        100m  $915.84/mo                        = $0.000000214655/query
+
+    so every row of `docs/cost_per_query.md` -- a document titled "Cost per
+    query", whose opening line is "Amortized USD per query" -- rendered
+    ``$0.000000``. Nine rows, one value, in the column the document is named
+    after.
+
+    And this repo already treats that exact string as the name of a defect.
+    ``tests/test_cost_per_query_operand_symmetry.py``'s own docstring says the
+    #129 guard exists because a sign-only check "would let nan qps yield
+    ``usd_per_query=nan`` and inf qps a fabricated ``$0.00/query``". #129
+    hardened the *computation* against producing a fake zero; the *presentation*
+    was producing one for every real value.
+
+    **Significant figures, not a fixed width.** A wider fixed precision is the
+    plausible wrong fix and it is falsifiable by a value this repo's own suite
+    already contemplates -- the same test asserts ``0.0 < usd_per_query < 1e-10``
+    for one regime, which any fixed ``.Nf`` with N <= 10 renders as zeros. So
+    the rule is stated over the *value*: keep enough decimals that a strictly
+    positive number never renders as all zeros.
+
+    Zero itself renders ``$0.00``: a genuinely zero per-query cost is a real
+    answer (a free tier, or a monthly bill of exactly 0), and it is the one
+    input for which a string of zeros is honest. That is the boundary the
+    guard is stated around -- *strictly positive* must not read as zero.
+    """
+    if not math.isfinite(value):
+        # Unreachable from `cost_per_query`, which raises on a non-finite
+        # result (#129). Rendered rather than crashed, so a future caller
+        # handing this a raw float gets a legible cell instead of a traceback
+        # out of a formatter.
+        return f"${value}"
+    if value <= 0.0:
+        return f"${value:.2f}"
+    if round(value, 2) > 0.0:
+        # Cents, whenever cents say something. This is every ordinary dollar
+        # amount and keeps the common case reading like money.
+        return f"${value:.2f}"
+    # Cents would round to zero, so widen to the first significant digit plus
+    # two more -- non-zero is the floor, distinguishable is the point. For
+    # 2.1e-7 that is 7 + 2 = 9 decimals -> "$0.000000215", and the three
+    # committed tiers become 0.0000000174 / 0.0000000516 / 0.000000215.
+    decimals = -math.floor(math.log10(value)) + 2
+    if decimals > _MAX_USD_DECIMALS:
+        # Past that width a fixed-point cell stops being readable -- a denormal
+        # renders ~330 characters of zeros, which is a worse table than the one
+        # this fix replaced. Scientific notation is non-zero AND compact, which
+        # are the two properties that matter. Reachable only from a value the
+        # cost model itself would refuse, so this is the shape of the fallback
+        # rather than a case in the published table.
+        return f"${value:.2e}"
+    return f"${value:.{decimals}f}"
+
+
 def render_markdown(
     rows: Iterable[CostPerQuery],
     *,
@@ -269,7 +340,7 @@ def render_markdown(
         lines.append(
             f"| {r.scale_tier} | {r.engine} | {instance_type} | {ebs_summary} | "
             f"${r.monthly_cost.total_usd_month:.2f} | {r.throughput_qps:.1f} | "
-            f"${r.usd_per_query:.6f} | ${r.usd_per_million_queries:.2f} | "
+            f"{format_usd_per_query(r.usd_per_query)} | ${r.usd_per_million_queries:.2f} | "
             f"{source_cell} |"
         )
 
@@ -527,7 +598,8 @@ def main(argv: list[str] | None = None) -> int:
     for r in rows:
         print(
             f"  {r.scale_tier:>4s}  {r.engine:<10s}  ${r.monthly_cost.total_usd_month:>8.2f}/mo  "
-            f"{r.throughput_qps:>8.1f} qps  ${r.usd_per_query:.6f}/q  ${r.usd_per_million_queries:>7.2f}/M"
+            f"{r.throughput_qps:>8.1f} qps  {format_usd_per_query(r.usd_per_query)}/q  "
+            f"${r.usd_per_million_queries:>7.2f}/M"
         )
     return 0
 
