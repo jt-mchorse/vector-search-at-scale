@@ -14,15 +14,15 @@ Amortized USD per query at each (tier, engine), computed from the infrastructure
 
 | Scale | Engine | Instance | EBS | Monthly $ | qps | $/query | $/M queries | Throughput source |
 | --- | --- | --- | --- | ---: | ---: | ---: | ---: | --- |
-| 1m | pgvector | m6i.large | $4.00/mo storage | $74.08 | 1623.5 | $0.000000 | $0.02 | `results/load/stub-10k/c001.json` (simulated) |
-| 1m | qdrant | m6i.large | $4.00/mo storage | $74.08 | 1623.5 | $0.000000 | $0.02 | `results/load/stub-10k/c001.json` (simulated) |
-| 1m | weaviate | m6i.large | $4.00/mo storage | $74.08 | 1623.5 | $0.000000 | $0.02 | `results/load/stub-10k/c001.json` (simulated) |
-| 10m | pgvector | r6i.xlarge | $16.00/mo storage + $15.00/mo IOPS + $5.00/mo throughput | $219.96 | 1623.5 | $0.000000 | $0.05 | `results/load/stub-10k/c001.json` (simulated) |
-| 10m | qdrant | r6i.xlarge | $16.00/mo storage + $15.00/mo IOPS + $5.00/mo throughput | $219.96 | 1623.5 | $0.000000 | $0.05 | `results/load/stub-10k/c001.json` (simulated) |
-| 10m | weaviate | r6i.xlarge | $16.00/mo storage + $15.00/mo IOPS + $5.00/mo throughput | $219.96 | 1623.5 | $0.000000 | $0.05 | `results/load/stub-10k/c001.json` (simulated) |
-| 100m | pgvector | r6i.4xlarge | $120.00/mo storage + $45.00/mo IOPS + $15.00/mo throughput | $915.84 | 1623.5 | $0.000000 | $0.21 | `results/load/stub-10k/c001.json` (simulated) |
-| 100m | qdrant | r6i.4xlarge | $120.00/mo storage + $45.00/mo IOPS + $15.00/mo throughput | $915.84 | 1623.5 | $0.000000 | $0.21 | `results/load/stub-10k/c001.json` (simulated) |
-| 100m | weaviate | r6i.4xlarge | $120.00/mo storage + $45.00/mo IOPS + $15.00/mo throughput | $915.84 | 1623.5 | $0.000000 | $0.21 | `results/load/stub-10k/c001.json` (simulated) |
+| 1m | pgvector | m6i.large | $4.00/mo storage | $74.08 | 1623.5 | $0.0000000174 | $0.02 | `results/load/stub-10k/c001.json` (simulated) |
+| 1m | qdrant | m6i.large | $4.00/mo storage | $74.08 | 1623.5 | $0.0000000174 | $0.02 | `results/load/stub-10k/c001.json` (simulated) |
+| 1m | weaviate | m6i.large | $4.00/mo storage | $74.08 | 1623.5 | $0.0000000174 | $0.02 | `results/load/stub-10k/c001.json` (simulated) |
+| 10m | pgvector | r6i.xlarge | $16.00/mo storage + $15.00/mo IOPS + $5.00/mo throughput | $219.96 | 1623.5 | $0.0000000516 | $0.05 | `results/load/stub-10k/c001.json` (simulated) |
+| 10m | qdrant | r6i.xlarge | $16.00/mo storage + $15.00/mo IOPS + $5.00/mo throughput | $219.96 | 1623.5 | $0.0000000516 | $0.05 | `results/load/stub-10k/c001.json` (simulated) |
+| 10m | weaviate | r6i.xlarge | $16.00/mo storage + $15.00/mo IOPS + $5.00/mo throughput | $219.96 | 1623.5 | $0.0000000516 | $0.05 | `results/load/stub-10k/c001.json` (simulated) |
+| 100m | pgvector | r6i.4xlarge | $120.00/mo storage + $45.00/mo IOPS + $15.00/mo throughput | $915.84 | 1623.5 | $0.000000215 | $0.21 | `results/load/stub-10k/c001.json` (simulated) |
+| 100m | qdrant | r6i.4xlarge | $120.00/mo storage + $45.00/mo IOPS + $15.00/mo throughput | $915.84 | 1623.5 | $0.000000215 | $0.21 | `results/load/stub-10k/c001.json` (simulated) |
+| 100m | weaviate | r6i.4xlarge | $120.00/mo storage + $45.00/mo IOPS + $15.00/mo throughput | $915.84 | 1623.5 | $0.000000215 | $0.21 | `results/load/stub-10k/c001.json` (simulated) |
 
 ## What the numbers say (and don't)
 

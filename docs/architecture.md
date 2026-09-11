@@ -131,6 +131,23 @@ embeds the same numbers and is locked to the scripts by
   live from `terraform/envs/benchmark/main.tf` so the cost doc and
   the infra layer can't drift.
 
+  The `$/query` cell is rendered by `format_usd_per_query`, in
+  **significant figures rather than a fixed width** (#141). Both render
+  sites used `f"${x:.6f}"`, and six decimals cannot hold this quantity
+  — the committed snapshot's own tiers are 1.7e-8, 5.2e-8 and 2.1e-7
+  dollars per query, so every row of a document titled "Cost per query"
+  read `$0.000000`. This repo already treats that string as the name of
+  a defect: the #129 guard exists because a sign-only check "would let
+  nan qps yield `usd_per_query=nan` and inf qps a fabricated
+  `$0.00/query`". #129 hardened the *computation* against a fake zero
+  while the *presentation* produced one for every real value. A wider
+  fixed precision is the plausible wrong fix and is falsifiable by a
+  value this repo's own suite contemplates — `< 1e-10` — so the rule is
+  stated over the value: a strictly positive cost never renders as
+  zeros, and `tests/test_cost_table_per_query_rendering.py` asserts it
+  over the *rendered text* of both the markdown and the stdout path,
+  plus the committed artifact itself.
+
 ## Cross-cutting: atomic file writes (#33)
 
 `src/vector_bench/io_utils.py` exposes `atomic_write_text`, the
