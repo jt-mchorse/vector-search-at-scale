@@ -26,7 +26,7 @@ Amortized USD per query at each (tier, engine), computed from the infrastructure
 
 ## What the numbers say (and don't)
 
-- The infra bill is **identical across engines per tier** because they share the same instance type + EBS sizing (see the Terraform locals). The cost-per-query differences between engines therefore come from throughput differences, not from hardware differences.
+- The infra bill is **identical across engines per tier** because they share the same instance type + EBS sizing (see the Terraform locals). Cost-per-query differences between engines would therefore come from throughput differences, not from hardware differences — but **this table shows none**: throughput is read once per tier and applied to every engine in it, so within a tier the three rows are identical by construction. The `Throughput source` column says whose measurement each row is carrying; a row marked `(measured on <other engine>)` is borrowing a number, not reporting one. Per-engine figures need per-engine load results, which this table cannot consume yet (#145).
 - The amortization assumes a 24/7 sustained workload at the throughput in the `qps` column. A bursty production workload that runs 8 hours/day will see ~3× the per-query cost; the README's writeup leads with that.
 - 100M-tier numbers in the table are flagged when the throughput source isn't real-engine data; a `(simulated)` annotation means the c001.json under `results/load/` came from the stub or HNSW simulator. Real-engine numbers require `make up` + the load harness; the operator commits new throughput files and re-runs the script.
 

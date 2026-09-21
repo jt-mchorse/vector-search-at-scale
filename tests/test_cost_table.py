@@ -330,16 +330,23 @@ def test_main_default_dry_labels_every_row_simulated(tmp_path: Path):
         assert "(real)" not in row
 
 
-def test_main_no_dry_drops_simulated_marker_from_rows(tmp_path: Path):
+def test_main_no_dry_still_says_simulated_for_a_stub_measurement(tmp_path: Path):
+    """`--no-dry` does not make a stub run real (#144).
+
+    This asserted the opposite: that `--no-dry` *drops* the `(simulated)`
+    marker. It does read the same `results/load/stub-10k/c001.json` either way,
+    and that file records `backend: "stub"` — so dropping the marker let a
+    simulated number publish with no provenance at all, purely because the
+    operator chose a flag. The marker now comes from the measurement, not from
+    the invocation; `--dry` still selects *which* inputs are used.
+    """
     out_path = tmp_path / "out.md"
     rc = main(["--no-dry", "--out", str(out_path)])
     assert rc == 0
     rows = _table_row_lines(out_path.read_text(encoding="utf-8"))
     assert rows, "expected per-tier table rows in the markdown"
     for row in rows:
-        assert "(simulated)" not in row, (
-            f"row should not carry (simulated) under --no-dry without override: {row}"
-        )
+        assert "(simulated)" in row, f"a stub-backed row must say so: {row}"
         assert "(real)" not in row
 
 
@@ -360,10 +367,15 @@ def test_main_load_results_override_labels_tier_real(tmp_path: Path):
     other_rows = [r for r in rows if "real_1m_run" not in r]
     assert real_rows, "expected at least one row pointing at the override dir"
     for row in real_rows:
-        assert "(real)" in row, f"override-rule row missing (real) marker: {row}"
+        # The seeded c001.json records no `backend`, so nothing says which
+        # engine produced it. It used to be labelled `(real)` for all three
+        # (#144) — the marker was driven by `--load-results` having been passed,
+        # not by the measurement. Unrecorded provenance now says so.
+        assert "(provenance unrecorded)" in row, f"unexpected marker: {row}"
+        assert "(real)" not in row
     for row in other_rows:
         assert "(simulated)" in row, (
-            f"non-overridden row should remain (simulated) under default --dry: {row}"
+            f"non-overridden row reads the stub run, which records backend=stub: {row}"
         )
 
 

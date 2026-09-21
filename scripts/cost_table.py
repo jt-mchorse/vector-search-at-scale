@@ -171,6 +171,66 @@ def load_throughput_qps(results_dir: Path) -> float:
     return float(qps)
 
 
+def load_throughput_backend(results_dir: Path) -> str | None:
+    """The engine that produced `c001.json`, or ``None`` if it does not say.
+
+    The load harness records which backend it ran against, and the cost table
+    used to ignore the field entirely: it read one `c001.json` per *tier* and
+    published that throughput as all three engines' (#144). With
+    `--load-results`, a real pgvector measurement was republished as qdrant's
+    and weaviate's and labelled ``(real)`` — a benchmark number attributed to
+    something that did not produce it (handoff §10).
+
+    Measured on the unguarded version, a `c001.json` with
+    ``backend: "pgvector"`` at 842 qps passed for the 1m tier::
+
+        | 1m | pgvector | ... | 842.0 | $0.0000000335 | ... (real) |
+        | 1m | qdrant   | ... | 842.0 | $0.0000000335 | ... (real) |
+        | 1m | weaviate | ... | 842.0 | $0.0000000335 | ... (real) |
+
+    Returns the raw string rather than validating it against `ENGINES`: the
+    committed stub run records ``"stub"``, which is a truthful answer that names
+    no engine, and `_provenance_marker` is where the comparison happens.
+    """
+    payload = json.loads((results_dir / "c001.json").read_text(encoding="utf-8"))
+    backend = payload.get("backend")
+    return backend if isinstance(backend, str) else None
+
+
+def _provenance_marker(backend: str | None, engine: str) -> str:
+    """What this row's throughput number is, for *this* engine.
+
+    The marker used to be a property of the *tier* — ``(real)`` when
+    `--load-results` supplied the file, ``(simulated)`` under `--dry`. Whether a
+    number is real is a property of the (tier, **engine**) pair: a file measured
+    on pgvector is real for pgvector and borrowed for the other two (#144).
+
+    - the file names *this* engine  -> ``(real)``
+    - the file names another engine -> says whose it is, so the row cannot read
+      as its own measurement
+    - the file names a non-engine backend (the committed ``stub-10k`` run
+      records ``"stub"``) -> ``(simulated)``, which is what every row of the
+      shipped table already said, so the published artifact is unchanged
+    - the file records no backend at all -> says so, rather than guessing
+
+    **The marker comes from the data, not from a CLI flag.** It used to be
+    ``(real)`` whenever ``--load-results`` supplied the file and ``(simulated)``
+    only under ``--dry``, so the same stub measurement was marked
+    ``(simulated)`` with ``--dry`` and carried **no marker at all** with
+    ``--no-dry`` — a flag the operator chooses decided whether a number looked
+    real. That is the same defect as the engine mislabelling, one level out:
+    provenance is a property of the measurement. ``--dry`` still selects *which*
+    inputs are used; it no longer describes them.
+    """
+    if backend is None:
+        return "(provenance unrecorded)"
+    if backend == engine:
+        return "(real)"
+    if backend in ENGINES:
+        return f"(measured on {backend}, not {engine})"
+    return "(simulated)"
+
+
 # ----------------------------------------------------------------------
 # Pure-function table builder
 # ----------------------------------------------------------------------
@@ -281,6 +341,7 @@ def render_markdown(
     *,
     prices: PriceTable,
     qps_source: dict[str, str],
+    qps_backend: dict[str, str | None] | None = None,
 ) -> str:
     """Render the per-tier table + assumptions block."""
     rows_list = list(rows)
@@ -336,7 +397,10 @@ def render_markdown(
         # `comment._row_to_md` (llm-eval-harness #130), `calibration.render_report`
         # (#134), `aggregate_markdown` (embedding-model-shootout #79), and
         # `run_matrix._render_summary` (chunking-strategies-lab #100), applied here (#76).
-        source_cell = qps_source.get(r.scale_tier, "—").replace("|", "\\|")
+        # The marker is computed per row, because "real" is a property of the
+        # (tier, engine) pair rather than of the tier (#144).
+        marker = _provenance_marker((qps_backend or {}).get(r.scale_tier), r.engine)
+        source_cell = f"{qps_source.get(r.scale_tier, '—')} {marker}".strip().replace("|", "\\|")
         lines.append(
             f"| {r.scale_tier} | {r.engine} | {instance_type} | {ebs_summary} | "
             f"${r.monthly_cost.total_usd_month:.2f} | {r.throughput_qps:.1f} | "
@@ -350,8 +414,15 @@ def render_markdown(
         "",
         "- The infra bill is **identical across engines per tier** because "
         "they share the same instance type + EBS sizing (see the Terraform "
-        "locals). The cost-per-query differences between engines therefore "
-        "come from throughput differences, not from hardware differences.",
+        "locals). Cost-per-query differences between engines would therefore "
+        "come from throughput differences, not from hardware differences — but "
+        "**this table shows none**: throughput is read once per tier and "
+        "applied to every engine in it, so within a tier the three rows are "
+        "identical by construction. The `Throughput source` column says whose "
+        "measurement each row is carrying; a row marked "
+        "`(measured on <other engine>)` is borrowing a number, not reporting "
+        "one. Per-engine figures need per-engine load results, which this "
+        "table cannot consume yet (#145).",
         "- The amortization assumes a 24/7 sustained workload at the "
         "throughput in the `qps` column. A bursty production workload that "
         "runs 8 hours/day will see ~3× the per-query cost; the README's "
@@ -487,6 +558,9 @@ def main(argv: list[str] | None = None) -> int:
 
         qps_by_tier: dict[str, float] = {}
         qps_source: dict[str, str] = {}
+        # The provenance marker is per (tier, ENGINE), not per tier: whether a
+        # throughput number is "real" depends on which engine produced it (#144).
+        qps_backend: dict[str, str | None] = {}
         results_dir = Path(args.results_dir)
         for tier in SCALE_TIERS:
             if tier in load_overrides:
@@ -494,14 +568,14 @@ def main(argv: list[str] | None = None) -> int:
                 current_input = f"{override_dir}/c001.json"
                 qps = load_throughput_qps(override_dir)
                 qps_by_tier[tier] = qps
-                qps_source[tier] = f"`{override_dir}/c001.json` (real)"
+                qps_source[tier] = f"`{override_dir}/c001.json`"
+                qps_backend[tier] = load_throughput_backend(override_dir)
             else:
                 current_input = f"{results_dir / args.run_id}/c001.json"
                 qps = load_throughput_qps(results_dir / args.run_id)
                 qps_by_tier[tier] = qps
-                marker = "(simulated)" if args.dry else ""
-                label = f"`results/load/{args.run_id}/c001.json`"
-                qps_source[tier] = f"{label} {marker}".strip()
+                qps_source[tier] = f"`results/load/{args.run_id}/c001.json`"
+                qps_backend[tier] = load_throughput_backend(results_dir / args.run_id)
     except FileNotFoundError as exc:
         print(str(exc), file=sys.stderr)
         return 2
@@ -579,7 +653,12 @@ def main(argv: list[str] | None = None) -> int:
             file=sys.stderr,
         )
         return 2
-    md = render_markdown(rows, prices=prices, qps_source=qps_source)
+    md = render_markdown(
+        rows,
+        prices=prices,
+        qps_source=qps_source,
+        qps_backend=qps_backend,
+    )
 
     out_path = Path(args.out)
     # The output path is operator input too: an unwritable `--out` (a read-only
