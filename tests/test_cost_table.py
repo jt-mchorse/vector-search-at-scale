@@ -22,6 +22,8 @@ from scripts.cost_table import (  # noqa: E402
     main,
     parse_terraform_tiers,
     render_markdown,
+    uniform_qps,
+    uniform_source,
 )
 from vector_bench.cost import InfraSpec, cost_per_query  # noqa: E402
 from vector_bench.prices import aws_us_east_1_snapshot  # noqa: E402
@@ -137,7 +139,7 @@ def test_build_rows_produces_one_row_per_tier_engine_combination():
     tiers = parse_terraform_tiers(SAMPLE_TF)
     qps_by_tier = {"1m": 1000.0, "10m": 800.0, "100m": 400.0}
     prices = aws_us_east_1_snapshot()
-    rows = build_rows(tiers, qps_by_tier, prices)
+    rows = build_rows(tiers, uniform_qps(qps_by_tier), prices)
     assert len(rows) == len(SCALE_TIERS) * len(ENGINES)
     seen = {(r.scale_tier, r.engine) for r in rows}
     expected = {(t, e) for t in SCALE_TIERS for e in ENGINES}
@@ -150,7 +152,7 @@ def test_build_rows_same_tier_same_cost_across_engines():
     and (1m, qdrant)."""
     tiers = parse_terraform_tiers(SAMPLE_TF)
     qps_by_tier = {t: 1000.0 for t in SCALE_TIERS}
-    rows = build_rows(tiers, qps_by_tier, aws_us_east_1_snapshot())
+    rows = build_rows(tiers, uniform_qps(qps_by_tier), aws_us_east_1_snapshot())
     by_tier: dict[str, list[float]] = {}
     for r in rows:
         by_tier.setdefault(r.scale_tier, []).append(r.monthly_cost.total_usd_month)
@@ -163,7 +165,7 @@ def test_build_rows_same_tier_same_cost_across_engines():
 def test_build_rows_propagates_qps_per_tier():
     tiers = parse_terraform_tiers(SAMPLE_TF)
     qps_by_tier = {"1m": 100.0, "10m": 200.0, "100m": 300.0}
-    rows = build_rows(tiers, qps_by_tier, aws_us_east_1_snapshot())
+    rows = build_rows(tiers, uniform_qps(qps_by_tier), aws_us_east_1_snapshot())
     for r in rows:
         assert r.throughput_qps == qps_by_tier[r.scale_tier]
 
@@ -175,11 +177,11 @@ def test_render_markdown_includes_every_row_and_assumptions_block():
     tiers = parse_terraform_tiers(SAMPLE_TF)
     qps_by_tier = {t: 1000.0 for t in SCALE_TIERS}
     prices = aws_us_east_1_snapshot()
-    rows = build_rows(tiers, qps_by_tier, prices)
+    rows = build_rows(tiers, uniform_qps(qps_by_tier), prices)
     md = render_markdown(
         rows,
         prices=prices,
-        qps_source={t: "results/load/stub-10k/c001.json" for t in SCALE_TIERS},
+        qps_source=uniform_source({t: "results/load/stub-10k/c001.json" for t in SCALE_TIERS}),
     )
     assert "# Cost per query" in md
     assert "## Assumptions" in md
@@ -199,9 +201,9 @@ def test_render_markdown_quotes_the_source_url():
     qps_by_tier = {t: 1000.0 for t in SCALE_TIERS}
     prices = aws_us_east_1_snapshot()
     md = render_markdown(
-        build_rows(tiers, qps_by_tier, prices),
+        build_rows(tiers, uniform_qps(qps_by_tier), prices),
         prices=prices,
-        qps_source={t: "anything" for t in SCALE_TIERS},
+        qps_source=uniform_source({t: "anything" for t in SCALE_TIERS}),
     )
     assert prices.source_url in md
 
@@ -218,12 +220,12 @@ def test_render_markdown_escapes_pipe_in_throughput_source_so_columns_dont_break
     tiers = parse_terraform_tiers(SAMPLE_TF)
     qps_by_tier = {t: 1000.0 for t in SCALE_TIERS}
     prices = aws_us_east_1_snapshot()
-    rows = build_rows(tiers, qps_by_tier, prices)
+    rows = build_rows(tiers, uniform_qps(qps_by_tier), prices)
     piped = "`/tmp/a|b/c001.json` (real)"
     md = render_markdown(
         rows,
         prices=prices,
-        qps_source={t: piped for t in SCALE_TIERS},
+        qps_source=uniform_source({t: piped for t in SCALE_TIERS}),
     )
     lines = md.splitlines()
     header_line = next(line for line in lines if line.startswith("| Scale |"))
