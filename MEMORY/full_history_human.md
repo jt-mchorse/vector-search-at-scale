@@ -1588,3 +1588,66 @@ invariants. Three neighbours built and run, each caught.
 **Suite:** 906 → 919 green, 1 skipped. ruff clean. (vsas has no mypy and no
 `ruff format --check`; CI lints `src/` and `tests/` only, so `scripts/` is not
 covered there.)
+
+## 2026-09-22 — Issue #145: two of the three open questions were already answered in the repo
+**Duration:** see the issue's plan/close comment timestamps · **Branch:** `session/2026-09-22-0738-issue-145`
+
+`scripts/cost_table.py` now consumes throughput per `(tier, engine)`.
+`--load-results TIER=PATH` is repeatable for the same tier, and which engine a
+run directory belongs to is read out of that file's own `backend` field. A tier
+with genuinely different per-engine measurements now renders genuinely
+different `$/query` cells, which is the comparison the document exists for and
+could not previously produce at all.
+
+The issue opened with three design questions and a note that this touches
+D-006. Two of the three turned out to be already answered in the repo. *Does the
+harness emit per-engine runs?* `LoadMatrix` is documented as "all cells for one
+`(backend, workload)` pair", and a `run_id` directory holds exactly that — a run
+is already per-engine, so D-007's one-file-per-run-id contract is untouched and
+the operator simply points at several directories. *Where should the engine
+binding live?* #144 had already decided that: "the marker comes from the data,
+not from a CLI flag — provenance is a property of the measurement." A
+`TIER:ENGINE=PATH` syntax would make the operator restate what the file already
+records, which is #144's defect one level out. The prior decision was not
+background; it was the design constraint.
+
+The third question — what a partially-measured tier renders as — was the real
+one, and the answer is conditional on whether there is a choice to make. With
+one file supplied for a tier (every invocation that existed before this change),
+the other two engines borrow it and are labelled `(measured on X, not Y)`:
+borrowing from a single source is unambiguous. With two or more, an engine named
+by none of them falls back to the default run rather than borrowing, because
+picking which of several measurements to attribute to it is arbitrary — and
+silently borrowing pgvector's number for weaviate because pgvector was typed
+first is the same class of error as publishing one run as all three. The arm
+that proves this is not itself arbitrary is the order-independence one: a rule
+that depended on argument order would be arbitrary attribution wearing a
+deterministic hat.
+
+Both halves are load-bearing, measured rather than assumed: the
+borrow-the-first-supplied neighbour goes four arms red, and the never-borrow
+neighbour goes eight red including four of #144's own tests.
+
+A latent bug was sitting in the parser the whole time.
+`_parse_load_results_overrides` returned a `dict[str, Path]` and assigned into
+it, so a repeated tier silently kept the last one — and a repeated tier is
+exactly the syntax this feature needed. The flag is `action="append"`, which
+promises accumulation; the dict quietly refused it.
+
+Two things I got wrong and the tooling caught. My inverse-ratio identity used a
+`rel=1e-3` tolerance and failed on correct output, because the rendered cell
+carries three significant figures and a ratio of two such values up to ~0.3% of
+rounding — so I derived the bound, wrote the derivation into the comment, and
+added the same identity at `rel=1e-12` against the unrounded model so the
+looseness is demonstrably presentational. And I called the class `LoadSweep` in
+the architecture doc, the decision record, a test docstring and a source
+comment; it is `LoadMatrix`. The quoted docstring was right and the name was
+invented. The doc-symbol lock caught all five occurrences at once.
+
+Suite 920 → 934. `docs/cost_per_query.md` regenerates with exactly one line
+changed — the AC5 prose sentence — and the single-file invocation produces a
+byte-identical artifact to the pristine script, diffed directly.
+
+**Open questions:** none. Whether the load harness should grow a sweep that runs
+all three engines in one invocation is a harness question, not a cost-table
+one, and nothing here blocks it.
