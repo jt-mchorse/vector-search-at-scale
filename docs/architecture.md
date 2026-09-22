@@ -148,6 +148,32 @@ embeds the same numbers and is locked to the scripts by
   over the *rendered text* of both the markdown and the stdout path,
   plus the committed artifact itself.
 
+- **Provenance is a property of the measurement, not of the invocation
+  (#144).** The cost table reads one `c001.json` per *tier* and applies
+  its `throughput_qps` to all three engines — so within a tier the rows
+  are identical by construction. The file records which backend produced
+  it, and that field was not read: the `(real)` marker was set by whether
+  `--load-results` had been passed. A real pgvector measurement passed
+  for the 1m tier therefore published as qdrant's and weaviate's
+  throughput *and per-query cost*, labelled `(real)`, for two engines
+  that never ran. The same defect sat one level out, in the flag: the
+  identical stub-backed file was marked `(simulated)` under `--dry` and
+  carried **no** marker under `--no-dry`.
+
+  The marker now comes from the `backend` field — `(real)` only for the
+  engine that produced it, `(measured on <other>, not <this>)` for a
+  borrowed number, `(simulated)` for a non-engine backend like the
+  committed `stub` run, `(provenance unrecorded)` when the file does not
+  say. `--dry` still selects *which* inputs are used; it no longer
+  describes them.
+
+  The rendered prose moved with it. It said the cost-per-query
+  differences between engines "come from throughput differences" — a
+  comparison `qps` has no dimension to express, so those differences are
+  identically zero. The shared-throughput model itself is unchanged and
+  is an honest approximation *when it is labelled as one*; per-engine
+  input is a feature, tracked in #145.
+
 ## Cross-cutting: atomic file writes (#33)
 
 `src/vector_bench/io_utils.py` exposes `atomic_write_text`, the

@@ -1538,3 +1538,53 @@ decision-revisits, and the priority tier had already been worked this run.
 column's `.2f`. It is lossy at the margin but it does carry the tier
 differences, and widening it is a separate judgement about the published
 headline figure and the README table that quotes it.
+
+## 2026-09-21 — Issue #144: a throughput belongs to the engine that measured it
+**Duration:** 10 min (measured) · **Branch:** `session/2026-09-21-0818-issue-144`
+
+**How it was found.** vsas' three open issues are all JT-gated, so this was
+hunted. I ran the documented regeneration command for `docs/cost_per_query.md`
+and read the numbers rather than just checking it reproduced: nine rows, every
+one showing `1623.5` qps from the same file — under the doc's own sentence
+saying "the cost-per-query differences between engines therefore come from
+throughput differences". A comparison `qps` has no dimension to express.
+
+**The second half was worse than the first.** `c001.json` records which backend
+produced it, and `cost_table.py` never read the field. With `--load-results`, a
+real pgvector run at 842 qps publishes as qdrant's and weaviate's throughput
+*and per-query cost*, labelled `(real)`, for two engines that never ran. That is
+handoff §10's first rule, and it is the documented workflow — the flag's own
+help text describes exactly this.
+
+**The two existing tests that broke are how I found the defect one level out.**
+`test_main_no_dry_drops_simulated_marker_from_rows` asserted that `--no-dry`
+*removes* the `(simulated)` marker from the same stub-backed file. So a flag the
+operator chooses decided whether a number looked real. Provenance is a property
+of the measurement, not of the invocation. Both tests are updated with the
+reason written into them rather than deleted. Third run in a row where an
+existing test had pinned the defect as the spec.
+
+**Scoped to the label, not the model.** Shared throughput per tier is an honest
+approximation *once it is labelled as one*; per-engine input is a feature with
+real design questions about the results layout, touching D-006. Filed as #145.
+The invariant arm — the borrowed rows still carry the number they were given —
+is what stops a later change quietly dropping them instead, which would be a
+different and louder decision.
+
+**Pinning the prose and the data together.** One generator writes both, so the
+test asserts the corrected sentence *and* that the rendered rows really are
+identical within a tier. If the rows ever differ, the sentence has to change
+with them. A doc assertion alone rots; a data assertion alone misses the claim.
+
+**The fix is invisible on the shipped artifact by construction.** The committed
+`stub-10k` run records `backend: "stub"`, which maps to `(simulated)` — exactly
+the marker every row already carried. `docs/cost_per_query.md` regenerates with
+one line changed: the corrected sentence.
+
+**Anti-vacuity.** 3 arms red at the pre-change sha with the two helpers grafted
+in, 10 green — the seven marker unit cases, the backend reader, and two
+invariants. Three neighbours built and run, each caught.
+
+**Suite:** 906 → 919 green, 1 skipped. ruff clean. (vsas has no mypy and no
+`ruff format --check`; CI lints `src/` and `tests/` only, so `scripts/` is not
+covered there.)
