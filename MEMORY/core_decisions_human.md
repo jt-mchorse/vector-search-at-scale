@@ -163,3 +163,83 @@ The three backend SDKs we adapter against (`psycopg2` for pgvector, `qdrant-clie
 **Reversibility:** Cheap.
 
 **Related issues:** #33
+
+---
+
+## D-013 — Per-engine throughput, with the engine read from the file rather than declared on a flag
+
+**Date:** 2026-09-22 · **Reversibility:** cheap · **Issue:** #145 (follow-up to
+#144)
+
+**Decision.** `--load-results TIER=PATH` becomes repeatable for the same tier.
+Each run directory is one engine's measurement, and which engine is read out of
+that file's own `backend` field. For each `(tier, engine)`: use the supplied
+file that names this engine; failing that, the tier's single unambiguous
+fallback — the one supplied file, when exactly one was supplied; failing that,
+the `--run-id` default.
+
+**The issue expected this to touch D-006, and reading the code is what showed it
+does not.** `src/vector_bench/load.py` documents `LoadMatrix` as "all cells for
+one `(backend, workload)` pair", and a `run_id` directory holds exactly that. A
+run is *already* per-engine. So per-engine input needs no change to D-007's
+one-file-per-run-id rule: the operator simply points at several run
+directories. That was one of the three open design questions, and it was
+answered rather than decided.
+
+**Why not `TIER:ENGINE=PATH`.** That syntax makes the operator restate in a flag
+something the file already records. #144's own decision is that "the marker
+comes from the data, not from a CLI flag — provenance is a property of the
+measurement". A flag that *declares* which engine a number belongs to is the
+same defect #144 removed, one level out. The engine binding comes from
+`load_throughput_backend`, the same field the marker already reads.
+
+**"Exactly one" is the load-bearing phrase.** With one file per tier — every
+invocation that existed before #145 — behaviour is unchanged: the file's own
+engine gets `(real)`, the other two borrow it and are labelled `(measured on X,
+not Y)`. Borrowing from a single source is unambiguous; there is nothing to
+choose between. With two or more, an engine named by none of them falls back to
+the default run rather than borrowing, because picking which of several
+measurements to attribute to it is an *arbitrary attribution* — and silently
+borrowing pgvector's number for weaviate because pgvector happened to be typed
+first is the same class of error as publishing one run as all three.
+
+**A latent bug found on the way.** `_parse_load_results_overrides` returned a
+`dict[str, Path]` and assigned `out[tier] = ...`, so a repeated tier silently
+kept the last one. The natural way to express "pgvector and qdrant, both at 1m"
+quietly discarded the first file. It now accumulates, and two files claiming the
+same engine is a clean exit 2 — the alternative is discarding one of two real
+measurements without saying so.
+
+**An existing test pinned the limitation as the spec.**
+`test_the_doc_does_not_promise_per_engine_differences` asserted "this table
+shows none" and "identical by construction" *in the rendered doc*. #144 wrote it
+to correct a prose claim that was false of the tool; #145 makes the corrected
+wording false in the other direction. Updated, not deleted: what survives is the
+property #144 actually cared about — the prose and the rendered rows agree — so
+it now checks that under the default invocation the three rows really are
+identical and that no row claims `(real)`.
+
+**The AC2 arm is an identity, not a string inequality.** The infra bill is
+identical across engines within a tier, so `usd_per_query` is
+`monthly_cost / (qps × seconds_per_month)` with only `qps` varying: two rows'
+`$/query` must stand in the *inverse* ratio of their throughputs. A change that
+made the cells merely differ would pass a "the strings differ" check and fail
+this one. The tolerance is set by the cell rather than chosen for comfort — my
+first attempt used `rel=1e-3` and failed on correct output, because
+`format_usd_per_query` renders three significant figures and the ratio of two
+such values carries up to ~0.3% of rounding. The same identity is asserted at
+`rel=1e-12` against the unrounded model, so the looseness is demonstrably a
+property of the presentation.
+
+**Alternatives considered:**
+- `TIER:ENGINE=PATH` — rejected; puts provenance back on a flag.
+- Borrow the first supplied file for any unnamed engine — rejected; built and
+  run, four arms red including the order-independence one. A rule that depends
+  on argument order is arbitrary attribution wearing a deterministic hat.
+- Never borrow, always fall back to the default — rejected; built and run, eight
+  arms red including four of #144's own. It breaks every pre-#145 invocation.
+- Discovery by walking every `c001.json` under a root — rejected; it makes the
+  set of inputs implicit, and a stray directory would silently join the
+  published table.
+
+**Related issues:** #145, #144, #141

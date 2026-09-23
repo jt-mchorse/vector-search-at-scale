@@ -47,11 +47,15 @@ if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
 from scripts.cost_table import (  # noqa: E402
+    DEFAULT_TFVARS_PATH,
     ENGINES,
     _provenance_marker,
+    build_rows,
     load_throughput_backend,
     main,
+    parse_terraform_tiers,
 )
+from vector_bench.prices import aws_us_east_1_snapshot  # noqa: E402
 
 _COMMITTED_C001 = _REPO_ROOT / "results" / "load" / "stub-10k" / "c001.json"
 
@@ -160,34 +164,120 @@ def test_dry_and_no_dry_describe_the_same_file_the_same_way(tmp_path: Path) -> N
 # ----------------------------------------------------------------------
 
 
-def test_the_doc_does_not_promise_per_engine_differences(tmp_path: Path) -> None:
-    """The sentence and the data are generated into one file.
+def test_the_doc_does_not_promise_a_difference_this_invocation_cannot_show(
+    tmp_path: Path,
+) -> None:
+    """The sentence and the data are generated into one file, and must agree.
 
-    It read: "The cost-per-query differences between engines therefore come
-    from throughput differences" — while `qps` has no engine dimension, so those
-    differences are identically zero by construction. Asserted against the
-    rendered output rather than the source string, because that is what a reader
-    sees.
+    #144 wrote this arm against a prose claim that was false *of the tool*: "the
+    cost-per-query differences between engines therefore come from throughput
+    differences", while `qps` had no engine dimension at all, so those
+    differences were identically zero by construction. It then pinned the
+    corrected wording — "this table shows none", "identical by construction".
+
+    #145 gave `qps` that dimension, so the corrected wording became false in
+    the other direction and had to move with it. What survives, and is what
+    this arm now checks, is the property #144 actually cared about: **the prose
+    and the rendered rows agree**. Under the default `--dry` invocation one stub
+    run supplies every tier and every engine, so the three rows in a tier really
+    are identical — and the doc must not read as though this particular table
+    were a per-engine comparison.
+
+    Asserted against the rendered output rather than the source string, because
+    that is what a reader sees.
     """
     out = tmp_path / "out.md"
     assert main(["--dry", "--out", str(out)]) == 0
     md = out.read_text(encoding="utf-8")
 
-    assert (
-        "The cost-per-query differences between engines therefore come from "
-        "throughput differences" not in md
-    )
-    assert "this table shows none" in md
-    assert "identical by construction" in md
-
-    # ...and the claim is true of the rendered rows: within a tier, every
-    # engine's cost cells match. If that ever stops being true the sentence has
-    # to change with it.
+    # The rows this invocation actually produced: one source for all three.
     for tier in ("1m", "10m", "100m"):
         rows = _tier_rows(md, tier)
         assert len(rows) == len(ENGINES)
         assert len({_cell(r, 6) for r in rows}) == 1, f"{tier} $/query differs"
         assert len({_cell(r, 5) for r in rows}) == 1, f"{tier} qps differs"
+
+    # So every row must be marked as not being this engine's own measurement.
+    # `(simulated)` is what the committed stub backend renders as; the point is
+    # that no row of this invocation claims `(real)`.
+    for tier in ("1m", "10m", "100m"):
+        for row in _tier_rows(md, tier):
+            assert "(real)" not in row, f"{tier} row claims a real measurement: {row}"
+
+    # And the prose no longer claims the tool *cannot* do what it now does --
+    # the sentence #145's AC5 required to change.
+    assert "which this table cannot consume yet" not in md
+    assert "the table consumes throughput per engine" in md
+
+
+def test_per_engine_results_render_genuinely_different_cells(tmp_path: Path) -> None:
+    """AC2, and the identity is stronger than "the strings differ".
+
+    The infra bill is identical across engines within a tier, so
+    `usd_per_query` is `monthly_cost / (qps * seconds_per_month)` with only
+    `qps` varying. Two rows' `$/query` must therefore stand in the *inverse*
+    ratio of their throughputs. A fix that made the cells merely differ --
+    by, say, perturbing a rounding -- would pass a string-inequality check and
+    fail this one.
+    """
+    pg = _seed(tmp_path / "pg", qps=842.0, backend="pgvector")
+    qd = _seed(tmp_path / "qd", qps=1310.5, backend="qdrant")
+    out = tmp_path / "out.md"
+    assert (
+        main(
+            [
+                "--dry",
+                "--load-results",
+                f"1m={pg}",
+                "--load-results",
+                f"1m={qd}",
+                "--out",
+                str(out),
+            ]
+        )
+        == 0
+    )
+    md = out.read_text(encoding="utf-8")
+    rows = {_cell(r, 1): r for r in _tier_rows(md, "1m")}
+
+    assert _cell(rows["pgvector"], 5) == "842.0"
+    assert _cell(rows["qdrant"], 5) == "1310.5"
+    assert "(real)" in rows["pgvector"]
+    assert "(real)" in rows["qdrant"]
+
+    pg_cost = float(_cell(rows["pgvector"], 6).lstrip("$"))
+    qd_cost = float(_cell(rows["qdrant"], 6).lstrip("$"))
+    assert pg_cost != qd_cost
+    # Inverse-proportional to throughput. The tolerance is set by the *cell*,
+    # not chosen for comfort: `format_usd_per_query` renders three significant
+    # figures (`$0.0000000335`), so each value carries up to ~1/(2*335) ~ 0.15%
+    # of rounding and the ratio of two of them up to ~0.3%. 1e-3 is therefore
+    # too tight to be meaningful here and fails on correct output; 5e-3 is the
+    # nearest bound the rendering can actually support.
+    assert pg_cost / qd_cost == pytest.approx(1310.5 / 842.0, rel=5e-3)
+
+    # And the same identity held *exactly* on the unrounded model, so the
+    # looseness above is a property of the presentation and not of the maths.
+    tiers = parse_terraform_tiers(DEFAULT_TFVARS_PATH.read_text(encoding="utf-8"))
+    exact = build_rows(
+        tiers,
+        {
+            ("1m", "pgvector"): 842.0,
+            ("1m", "qdrant"): 1310.5,
+            ("1m", "weaviate"): 1623.5,
+            **{(t, e): 1623.5 for t in ("10m", "100m") for e in ENGINES},
+        },
+        aws_us_east_1_snapshot(),
+    )
+    by_engine = {r.engine: r for r in exact if r.scale_tier == "1m"}
+    assert by_engine["pgvector"].usd_per_query / by_engine["qdrant"].usd_per_query == pytest.approx(
+        1310.5 / 842.0, rel=1e-12
+    )
+
+    # weaviate was named by neither file, so it falls back to the default run
+    # rather than borrowing one of the two arbitrarily.
+    assert "(simulated)" in rows["weaviate"]
+    assert "stub-10k" in rows["weaviate"]
 
 
 # ----------------------------------------------------------------------

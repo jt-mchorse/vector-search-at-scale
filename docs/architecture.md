@@ -194,6 +194,29 @@ benchmark from a `KeyboardInterrupt` mid-load.
   `chunking-strategies-lab`. Centralizes the `os.replace` surface to
   one monkey-patch target for the atomic-write test suite covering
   five distinct call sites.
+- **D-013 (#145).** `scripts/cost_table.py` consumes throughput **per
+  (tier, engine)**, not per tier. `--load-results TIER=PATH` is
+  repeatable for the same tier; each run directory is one engine's
+  measurement, and *which* engine is read out of that file's own
+  `backend` field rather than restated in a `TIER:ENGINE=PATH` flag —
+  #144 decided that provenance is a property of the measurement and
+  not of a CLI flag, and a flag declaring which engine a number
+  belongs to is that same defect one level out. This touches neither
+  D-006 nor D-007, which the issue expected it to: `LoadMatrix` is
+  documented as "all cells for one `(backend, workload)` pair" and a
+  `run_id` directory holds exactly that, so **a run is already
+  per-engine** and the operator simply points at several directories.
+  The resolution rule: use the supplied file that names this engine;
+  failing that, the tier's *single unambiguous* fallback — the one
+  supplied file, when exactly one was supplied; failing that, the
+  `--run-id` default. "Exactly one" is load-bearing. One file per tier
+  is every pre-#145 invocation and behaves identically (borrow,
+  labelled `(measured on X, not Y)`), because borrowing from a single
+  source has nothing to choose between. Supply two or more and an
+  engine named by none falls back to the default run rather than
+  borrowing, since picking which of several measurements to attribute
+  to it is an arbitrary attribution — the defect #144 exists to
+  prevent. Two files claiming the same engine is a clean exit 2.
 
 ## Cross-cutting: observability-parity dump surface (#39)
 

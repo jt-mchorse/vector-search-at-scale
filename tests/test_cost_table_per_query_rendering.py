@@ -52,6 +52,8 @@ from scripts.cost_table import (  # noqa: E402
     format_usd_per_query,
     parse_terraform_tiers,
     render_markdown,
+    uniform_qps,
+    uniform_source,
 )
 from vector_bench.prices import aws_us_east_1_snapshot  # noqa: E402
 
@@ -177,9 +179,9 @@ def test_every_rendered_row_of_the_real_table_shows_a_non_zero_cost() -> None:
     prices = aws_us_east_1_snapshot()
     qps_by_tier = {t: 1623.5 for t in SCALE_TIERS}
     md = render_markdown(
-        build_rows(tiers, qps_by_tier, prices),
+        build_rows(tiers, uniform_qps(qps_by_tier), prices),
         prices=prices,
-        qps_source={t: "results/load/stub-10k/c001.json" for t in SCALE_TIERS},
+        qps_source=uniform_source({t: "results/load/stub-10k/c001.json" for t in SCALE_TIERS}),
     )
     cells = _per_query_cells(md)
     assert len(cells) == len(SCALE_TIERS) * len(ENGINES), cells
@@ -202,9 +204,9 @@ def test_the_three_tiers_are_distinguishable_in_the_per_query_column() -> None:
     tiers = _real_tier_sizings()
     prices = aws_us_east_1_snapshot()
     md = render_markdown(
-        build_rows(tiers, {t: 1623.5 for t in SCALE_TIERS}, prices),
+        build_rows(tiers, uniform_qps({t: 1623.5 for t in SCALE_TIERS}), prices),
         prices=prices,
-        qps_source={t: "x" for t in SCALE_TIERS},
+        qps_source=uniform_source({t: "x" for t in SCALE_TIERS}),
     )
     assert len(set(_per_query_cells(md))) == len(SCALE_TIERS), (
         "the $/query column does not distinguish the three scale tiers: "

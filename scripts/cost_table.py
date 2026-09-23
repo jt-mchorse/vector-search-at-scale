@@ -236,19 +236,46 @@ def _provenance_marker(backend: str | None, engine: str) -> str:
 # ----------------------------------------------------------------------
 
 
+def uniform_qps(qps_by_tier: dict[str, float]) -> dict[tuple[str, str], float]:
+    """Expand a per-tier throughput map to the per-(tier, engine) map `build_rows` takes.
+
+    The explicit name is the point. Before #145 the only thing `build_rows`
+    could express was "one number for the whole tier", so every caller got that
+    silently; now a caller that wants it says so. Used by `main` for the tiers
+    where no per-engine measurement was supplied, and by the tests whose subject
+    is the *cost* model rather than the throughput plumbing.
+    """
+    return {(tier, engine): qps for tier, qps in qps_by_tier.items() for engine in ENGINES}
+
+
+def uniform_source(source_by_tier: dict[str, str]) -> dict[tuple[str, str], str]:
+    """`uniform_qps`'s sibling for the `render_markdown` source/backend maps."""
+    return {(tier, engine): src for tier, src in source_by_tier.items() for engine in ENGINES}
+
+
 def build_rows(
     tiers: dict[str, TierSizing],
-    qps_by_tier: dict[str, float],
+    qps_by_tier_engine: dict[tuple[str, str], float],
     prices: PriceTable,
 ) -> list[CostPerQuery]:
-    """For each (tier, engine), compute the cost-per-query row."""
+    """For each (tier, engine), compute the cost-per-query row.
+
+    Throughput is keyed by `(tier, engine)`, not by tier (#145, D-013). The
+    infra bill is identical across engines within a tier — they share the
+    instance type and EBS sizing — so throughput is the *only* input that can
+    make the per-engine cost comparison this document exists for come out
+    differently. While this map had no engine dimension, the three rows in a
+    tier were identical by construction, and #144 made them say so.
+
+    Use `uniform_qps()` to pass one number per tier deliberately.
+    """
     rows: list[CostPerQuery] = []
     for tier_name in SCALE_TIERS:
         if tier_name not in tiers:
             raise KeyError(f"missing tier {tier_name!r}")
         tier = tiers[tier_name]
-        qps = qps_by_tier[tier_name]
         for engine in ENGINES:
+            qps = qps_by_tier_engine[tier_name, engine]
             infra = InfraSpec(
                 scale_tier=tier.scale_tier,
                 engine=engine,
@@ -340,10 +367,17 @@ def render_markdown(
     rows: Iterable[CostPerQuery],
     *,
     prices: PriceTable,
-    qps_source: dict[str, str],
-    qps_backend: dict[str, str | None] | None = None,
+    qps_source: dict[tuple[str, str], str],
+    qps_backend: dict[tuple[str, str], str | None] | None = None,
 ) -> str:
-    """Render the per-tier table + assumptions block."""
+    """Render the per-tier table + assumptions block.
+
+    `qps_source` and `qps_backend` are keyed by `(tier, engine)` (#145, D-013).
+    They were keyed by tier, which was correct only while every engine in a
+    tier carried the same number from the same file — the limitation #145
+    removed. `uniform_source()` builds the per-tier-everywhere form for callers
+    that want it.
+    """
     rows_list = list(rows)
     lines = [
         "# Cost per query",
@@ -399,8 +433,10 @@ def render_markdown(
         # `run_matrix._render_summary` (chunking-strategies-lab #100), applied here (#76).
         # The marker is computed per row, because "real" is a property of the
         # (tier, engine) pair rather than of the tier (#144).
-        marker = _provenance_marker((qps_backend or {}).get(r.scale_tier), r.engine)
-        source_cell = f"{qps_source.get(r.scale_tier, '—')} {marker}".strip().replace("|", "\\|")
+        marker = _provenance_marker((qps_backend or {}).get((r.scale_tier, r.engine)), r.engine)
+        source_cell = f"{qps_source.get((r.scale_tier, r.engine), '—')} {marker}".strip().replace(
+            "|", "\\|"
+        )
         lines.append(
             f"| {r.scale_tier} | {r.engine} | {instance_type} | {ebs_summary} | "
             f"${r.monthly_cost.total_usd_month:.2f} | {r.throughput_qps:.1f} | "
@@ -414,15 +450,18 @@ def render_markdown(
         "",
         "- The infra bill is **identical across engines per tier** because "
         "they share the same instance type + EBS sizing (see the Terraform "
-        "locals). Cost-per-query differences between engines would therefore "
-        "come from throughput differences, not from hardware differences — but "
-        "**this table shows none**: throughput is read once per tier and "
-        "applied to every engine in it, so within a tier the three rows are "
-        "identical by construction. The `Throughput source` column says whose "
-        "measurement each row is carrying; a row marked "
-        "`(measured on <other engine>)` is borrowing a number, not reporting "
-        "one. Per-engine figures need per-engine load results, which this "
-        "table cannot consume yet (#145).",
+        "locals). Cost-per-query differences between engines therefore come "
+        "entirely from throughput, and the table consumes throughput per "
+        "engine: pass `--load-results TIER=PATH` once per engine's run "
+        "directory, and each row is built from the file whose `backend` names "
+        "that engine (#145). The `Throughput source` column says whose "
+        "measurement each row is carrying. `(real)` means this engine was "
+        "measured; `(measured on <other engine>)` is borrowing a number, not "
+        "reporting one — which happens when a single run directory is supplied "
+        "for a tier, since one source is unambiguous to borrow from. Supply "
+        "two or more and an engine named by none of them falls back to the "
+        "default run rather than borrowing, because choosing which of several "
+        "measurements to attribute to it would be arbitrary (#144).",
         "- The amortization assumes a 24/7 sustained workload at the "
         "throughput in the `qps` column. A bursty production workload that "
         "runs 8 hours/day will see ~3× the per-query cost; the README's "
@@ -465,13 +504,30 @@ _tier_to_instance: dict[str, str] = {}
 # ----------------------------------------------------------------------
 
 
-def _parse_load_results_overrides(raw: list[str] | None) -> dict[str, Path]:
-    """Parse `--load-results TIER=PATH` arguments into a {tier: dir} mapping.
+def _parse_load_results_overrides(raw: list[str] | None) -> dict[str, list[Path]]:
+    """Parse `--load-results TIER=PATH` arguments into a {tier: [dir, ...]} mapping.
+
+    Repeatable **per tier** (#145, D-013): one run directory is one engine's
+    measurement, because `LoadMatrix` is "all cells for one `(backend, workload)`
+    pair" and a `run_id` directory holds exactly that. So supplying three
+    directories for one tier is how an operator supplies three engines, and the
+    engine binding is read out of each file's own `backend` field rather than
+    restated in the flag. #144 decided that provenance is a property of the
+    measurement and not of a CLI flag; a `TIER:ENGINE=PATH` syntax would put it
+    back on the flag.
+
+    This returned a `dict[str, Path]` and assigned `out[tier] = ...`, so a
+    repeated tier **silently kept the last one** — the natural way to express
+    "pgvector and qdrant, both at 1m" quietly discarded the first file.
+
+    Order is preserved: it is the order the operator wrote, and it is what the
+    resolution rule reports when it has to name the files it could not
+    disambiguate.
 
     Raises ValueError on malformed entries or unknown tier so `main` can
     surface a clear error + the known-tier inventory on stderr.
     """
-    out: dict[str, Path] = {}
+    out: dict[str, list[Path]] = {}
     for raw_entry in raw or ():
         if "=" not in raw_entry:
             raise ValueError(f"--load-results entry {raw_entry!r}: expected TIER=PATH; got no '='")
@@ -485,8 +541,84 @@ def _parse_load_results_overrides(raw: list[str] | None) -> dict[str, Path]:
             )
         if not path_str:
             raise ValueError(f"--load-results entry {raw_entry!r}: empty path")
-        out[tier] = Path(path_str)
+        out.setdefault(tier, []).append(Path(path_str))
     return out
+
+
+@dataclass(frozen=True)
+class _Measurement:
+    """One supplied `c001.json`: where it came from, what it says, whose it is."""
+
+    directory: Path
+    qps: float
+    backend: str | None
+
+    @property
+    def engine(self) -> str | None:
+        """The engine this measurement belongs to, or None if it names none.
+
+        The committed stub run records ``"stub"`` — a truthful answer that names
+        no engine — so a file is engine-attributed only when its backend is one
+        of `ENGINES`.
+        """
+        return self.backend if self.backend in ENGINES else None
+
+
+def resolve_engine_throughput(
+    supplied: list[_Measurement],
+    default: _Measurement,
+) -> dict[str, _Measurement]:
+    """Which measurement each engine's row in one tier is built from (#145, D-013).
+
+    The rule, in one sentence: **use the supplied file that names this engine;
+    failing that, the tier's single unambiguous fallback — the one supplied
+    file, when exactly one was supplied; failing that, the `--run-id`
+    default.**
+
+    "Exactly one" is the load-bearing phrase, and it is what keeps this change
+    from moving anything that already shipped:
+
+    - **One file supplied** (every invocation that existed before #145):
+      identical behaviour. The file's own engine gets it as `(real)`; the other
+      two borrow it and are labelled `(measured on X, not Y)` by #144's marker.
+      Borrowing from a single source is unambiguous — there is nothing to
+      choose between.
+    - **Two or more supplied:** each engine uses the one that names it. An
+      engine named by none falls back to the default run rather than borrowing,
+      because picking which of several measurements to attribute to it is an
+      *arbitrary attribution* — and arbitrary attribution is exactly the defect
+      #144 exists to prevent. Silently borrowing pgvector's number for weaviate
+      because pgvector happened to be typed first is the same class of error as
+      publishing one run as all three.
+
+    A file that names no engine (the stub) can still be the single unambiguous
+    fallback; it cannot be engine-attributed, and its marker stays
+    ``(simulated)``.
+
+    Raises:
+        ValueError: if two supplied files claim the same engine. That is an
+            operator mistake with no defensible resolution — one of the two
+            measurements would have to be discarded silently, which is what the
+            old dict-assignment did.
+    """
+    by_engine: dict[str, _Measurement] = {}
+    for measurement in supplied:
+        engine = measurement.engine
+        if engine is None:
+            continue
+        if engine in by_engine:
+            raise ValueError(
+                f"--load-results supplied two results for engine {engine!r} in the same "
+                f"tier: {by_engine[engine].directory}/c001.json and "
+                f"{measurement.directory}/c001.json. Each engine takes at most one "
+                "run directory per tier."
+            )
+        by_engine[engine] = measurement
+
+    # The single unambiguous fallback, or None when there is a choice to make.
+    fallback = supplied[0] if len(supplied) == 1 else default
+
+    return {engine: by_engine.get(engine, fallback) for engine in ENGINES}
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -556,26 +688,43 @@ def main(argv: list[str] | None = None) -> int:
         tf_text = Path(args.tf_main).read_text(encoding="utf-8")
         tiers = parse_terraform_tiers(tf_text)
 
-        qps_by_tier: dict[str, float] = {}
-        qps_source: dict[str, str] = {}
-        # The provenance marker is per (tier, ENGINE), not per tier: whether a
-        # throughput number is "real" depends on which engine produced it (#144).
-        qps_backend: dict[str, str | None] = {}
+        # All three of these are keyed by (tier, ENGINE) rather than by tier
+        # (#145, D-013). The marker already had to be per-engine — whether a
+        # throughput number is "real" depends on which engine produced it
+        # (#144) — and now the *number itself* does too, which is what lets a
+        # tier's three rows differ at all.
+        qps_by_tier_engine: dict[tuple[str, str], float] = {}
+        qps_source: dict[tuple[str, str], str] = {}
+        qps_backend: dict[tuple[str, str], str | None] = {}
         results_dir = Path(args.results_dir)
+
+        def _read(directory: Path) -> _Measurement:
+            return _Measurement(
+                directory=directory,
+                qps=load_throughput_qps(directory),
+                backend=load_throughput_backend(directory),
+            )
+
+        def _display(directory: Path) -> str:
+            """The source cell. Default-run directories render repo-relative."""
+            if directory == results_dir / args.run_id:
+                return f"`results/load/{args.run_id}/c001.json`"
+            return f"`{directory}/c001.json`"
+
         for tier in SCALE_TIERS:
-            if tier in load_overrides:
-                override_dir = load_overrides[tier]
+            default_dir = results_dir / args.run_id
+            current_input = f"{default_dir}/c001.json"
+            default_measurement = _read(default_dir)
+            supplied: list[_Measurement] = []
+            for override_dir in load_overrides.get(tier, []):
                 current_input = f"{override_dir}/c001.json"
-                qps = load_throughput_qps(override_dir)
-                qps_by_tier[tier] = qps
-                qps_source[tier] = f"`{override_dir}/c001.json`"
-                qps_backend[tier] = load_throughput_backend(override_dir)
-            else:
-                current_input = f"{results_dir / args.run_id}/c001.json"
-                qps = load_throughput_qps(results_dir / args.run_id)
-                qps_by_tier[tier] = qps
-                qps_source[tier] = f"`results/load/{args.run_id}/c001.json`"
-                qps_backend[tier] = load_throughput_backend(results_dir / args.run_id)
+                supplied.append(_read(override_dir))
+            for engine, measurement in resolve_engine_throughput(
+                supplied, default_measurement
+            ).items():
+                qps_by_tier_engine[tier, engine] = measurement.qps
+                qps_source[tier, engine] = _display(measurement.directory)
+                qps_backend[tier, engine] = measurement.backend
     except FileNotFoundError as exc:
         print(str(exc), file=sys.stderr)
         return 2
@@ -645,7 +794,7 @@ def main(argv: list[str] | None = None) -> int:
     # points at the throughput sources because that is the only operator input
     # feeding this call.
     try:
-        rows = build_rows(tiers, qps_by_tier, prices)
+        rows = build_rows(tiers, qps_by_tier_engine, prices)
     except (TypeError, ValueError, KeyError) as exc:
         sources = ", ".join(sorted({s.replace("`", "") for s in qps_source.values()}))
         print(
