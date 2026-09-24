@@ -363,6 +363,42 @@ def format_usd_per_query(value: float) -> str:
     return f"${value:.{decimals}f}"
 
 
+def format_qps(value: float) -> str:
+    """Render a throughput without truncating a strictly positive value to zero (#148).
+
+    `#141`'s rule, stated over the value rather than over dollars: "keep enough
+    decimals that a strictly positive number never renders as all zeros". It was
+    written for `$/query` and it is not about dollars -- `f"{qps:.1f}"` has the
+    same shape from the other direction, and `0.0` sits next to a **non-zero**
+    `$/query` on the same row, because `cost_per_query` divides by this number
+    and refuses `qps <= 0` (#129). So a small positive throughput is precisely
+    the reachable case, not a hypothetical one: a 100M-tier exact-search
+    measurement is the realistic source.
+
+    `.1f` stays the narrow form. Tenths of a query per second is the resolution
+    a load harness reports and the width the column is sized for; every
+    committed row keeps it byte-identically.
+
+    A genuine `0.0` cannot reach the published table -- `cost_per_query` raises
+    first -- but it is rendered narrowly rather than widened anyway, so a future
+    caller handing this a zero gets `0.0` and not a row of zeros claiming to be
+    a measurement.
+    """
+    if not math.isfinite(value):
+        # Same posture as `format_usd_per_query`: legible cell, not a traceback
+        # out of a formatter. Unreachable through `cost_per_query` (#129).
+        return str(value)
+    if value <= 0.0:
+        return f"{value:.1f}"
+    narrow = f"{value:.1f}"
+    if float(narrow) != 0.0:
+        return narrow
+    decimals = -math.floor(math.log10(value)) + 2
+    if decimals > _MAX_USD_DECIMALS:
+        return f"{value:.2e}"
+    return f"{value:.{decimals}f}"
+
+
 def render_markdown(
     rows: Iterable[CostPerQuery],
     *,
@@ -439,8 +475,16 @@ def render_markdown(
         )
         lines.append(
             f"| {r.scale_tier} | {r.engine} | {instance_type} | {ebs_summary} | "
-            f"${r.monthly_cost.total_usd_month:.2f} | {r.throughput_qps:.1f} | "
-            f"{format_usd_per_query(r.usd_per_query)} | ${r.usd_per_million_queries:.2f} | "
+            # `$/M queries` through the same renderer as `$/query`, because it is
+            # the same quantity: `usd_per_million_queries = per_query * 1e6`, one
+            # line in `cost.py`. At `.2f` it published `$0.00` above 5,638 qps on
+            # the committed 1m tier -- while the cell to its left read
+            # `$0.00000000470`, so the row contradicted itself (#148). The
+            # committed 1623.5 qps comes from the stub every row annotates
+            # `(simulated)`; a real ANN engine on an m6i.large clears that cliff.
+            f"${r.monthly_cost.total_usd_month:.2f} | {format_qps(r.throughput_qps)} | "
+            f"{format_usd_per_query(r.usd_per_query)} | "
+            f"{format_usd_per_query(r.usd_per_million_queries)} | "
             f"{source_cell} |"
         )
 
@@ -826,8 +870,8 @@ def main(argv: list[str] | None = None) -> int:
     for r in rows:
         print(
             f"  {r.scale_tier:>4s}  {r.engine:<10s}  ${r.monthly_cost.total_usd_month:>8.2f}/mo  "
-            f"{r.throughput_qps:>8.1f} qps  {format_usd_per_query(r.usd_per_query)}/q  "
-            f"${r.usd_per_million_queries:>7.2f}/M"
+            f"{format_qps(r.throughput_qps):>8s} qps  {format_usd_per_query(r.usd_per_query)}/q  "
+            f"{format_usd_per_query(r.usd_per_million_queries):>8s}/M"
         )
     return 0
 

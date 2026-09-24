@@ -1651,3 +1651,16 @@ byte-identical artifact to the pristine script, diffed directly.
 **Open questions:** none. Whether the load harness should grow a sweep that runs
 all three engines in one invocation is a harness question, not a cost-table
 one, and nothing here blocks it.
+
+## 2026-09-23 — Issue #148: `$/M queries` was still `.2f`
+**Duration:** ~10 min (measured) · **Branch:** session/2026-09-23-0800-issue-148
+
+- #141 fixed the `$/query` column and stated its rule over the value — keep enough decimals that a strictly positive number never renders as all zeros. The cell immediately to its right carries the same quantity times a million and was still a fixed `.2f`.
+- Measured: `$/M queries` collapses to `$0.00` above 5,638 qps on the committed 1m tier, while `$/query` on the same row reads `$0.00000000470`. The committed 1623.5 qps comes from the stub every row annotates `(simulated)`, so the shipped number sits 3.5× below a cliff a real engine clears routinely.
+- Both columns now render through `format_usd_per_query`, and `throughput_qps` gets the same rule from the other direction. `docs/cost_per_query.md` regenerates byte-identically.
+
+**Why this work, this session:** the freshest surface here was the cost-table renderer, and #141's own docstring argued its rule in terms that did not mention dollars.
+
+**Open questions / blockers:** none. `total_usd_month` and the EBS components deliberately stay at `.2f` — they are monthly bills and cents are their unit.
+
+**Next session:** the process note worth carrying is that the first draft of the tests exercised the *formatter*, which was already correct; a call-site revert left them all green. The render-site arms are the ones that matter.
