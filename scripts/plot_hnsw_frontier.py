@@ -25,6 +25,15 @@ import sys
 from pathlib import Path
 from typing import Any
 
+from vector_bench.comparison import render_comparison, render_exact
+
+#: Decimal places the recall has always been published at in the knee sentence.
+#: Passed explicitly rather than defaulted inside `render_comparison`, so this
+#: script's width stays this script's business (#150, D-014). The *floor* was
+#: `.2f` here and now renders at the same width as the recall it is compared
+#: against, which is the whole point.
+_RECALL_PLACES = 3
+
 # The grid cell fields this script consumes numerically: `_dominates` /
 # `pareto_frontier` compare them, `recommended_defaults` picks the knee off them,
 # and `_print_table` formats them into the published Pareto-frontier table.
@@ -284,15 +293,32 @@ def main(argv: list[str] | None = None) -> int:
 
     knee = recommended_defaults(grid["cells"], recall_floor=args.recall_floor)
     if knee is not None:
+        # Both sides of "recall >= floor" through `render_comparison`, at the
+        # same precision (#150, D-014). The floor was `.2f` against a `.3f`
+        # recall, so a correct selection could read backwards: at
+        # floor=0.9451 / recall=0.9455 the sentence said
+        # "recall >= 0.95 ... recall=0.946". A mismatched pair is worse than a
+        # colliding one -- it looks fine and states the reverse.
+        rendered_recall, rendered_floor = render_comparison(
+            knee["mean_recall_at_k"], args.recall_floor, places=_RECALL_PLACES
+        )
         sys.stdout.write(
-            f"\nRecommended defaults (knee at recall ≥ {args.recall_floor:.2f}): "
+            f"\nRecommended defaults (knee at recall ≥ {rendered_floor}): "
             f"M={knee['M']} ef_construction={knee['ef_construction']} "
             f"ef_search={knee['ef_search']}  →  "
-            f"recall={knee['mean_recall_at_k']:.3f}  p95={knee['p95_ms']:.2f}ms\n"
+            f"recall={rendered_recall}  p95={knee['p95_ms']:.2f}ms\n"
         )
     else:
+        # `render_exact`, not the pair helper: there is no second number here.
+        # This line names a threshold *alone*, directly under the Pareto table
+        # printed above it, and claims nothing in that table reaches it. At
+        # `--recall-floor 0.9512` the `.2f` form printed "recall ≥ 0.95" above a
+        # table containing a cell at 0.952 -- a claim that is simply false, and
+        # whose suggested remedy ("expand the grid") is the wrong advice for the
+        # actual situation. An absolute claim needs an exact number, and no
+        # fixed width provides one.
         sys.stdout.write(
-            f"\nNo grid cell achieves recall ≥ {args.recall_floor:.2f}; "
+            f"\nNo grid cell achieves recall ≥ {render_exact(args.recall_floor)}; "
             "expand the grid (higher ef_search) before claiming a default.\n"
         )
     if png is not None:
