@@ -42,7 +42,7 @@ flowchart LR
 ```
 
 Full diagram + per-layer breakdown in [`docs/architecture.md`](docs/architecture.md),
-plus the design decisions behind each layer (D-002…D-013).
+plus the design decisions behind each layer (D-002…D-014).
 Per-tier instance sizing and on-demand cost table in [`docs/infra.md`](docs/infra.md).
 
 ## Quickstart

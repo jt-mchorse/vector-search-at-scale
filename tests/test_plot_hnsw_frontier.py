@@ -229,9 +229,24 @@ def test_in_domain_recall_floor_is_accepted(tmp_path: Path, capsys, floor: str) 
 
 
 def test_default_floor_path_is_unchanged(tmp_path: Path, capsys) -> None:
-    """The default `0.95` invocation must be byte-identical — the committed
-    artifacts and the README's quoted knee depend on it, and #78 (the knee
-    value) is a separate, maintainer-gated question this fix must not touch.
+    """Passing the default explicitly must be indistinguishable from omitting it.
+
+    The original form of this arm also pinned the literal `≥ 0.95`, on the
+    stated grounds that "the committed artifacts and the README's quoted knee
+    depend on it". #150 checked that premise: **no committed artifact contains
+    this sentence.** `results/` holds grid JSON, and the README's dependency is
+    on the *knee row* (M / ef_construction / ef_search / recall / p95), which
+    this fix does not touch. The README's prose "knee at recall ≥ 0.95" states
+    the floor's value, which is still `0.95` and still correct.
+
+    What the sentence now prints is `≥ 0.950`, because the floor renders at the
+    same precision as the recall it is compared against — that is D-014's whole
+    point, and rendering the two sides at `.2f` and `.3f` is what let a correct
+    selection read backwards.
+
+    #78 (which knee value to publish) remains a separate, maintainer-gated
+    question, and this arm still guards the part that matters for it: the
+    recommended cell itself is unchanged.
     """
     grid_path = _write_grid_with(tmp_path, lambda g: None)
     rc_default = plot_hnsw_frontier.main([str(grid_path)])
@@ -240,7 +255,12 @@ def test_default_floor_path_is_unchanged(tmp_path: Path, capsys) -> None:
     out_explicit = capsys.readouterr().out
     assert rc_default == rc_explicit == 0
     assert out_default == out_explicit
-    assert "Recommended defaults (knee at recall ≥ 0.95)" in out_default
+    assert "Recommended defaults (knee at recall ≥ 0.950)" in out_default
+    # The floor moved a decimal place; the selected cell did not. This is the
+    # half #78 cares about. The values are this module's synthetic fixture's,
+    # not the committed grid's — `_write_grid_with` builds its own.
+    assert "M=32 ef_construction=200 ef_search=128" in out_default
+    assert "recall=0.990" in out_default
 
 
 # Values spanning `mean_recall_at_k`'s domain and its complement, as *floats*,

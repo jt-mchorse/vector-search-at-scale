@@ -243,3 +243,81 @@ property of the presentation.
   published table.
 
 **Related issues:** #145, #144, #141
+
+---
+
+## D-014 — the recall floor is reported by two different helpers, on purpose
+
+**Date.** 2026-09-25 · **Issue.** #150 · **Reversibility.** cheap
+
+**Decision.** `plot_hnsw_frontier` reports the recall floor through
+`render_comparison` in the knee branch (a pair, both sides at the recall's three
+places) and through `render_exact` in the "no grid cell" branch (a lone
+threshold, rendered so it round-trips).
+
+**Why.** `recommended_defaults` selects at full float precision —
+`mean_recall_at_k >= recall_floor` — and both reporting sentences rendered the
+floor at `.2f` beside a `.3f` recall. Two different widths in one sentence is
+not a collision risk; it is an **inversion** risk. Three measured harms:
+
+*The selection is correct and the sentence reads backwards.* At floor `0.9451`
+with a knee recall of `0.9455` — which qualifies — the tool printed "knee at
+recall ≥ 0.95 ... recall=0.946". `0.946 < 0.95`.
+
+*The "no grid cell" message is literally false about the table above it.* At
+floor `0.955` it printed "No grid cell achieves recall ≥ 0.95" directly under a
+Pareto table containing a cell at `0.952`. Its suggested remedy — "expand the
+grid (higher ef_search)" — is also the wrong advice for the actual situation,
+which is that the floor is `0.955`.
+
+*The floor itself is misreported.* A real floor of `0.9549` prints as `0.95` in
+every run, so the operator is told a threshold that was never applied.
+
+`--recall-floor` is validated only as "a finite number in `[0, 1]`", so a three-
+or four-decimal floor is accepted — and is the natural thing to pass when tuning
+against a recall SLO.
+
+**The two branches need different fixes, and that is the point.** The knee
+branch prints a *pair*, so the siblings' rule applies. The other prints the
+floor *alone*, as an absolute claim about a table, and no fixed width can make
+that safe: at a floor of `0.9512` every fixed width either truncates or pads.
+Built the "just use a wider fixed width" neighbour (`.3f`) and it is still red
+on the four-decimal case — so that is a measured dead end rather than a rejected
+opinion.
+
+The two branches are mutually exclusive, so the default floor printing `0.950`
+in one and `0.95` in the other is never visible in a single run. That is what
+makes the divergence acceptable rather than an inconsistency.
+
+**An existing lock pinned the old string, and its stated premise was stale.**
+`test_default_floor_path_is_unchanged` asserted the literal `≥ 0.95` on the
+grounds that "the committed artifacts and the README's quoted knee depend on
+it". No committed artifact contains that sentence — `results/` holds grid JSON,
+and the README's dependency is on the knee *row*, which this does not touch.
+Verify the premise of the lock you are about to change.
+
+**Published output moves, documented.** The knee sentence prints `≥ 0.950`
+rather than `≥ 0.95`, because the floor now renders at the same precision as the
+recall it is compared against. The selected cell is unchanged — the half #78
+cares about — and the arm now asserts both.
+
+**The arms assert claims, not strings.** The "no cell" arm parses the threshold
+back out and requires that no recall in the grid clears it, plus a second arm
+requiring the printed threshold to *equal* the applied one — because "no cell
+reaches the number I printed" is also satisfied by printing a number that is too
+high.
+
+**`p95_ms` is deliberately not in this class**, and that is asserted rather than
+omitted: it sits in the same sentence but nothing compares it against anything,
+so there is no ordering a rounding could invert. Centralising a formatter onto
+every number in reach is how `llm-eval-harness#252` narrowed a published column.
+
+**Alternatives considered.** All built and run.
+- *A wider fixed width (`.3f`) in both branches.* Rejected: 4 red — still wrong
+  at a four-decimal floor, and it grows the ordinary message too.
+- *Fix the knee branch only.* Rejected: 5 red. The "no cell" message is the
+  worst of the three harms.
+- *`render_exact` in both.* Rejected: the pair would be at two different
+  precisions again, which is the defect.
+- *Round the selection to match the display.* Rejected — the standing
+  anti-pattern five repos have now declined.

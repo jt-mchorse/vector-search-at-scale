@@ -218,6 +218,36 @@ benchmark from a `KeyboardInterrupt` mid-load.
   to it is an arbitrary attribution — the defect #144 exists to
   prevent. Two files claiming the same engine is a clean exit 2.
 
+- **D-014 (#150).** `scripts/plot_hnsw_frontier.py` reports the recall
+  floor through **two different helpers**, and the split is the decision.
+  `recommended_defaults` selects at full float precision
+  (`mean_recall_at_k >= recall_floor`), while both reporting sentences
+  rendered the floor at `.2f` beside a `.3f` recall. Two widths in one
+  sentence is not a collision risk but an **inversion** risk: at floor
+  `0.9451` with a qualifying knee recall of `0.9455`, the tool printed
+  "knee at recall ≥ 0.95 ... recall=0.946" — stating the reverse of the
+  selection it had just made.
+
+  The knee branch prints a *pair*, so `render_comparison` applies: both
+  sides at the same precision, widened only while they render alike.
+  The "no grid cell" branch prints the floor **alone**, directly under
+  the Pareto table, claiming nothing in that table reaches it. That is
+  an absolute claim, and no fixed width can make it safe — at floor
+  `0.955` the `.2f` form printed "No grid cell achieves recall ≥ 0.95"
+  above a table containing a cell at `0.952`, with a suggested remedy
+  ("expand the grid") that is wrong advice for the real situation. It
+  uses `render_exact`, which round-trips. The wider-fixed-width
+  neighbour was built and run and is *still* wrong at a four-decimal
+  floor, so this is a measured dead end rather than a rejected opinion.
+
+  The two branches are mutually exclusive, so the default floor
+  rendering `0.950` in one and `0.95` in the other is never visible in a
+  single run. The knee sentence's published text does move — `≥ 0.95`
+  becomes `≥ 0.950` — while the **selected cell is unchanged**, which is
+  the half #78 cares about. `p95_ms` keeps its own `.2f`: it shares the
+  sentence but nothing compares it against anything, so no rounding can
+  invert an ordering, and an arm pins that it was not swept up.
+
 ## Cross-cutting: observability-parity dump surface (#39)
 
 `BenchmarkResult`, `LoadCell`, `LoadMatrix`, `Workload`, and

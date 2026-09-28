@@ -1664,3 +1664,34 @@ one, and nothing here blocks it.
 **Open questions / blockers:** none. `total_usd_month` and the EBS components deliberately stay at `.2f` — they are monthly bills and cents are their unit.
 
 **Next session:** the process note worth carrying is that the first draft of the tests exercised the *formatter*, which was already correct; a call-site revert left them all green. The render-site arms are the ones that matter.
+
+---
+
+### 2026-09-25 — #150: two widths in one sentence, and a threshold that lied about the table above it
+
+The HNSW frontier plotter picks a knee at full precision and then explains the
+pick. It rendered the recall floor at two decimals and the recall beside it at
+three. That is not the collision this class usually takes — it is an inversion.
+At a floor of `0.9451` and a knee recall of `0.9455`, which genuinely qualifies,
+the tool printed "knee at recall ≥ 0.95 ... recall=0.946". A collision looks
+wrong and makes you check; a mismatch looks fine and states the reverse.
+
+The worse half was the other branch. With a floor of `0.955` it printed "No grid
+cell achieves recall ≥ 0.95" directly underneath a table containing a cell at
+`0.952` — a claim that is simply false about what is on the screen, with advice
+("expand the grid") that is wrong for the actual situation.
+
+Those two branches needed different fixes, and that turned out to be the
+interesting part. The knee sentence prints a pair, so the portfolio's usual rule
+applies: both sides at the same precision. The other prints a threshold *alone*
+as a claim about a table, where no fixed width is safe, because the number is
+the claim. It renders exactly instead. I built the obvious "just use a wider
+fixed width" alternative and it is still wrong at a four-decimal floor, so that
+is a measured dead end rather than an opinion.
+
+One existing test pinned the old string, on the stated grounds that the
+committed artifacts depended on it. They don't — the artifacts are grid JSON,
+and the README depends on the knee row, which this doesn't touch. The lock's
+docstring was a claim like any other, and worth checking before changing it.
+While relaxing its literal I added the assertion that carries its real purpose:
+the selected cell is unchanged.
