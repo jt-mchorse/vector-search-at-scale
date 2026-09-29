@@ -1695,3 +1695,46 @@ and the README depends on the knee row, which this doesn't touch. The lock's
 docstring was a claim like any other, and worth checking before changing it.
 While relaxing its literal I added the assertion that carries its real purpose:
 the selected cell is unchanged.
+
+## 2026-09-29 — #152: two branches of one `if`, two rules, one flag value (~7 min)
+
+The sharpest shape of the run. `scripts/plot_hnsw_frontier.py` prints
+`args.recall_floor` in both arms of one `if`, and D-014 gave them different
+helpers. The `else` arm uses `render_exact` under a comment that argues, at
+length, that "an absolute claim needs an exact number, and no fixed width
+provides one". The `if` arm makes the same absolute claim — "knee at recall ≥ X" —
+at three places. `--recall-floor 0.9512` printed `0.951` in one branch and
+`0.9512` in the other.
+
+The harm is actionable. The printed floor is a flag value an operator copies
+back, and `--recall-floor 0.951` admits cells `0.9512` excluded, so the tool then
+recommends a **different knee** — which is this script's whole output. The `else`
+branch's existing arm already spells out that argument: "an operator who reads
+0.95 and retunes for 0.95 is chasing a floor the tool never used." Nobody had run
+it on the neighbouring branch.
+
+It is not D-014's inversion, which is why nothing caught it: the pair still
+renders at one precision and in the right order. The ordering is fine and the
+floor is a number nobody set.
+
+**Two lessons worth keeping.** First, the existing population arm asserted that
+every floor render "goes through a helper" — and the defective call *did*.
+`render_comparison` provides a readable ordering and says nothing about a round
+trip. Ask of any "routed through a helper" arm which property the helper actually
+provides. Second, the locally tempting fix was wrong and only measurement said
+so: this repo already has `render_exact`, which the two sibling repos that met
+this class first did not, so composing it with a `.3f` recall is the obvious move
+— and it restores D-014's inversion (6 red).
+
+Third, smaller: my corpus could not reject a wider fixed width until I widened
+it. A `.6f` neighbour was 1 red, and that arm was the byte-identity control, not
+a floor-exactness arm — every floor in the table happened to survive six places.
+Adding `0.9512345678` took `.6f` and `.8f` to 3 red.
+
+This is the third repo today to get this class and the third signature: leh
+shipped `exact_other` alone plus a standalone `render_configured`; prs needed both
+flags because one site compares two configured numbers; vsas takes both flags
+composed with a pre-existing `render_exact`. leh's one-flag scoping claim was
+falsified by prs within the same run, which is the argument for a symmetric
+signature here — don't promote a true statement about your current callers into a
+contract. Recorded as D-015.
