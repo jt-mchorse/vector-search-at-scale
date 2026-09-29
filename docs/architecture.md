@@ -248,6 +248,48 @@ benchmark from a `KeyboardInterrupt` mid-load.
   sentence but nothing compares it against anything, so no rounding can
   invert an ordering, and an arm pins that it was not swept up.
 
+- **D-015 (#152).** D-014 gave the two branches different helpers and
+  left them answering a different question. `render_exact` makes the
+  "no grid cell" claim exact; the knee branch makes the **same absolute
+  claim about a floor** — "knee at recall ≥ X" — at three places, so
+  `--recall-floor 0.9512` printed `0.951` in one branch and `0.9512` in
+  the other, for one flag value.
+
+  The printed floor is a flag value an operator copies back.
+  `--recall-floor 0.951` admits cells `0.9512` excluded, so the tool then
+  recommends a **different knee** — which is this script's whole output.
+  The "no grid cell" branch's own arm already made that argument ("an
+  operator who reads 0.95 and retunes for 0.95 is chasing a floor the
+  tool never used"); nobody had run it on the neighbouring branch.
+
+  This is **not** D-014's inversion, which is why no existing arm saw it.
+  The pair still renders at one precision and in the right order; the
+  ordering is fine and the floor is a number nobody set.
+
+  `render_comparison` gains `exact_value` / `exact_other`, marking an
+  operand as configured: the pair widens until the ordering is visible
+  **and** every marked operand reads back as itself, still at one width.
+  That is `render_exact`'s property held *inside* the pairwise widening
+  rather than beside it — and the difference was measured, not argued.
+  Composing the two (exact floor, `.3f` recall) is the move this repo's
+  existing helpers invite, and it restores D-014's inversion: at floor
+  `0.9512` against recall `0.95124` it prints "knee at recall ≥ 0.9512 …
+  recall=0.951". A lone claim takes `render_exact`; a claim with a
+  second number beside it takes the marked pair.
+
+  Both flags exist though only `other` is configured at today's one call
+  site. `llm-eval-harness`' D-029 shipped `exact_other` alone because
+  "`value` is the measured side at all six call sites" — true of that
+  repo, promoted to a contract, and falsified the same day by
+  `prompt-regression-suite`#181. A symmetric signature makes no claim a
+  later caller can disprove.
+
+  The population arm was one notch short and the notch was the bug: it
+  asserted every floor render "goes through a helper", and the defective
+  call *did*. It now derives the configured names from the script's own
+  `type=float` arguments and requires the round trip. The shipped
+  `--recall-floor 0.95` output is byte-identical on both branches.
+
 ## Cross-cutting: observability-parity dump surface (#39)
 
 `BenchmarkResult`, `LoadCell`, `LoadMatrix`, `Workload`, and

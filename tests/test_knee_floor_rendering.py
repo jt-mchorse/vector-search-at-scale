@@ -31,6 +31,7 @@ tuning against a recall SLO.
 
 from __future__ import annotations
 
+import ast
 import json as _json
 import re
 import sys
@@ -100,6 +101,14 @@ INVERSION_CASES = [
     pytest.param(0.955, [0.9551, 0.99], id="floor-3dp-near-miss-above"),
     pytest.param(0.95, [0.9505, 0.99], id="round-floor-recall-just-above"),
     pytest.param(0.5, [0.5001, 0.9], id="low-round-floor"),
+    # Finer than any fixed width a neighbour would plausibly pick. Without this
+    # row a `.6f` neighbour was **1 red** — and that one arm was the
+    # byte-identity control, not a floor-exactness arm: every floor above
+    # happens to survive six places, so the corpus could not tell "exact" from
+    # "wide enough for this table". A rule stated as a width has no way to say
+    # what it is for, and a corpus that only holds round-ish values cannot
+    # falsify one.
+    pytest.param(0.9512345678, [0.96, 0.99], id="floor-finer-than-any-fixed-width"),
 ]
 
 
@@ -200,6 +209,114 @@ def test_the_no_cell_message_names_the_floor_that_was_applied(
     assert float(match.group(1)) == floor, out
 
 
+@pytest.mark.parametrize(("floor", "recalls"), INVERSION_CASES)
+def test_the_knee_sentence_names_the_floor_that_was_applied(
+    tmp_path: Path, capsys, floor: float, recalls: list[float]
+) -> None:
+    """The mirror of `test_the_no_cell_message_names_the_floor_that_was_applied`.
+
+    That arm's docstring is the whole argument, and nobody had run it on this
+    branch: "an operator who reads `0.95` and retunes for `0.95` is chasing a
+    floor the tool never used." Both branches print the same
+    `args.recall_floor`, and both make an absolute claim about a floor — "knee at
+    recall ≥ X" and "No grid cell achieves recall ≥ X". Only one of them stated
+    it exactly (#152, D-015).
+
+    Sharper here than in the `else` branch, because the printed floor is a flag
+    value an operator copies back and re-runs with: `--recall-floor 0.951` admits
+    cells `0.9512` excluded, so the tool then recommends a **different knee**,
+    and the knee is this script's entire output.
+
+    Not D-014's inversion — `render_comparison` still keeps the two sides at one
+    precision and in the right order. The ordering is fine and the floor is a
+    number nobody set, which no assertion about the two rendering differently
+    can see.
+    """
+    out = _run(tmp_path, capsys, recalls, floor)
+    match = _KNEE_RE.search(out)
+    assert match is not None, out
+    assert float(match.group(1)) == floor, out
+
+
+@pytest.mark.parametrize(("floor", "recalls"), INVERSION_CASES)
+def test_both_branches_render_the_same_floor_to_the_same_value(
+    tmp_path: Path, capsys, floor: float, recalls: list[float]
+) -> None:
+    """The structural arm: two branches of one `if`, one `args.recall_floor`.
+
+    Asserting each branch is "correct" separately passes for a fix that touches
+    only one of them. Asserting the two read back as **the same number** does
+    not, and that is the relationship the defect lived in. The two need not be
+    byte-identical — the `else` branch uses `repr` and this one is padded to the
+    pair's shared width — so the comparison is on the value.
+    """
+    knee_out = _run(tmp_path, capsys, recalls, floor)
+    knee_match = _KNEE_RE.search(knee_out)
+    assert knee_match is not None, knee_out
+    # Same floor, a grid that reaches nothing, so the other branch prints.
+    no_cell_out = _run(tmp_path, capsys, [floor - 0.2, floor - 0.1], floor)
+    no_cell_match = _NO_CELL_RE.search(no_cell_out)
+    assert no_cell_match is not None, no_cell_out
+    assert float(knee_match.group(1)) == float(no_cell_match.group(1)) == floor
+
+
+def test_composing_render_exact_with_a_fixed_width_recall_restores_the_inversion() -> None:
+    """The neighbour this repo is most likely to reach for, rejected by measurement.
+
+    `render_exact` already exists here — it did not in the two sibling repos that
+    met this class first — so "print the floor with `render_exact` and leave the
+    recall at `.3f`" is the obvious local move. It satisfies every
+    floor-exactness arm above and puts the two sides back at different
+    precisions, which is exactly what #150/D-014 closed:
+
+        floor=0.9512, recall=0.95124
+        -> "knee at recall ≥ 0.9512 ... recall=0.951"
+
+    That states the reverse of the selection that was made. A lone claim takes
+    `render_exact`; a claim with a second number beside it takes
+    `render_comparison` with the operand marked.
+    """
+    floor, recall = 0.9512, 0.95124
+    composed_floor = render_exact(floor)
+    composed_recall = f"{recall:.3f}"
+    assert float(composed_floor) > float(composed_recall), (
+        "this neighbour is supposed to read backwards; if it no longer does, the "
+        "case has drifted and the arm proves nothing"
+    )
+    # What the shipped path does instead: one width, and both read back true.
+    rendered_recall, rendered_floor = render_comparison(recall, floor, places=3, exact_other=True)
+    assert float(rendered_floor) == floor
+    assert float(rendered_recall) == recall
+    assert float(rendered_recall) > float(rendered_floor)
+
+
+def test_marking_keeps_both_sides_at_one_precision() -> None:
+    """D-014's invariant survives D-015. Widening one side alone is the old shape."""
+    for floor in (0.9512, 0.94512, 0.95, 0.5):
+        value, other = render_comparison(0.96, floor, places=3, exact_other=True)
+        assert float(other) == floor
+        assert len(value.split(".")[1]) == len(other.split(".")[1])
+
+
+def test_the_flags_are_symmetric_and_off_by_default() -> None:
+    """Both flags exist even though only `other` is configured at today's one site.
+
+    `llm-eval-harness`' D-029 shipped `exact_other` alone on the grounds that
+    "`value` is the measured side at all six call sites" — a true statement about
+    that repo's callers, promoted to a contract, which
+    `prompt-regression-suite`#181 falsified the same day with a site comparing two
+    configured numbers. A symmetric signature makes no claim a later caller can
+    prove false.
+
+    Off by default, so every pre-#152 caller renders exactly as it did. That is
+    the same reason `places` is required here (#177): a helper must not silently
+    re-render a surface that never asked it to.
+    """
+    assert render_comparison(0.96, 0.9512, places=3) == ("0.960", "0.951")
+    assert render_comparison(0.96, 0.9512, places=3, exact_other=True) == ("0.9600", "0.9512")
+    assert render_comparison(0.9512, 0.96, places=3, exact_value=True) == ("0.9512", "0.9600")
+
+
 def test_a_round_default_floor_still_prints_without_a_trailing_expansion(
     tmp_path: Path, capsys
 ) -> None:
@@ -279,3 +396,78 @@ def test_every_floor_render_in_the_script_goes_through_a_helper() -> None:
     assert "recall_floor" in code
     assert "render_exact(args.recall_floor)" in code
     assert "render_comparison(" in code
+
+
+def test_every_configured_float_is_rendered_so_it_reads_back_as_itself() -> None:
+    """The rule the arm above was one notch short of (#152, D-015).
+
+    "Goes through a helper" was satisfied by
+    `render_comparison(recall, args.recall_floor, places=3)` — which routes the
+    floor through a helper and still published `0.951` for a run floored at
+    `0.9512`. The property that matters is the **round trip**, and a paired
+    rendering only provides it when the operand is marked.
+
+    Derived from the argument parser rather than from this file's one call site:
+    every `type=float` argument is operator input, and every rendering of one
+    must either be `render_exact` (a lone claim) or a `render_comparison` call
+    that marks that operand (a claim with a second number beside it). A second
+    flag added later inherits the rule with no list to update.
+    """
+    script = Path(__file__).resolve().parents[1] / "scripts" / "plot_hnsw_frontier.py"
+    tree = ast.parse(script.read_text(encoding="utf-8"))
+
+    float_dests: set[str] = set()
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call):
+            continue
+        name = node.func.attr if isinstance(node.func, ast.Attribute) else ""
+        if name != "add_argument":
+            continue
+        if not any(
+            kw.arg == "type" and getattr(kw.value, "id", "") == "float" for kw in node.keywords
+        ):
+            continue
+        flags = [
+            a.value for a in node.args if isinstance(a, ast.Constant) and isinstance(a.value, str)
+        ]
+        float_dests.add(max(flags, key=len, default="").lstrip("-").replace("-", "_"))
+    assert float_dests == {"recall_floor"}, (
+        f"the script's `type=float` arguments are now {sorted(float_dests)}; each "
+        f"one is operator input and needs checking against this rule (#152)."
+    )
+
+    unmarked: list[str] = []
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call):
+            continue
+        callee = node.func.id if isinstance(node.func, ast.Name) else ""
+        if callee not in {"render_comparison", "render_exact"}:
+            continue
+        if callee == "render_exact":
+            continue  # exact by construction
+        kwargs = {kw.arg: kw.value for kw in node.keywords if kw.arg}
+        for index, flag in ((0, "exact_value"), (1, "exact_other")):
+            if len(node.args) <= index:
+                continue
+            arg = node.args[index]
+            if not (isinstance(arg, ast.Attribute) and arg.attr in float_dests):
+                continue
+            marked = kwargs.get(flag)
+            if not (isinstance(marked, ast.Constant) and marked.value is True):
+                unmarked.append(f"line {node.lineno}: {ast.unparse(arg)} needs {flag}=True")
+    assert not unmarked, (
+        f"these `render_comparison` calls compare against a configured float and "
+        f"do not mark it, so the number they print is not necessarily the one in "
+        f"force: {unmarked} (#152, D-015)."
+    )
+
+    # Anti-vacuity: the walk must have found the call it is judging.
+    comparison_calls = [
+        n
+        for n in ast.walk(tree)
+        if isinstance(n, ast.Call) and getattr(n.func, "id", "") == "render_comparison"
+    ]
+    assert len(comparison_calls) == 1, (
+        f"found {len(comparison_calls)} render_comparison calls in the script; the "
+        f"walk has stopped walking, or a second surface arrived and needs deciding."
+    )

@@ -299,8 +299,23 @@ def main(argv: list[str] | None = None) -> int:
         # floor=0.9451 / recall=0.9455 the sentence said
         # "recall >= 0.95 ... recall=0.946". A mismatched pair is worse than a
         # colliding one -- it looks fine and states the reverse.
+        # `exact_other` because `args.recall_floor` is `--recall-floor` as the
+        # operator typed it (#152). "knee at recall >= X" is the same absolute
+        # claim about a floor that the `else` branch below makes, and that
+        # branch's comment already argues why it needs an exact number -- this
+        # one made it at three places, so `--recall-floor 0.9512` printed
+        # "recall >= 0.951". The printed floor is a flag value an operator
+        # copies back, and 0.951 admits cells 0.9512 excludes, selecting a
+        # different knee.
+        #
+        # Not `render_exact` on the floor with a fixed-width recall beside it:
+        # measured, that restores D-014's inversion (floor=0.9512 against
+        # recall=0.95124 prints "recall >= 0.9512 ... recall=0.951").
         rendered_recall, rendered_floor = render_comparison(
-            knee["mean_recall_at_k"], args.recall_floor, places=_RECALL_PLACES
+            knee["mean_recall_at_k"],
+            args.recall_floor,
+            places=_RECALL_PLACES,
+            exact_other=True,
         )
         sys.stdout.write(
             f"\nRecommended defaults (knee at recall ≥ {rendered_floor}): "
