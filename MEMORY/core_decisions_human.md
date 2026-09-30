@@ -321,3 +321,73 @@ every number in reach is how `llm-eval-harness#252` narrowed a published column.
   precisions again, which is the defect.
 - *Round the selection to match the display.* Rejected — the standing
   anti-pattern five repos have now declined.
+
+---
+
+## D-015 — a configured operand reads back as itself (2026-09-29)
+
+**The two branches of one `if` rendered the same `args.recall_floor` by two
+different rules, and the `else` branch's own comment argues why the `if`
+branch's rule is wrong.**
+
+```python
+if knee is not None:
+    rendered_recall, rendered_floor = render_comparison(
+        knee["mean_recall_at_k"], args.recall_floor, places=_RECALL_PLACES)
+    ... f"knee at recall ≥ {rendered_floor}"
+else:
+    # ... An absolute claim needs an exact number, and no fixed width provides one.
+    ... f"No grid cell achieves recall ≥ {render_exact(args.recall_floor)}"
+```
+
+"knee at recall ≥ X" is the same absolute claim about a floor as "No grid cell
+achieves recall ≥ X". One got an exact number; the other got three places.
+Measured at `adafbd6`, `--recall-floor 0.9512` printed `0.951` in one branch and
+`0.9512` in the other, for one flag value. The shipped default `0.95` is round,
+which is why it stayed invisible.
+
+**The harm is actionable, not cosmetic.** The printed floor is a flag value an
+operator copies back, and `--recall-floor 0.951` admits cells `0.9512` excluded —
+so `recommended_defaults` selects a **different knee**, and the knee is this
+script's entire output. The `else` branch's existing arm already makes exactly
+this argument: "an operator who reads `0.95` and retunes for `0.95` is chasing a
+floor the tool never used." Nobody ran it on the neighbouring branch.
+
+**Not D-014's inversion**, which is why no existing arm could see it.
+`render_comparison` still keeps the two sides at one precision and in the right
+order. The ordering is fine and the floor is a number nobody set, so an assertion
+that the two render *differently* is satisfied in every failing case.
+
+**The locally tempting fix is the wrong one, and it was measured.** This repo
+already has `render_exact` — the two sibling repos that met this class first did
+not — so "print the floor with `render_exact`, leave the recall at `.3f`" is the
+obvious move. It satisfies every floor-exactness arm and **restores D-014's
+inversion**: at `floor=0.9512` against `recall=0.95124` it prints "knee at recall
+≥ 0.9512 ... recall=0.951", the reverse of the selection made. A lone claim takes
+`render_exact`; a claim with a second number beside it takes the marked pair.
+
+**Both flags, symmetric, even though only `other` is configured today.**
+`llm-eval-harness`' D-029 shipped `exact_other` alone on the grounds that "`value`
+is the measured side at all six call sites" — a true statement about that repo's
+callers, promoted to a contract, which `prompt-regression-suite`#181 falsified the
+same day. A symmetric signature makes no claim a later caller can prove false.
+
+**The population arm was one notch short, and the notch is the whole bug.** It
+asserted every floor render "goes through a helper", and
+`render_comparison(recall, args.recall_floor, places=3)` *does* go through a
+helper while still publishing `0.951`. The property is the **round trip**, not the
+routing. The new arm derives the configured names from the script's own
+`type=float` arguments and requires `render_exact` or a marked operand. *Ask of
+any "routed through a helper" arm which property the helper actually provides.*
+
+**And my corpus could not reject a wider fixed width until I widened it.** A
+`.6f` neighbour was 1 red, and that one arm was the byte-identity control rather
+than a floor-exactness arm: every floor in the table happened to survive six
+places. Adding `0.9512345678` took `.6f` and `.8f` to 3 red. A `.12f` neighbour is
+still rejected only by the byte-identity control — correctly, because any width
+wide enough to round-trip an arbitrary corpus renders the shipped `0.95` as
+`0.950000000000`, which is precisely what that control refuses.
+
+**Reversibility:** Cheap.
+
+**Related issues:** #152, #150, #148, #78
