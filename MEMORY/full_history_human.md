@@ -1749,3 +1749,14 @@ contract. Recorded as D-015.
 **Open questions / blockers:** none. `mypy src` reports one pre-existing error in `cost.py`; CI doesn't run mypy.
 
 **Next session:** vsas's open issues are all JT-gated decision-revisits (#71, #78, #143).
+
+## 2026-09-30 — Issue #156: --dry says it does nothing, because it does nothing (D-016)
+**Duration:** ~2 min · **Branch:** session/2026-09-30-0839-issue-156
+
+- Since #144, `cost_table.py --dry/--no-dry` has had no effect, but its help, the module docstring and architecture.md still described it as controlling the marker. It's now documented as a no-op, `--no-dry` says so on stderr, and a lock requires every argparse flag under `scripts/` and `src/` to be read.
+
+**Why this work, this session:** found by a portfolio-wide sweep for flags that are parsed and never read; this was the only one.
+
+**Open questions / blockers:** #155 is also open in this repo (MEMORY conflict only).
+
+**Next session:** vsas's remaining open issues are decision-revisits.
