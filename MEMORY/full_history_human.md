@@ -1738,3 +1738,14 @@ composed with a pre-existing `render_exact`. leh's one-flag scoping claim was
 falsified by prs within the same run, which is the argument for a symmetric
 signature here — don't promote a true statement about your current callers into a
 contract. Recorded as D-015.
+
+## 2026-09-30 — Issue #154: BenchmarkResult.to_dict copies extra deep
+**Duration:** ~4 min · **Branch:** session/2026-09-30-0746-issue-154
+
+- `to_dict` returned `dict(self.extra)`, which is one level deep. Editing a nested value in its output rewrote the frozen record and every later `to_json()`. #135 had made the ingress copy deep because `extra` is free-form, and quoted this egress copy as the half that already worked; both egress arms used flat dicts. It is now `copy.deepcopy`, with nested arms through `to_dict`, `to_json` and `dump_benchmark_json`, plus an AST arm over every `to_dict` in the package.
+
+**Why this work, this session:** found by reading the scope #135 wrote down.
+
+**Open questions / blockers:** none. `mypy src` reports one pre-existing error in `cost.py`; CI doesn't run mypy.
+
+**Next session:** vsas's open issues are all JT-gated decision-revisits (#71, #78, #143).

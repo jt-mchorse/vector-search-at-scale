@@ -1742,3 +1742,23 @@ context_for_next_session:
   - vsas_HAS_EXACTLY_ONE_type_float_CLI_ARGUMENT_recall_floor_AND_EVERY_OTHER_FIXED_WIDTH_INTERPOLATION_IN_scripts_AND_src_RENDERS_A_MEASURED_VALUE_recall_p50_p95_p99_cost_columns_SO_THIS_CLASS_IS_NOW_CLOSED_IN_THIS_REPO_swept_and_asserted_not_assumed
 followups: []
 ---
+
+---
+session: 2026-09-30T07:48Z
+issue: 154
+focus: THE_INGRESS_FIX_ARGUED_DEEP_FOR_extra_AND_QUOTED_THE_ONE_LEVEL_EGRESS_COPY_AS_THE_HALF_THAT_ALREADY_WORKED
+phase: shipped
+duration_min: 4   # 07:44 hunt start -> 07:48 close (plan comment 07:46), from date -u and the issue timestamps
+delta:
+  files_changed: 4
+  tests_added: 7
+  suite: "991 -> 998 green, 1 skipped"
+decisions_made: []
+measured: "reverts with totals (998 each): dict(self.extra) 6 red, self.extra 7 red, {**self.extra} 6 red"
+context_for_next_session:
+  - A_FIX_THAT_ARGUES_THE_DEPTH_FROM_THE_FIELDS_TYPE_HAS_ARGUED_IT_FOR_EVERY_COPY_OF_THAT_FIELD_135_said_deep_because_free_form_and_quoted_the_egress_dict_copy_as_already_working_ON_THE_ONLY_ARM_IT_HAD_A_FLAT_DICT
+  - A_TEST_NAME_THAT_STATES_THE_DEFECT_AS_THE_CONTRACT_test_extra_dict_is_shallow_copied_WAS_A_TELL_renamed
+  - NO_DECISION_RECORDED_the_depth_follows_from_135s_own_stated_reason_so_it_is_not_a_new_tradeoff
+  - GOTCHA_mypy_src_REPORTS_ONE_PRE_EXISTING_ERROR_cost_py_315_int_assigned_to_str_CI_DOES_NOT_RUN_mypy_NOT_TOUCHED_NOT_FILED
+followups: []
+---
