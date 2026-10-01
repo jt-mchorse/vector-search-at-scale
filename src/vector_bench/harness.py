@@ -169,10 +169,11 @@ class BenchmarkResult:
     extra: dict[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
-        # Ingress copy (#135). `to_dict` already copies on the way *out*, and
-        # its comment states the goal: "`extra` is shallow-copied so callers
+        # Ingress copy (#135). `to_dict` already copied on the way *out*, and
+        # its comment stated the goal: "`extra` is shallow-copied so callers
         # can't mutate the frozen dataclass through the dict." That is one of
-        # the two directions. A caller who keeps the dict they passed in
+        # the two directions. (The egress copy was one level deep and the
+        # argument below applies to it word for word; it is deep since #154.) A caller who keeps the dict they passed in
         # reaches the same field the same way, and `frozen=True` stops the
         # field being rebound, not the object behind it. Measured::
         #
@@ -235,8 +236,16 @@ class BenchmarkResult:
     def to_dict(self) -> dict[str, Any]:
         # Eleven-field contract (#39). Nests `workload.to_dict()` and
         # `query_latency.to_dict()` so the nested shape is also pinned
-        # by the nested classes' own contracts. `extra` is shallow-copied
-        # so callers can't mutate the frozen dataclass through the dict.
+        # by the nested classes' own contracts.
+        #
+        # `extra` is copied **deep** on the way out for the reason
+        # `__post_init__` gives on the way in (#135): it is `dict[str, Any]`
+        # and free-form, so a nested container is exactly what a caller puts
+        # there. This used to be `dict(self.extra)` -- one level -- and #135's
+        # comment quoted it as "the half that already worked", which was true
+        # of the only arm it had, a flat dict. Editing a nested value in the
+        # returned payload rewrote the frozen record and every later
+        # `to_json()` (#154).
         return {
             "run_id": self.run_id,
             "backend": self.backend,
@@ -248,7 +257,7 @@ class BenchmarkResult:
             "started_at": self.started_at,
             "git_sha": self.git_sha,
             "cost_per_query_usd": self.cost_per_query_usd,
-            "extra": dict(self.extra),
+            "extra": copy.deepcopy(self.extra),
         }
 
     def to_json(self) -> dict[str, Any]:

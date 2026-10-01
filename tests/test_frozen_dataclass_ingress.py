@@ -175,13 +175,21 @@ def test_benchmark_result_does_not_alias_the_callers_dict(benchmark_result_kwarg
 
 
 def test_benchmark_result_still_copies_on_the_way_out(benchmark_result_kwargs) -> None:
-    """The egress half that already worked. A fix to ingress must not lose it."""
+    """The egress half. A fix to ingress must not lose it.
+
+    This docstring used to call it "the egress half that already worked", and
+    on the flat dict this arm had it did -- a one-level copy was the defect
+    (#154), and only a nested value can see it.
+    """
     from vector_bench.harness import BenchmarkResult
 
-    result = BenchmarkResult(**{**benchmark_result_kwargs, "extra": {"note": "original"}})
+    result = BenchmarkResult(
+        **{**benchmark_result_kwargs, "extra": {"note": "original", "nested": {"k": "original"}}}
+    )
     dumped = result.to_dict()
     dumped["extra"]["note"] = "MUTATED"
-    assert result.extra["note"] == "original"
+    dumped["extra"]["nested"]["k"] = "MUTATED"
+    assert result.extra == {"note": "original", "nested": {"k": "original"}}
 
 
 def test_the_committed_snapshot_still_returns_independent_tables() -> None:

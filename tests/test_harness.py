@@ -400,10 +400,12 @@ class TestBenchmarkResultToDictContract:
         ]
         assert sorted(d["query_latency"].keys()) == ["max_ms", "p50_ms", "p95_ms", "p99_ms"]
 
-    def test_extra_dict_is_shallow_copied(self, tmp_path: Path) -> None:
+    def test_extra_dict_is_copied_on_the_way_out(self, tmp_path: Path) -> None:
         # The frozen-dataclass `extra` mapping is exposed only through
         # the dict surface; mutating the returned dict must not bleed
-        # back into the BenchmarkResult instance.
+        # back into the BenchmarkResult instance. (This arm was named
+        # `..._is_shallow_copied`, stating the defect as the contract; the
+        # depth is covered in `test_benchmark_result_egress_depth.py`, #154.)
         w = Workload(n_vectors=10, dim=4, n_queries=3, top_k=2, seed=1)
         result = run_benchmark(StubBackend(), w, run_id="extra", results_dir=tmp_path)
         snapshot = result.to_dict()
