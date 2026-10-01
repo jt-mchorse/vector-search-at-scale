@@ -1769,3 +1769,14 @@ The new file gives an example value for each. Weaviate's must be a bare host nam
 because the code uses it as both the HTTP and the gRPC host and takes the ports
 separately. A test derives the names from the source so the file can't drift.
 Part of portfolio-ops#80.
+
+## 2026-10-01 — Issue #164: atomic_write_text honours the umask and keeps the target's mode
+**Duration:** ~4 min · **Branch:** session/2026-10-01-0848-issue-164
+
+- `atomic_write_text` created its temp file through `NamedTemporaryFile`, which is always 0600. `os.replace` carried that mode onto the target, so with umask 022 a new artifact came out 0600 and an overwrite of a 0644 file left it 0600. The temp file is now created with `O_EXCL` and mode 0o666, so the kernel applies the umask. When the target already exists, its mode is copied onto the temp file before the rename. The name cap, surrogate handling, fsync and cleanup are unchanged. A new test module checks umask 022, 077 and 002, overwrites of 0644, 0600, 0640 and 0664, and `dump_benchmark_json` as a real caller. Suite went from 1006 to 1017. Restoring the old helper turned 6 tests red.
+
+**Why this work, this session:** portfolio-ops#81 measured the same defect in every atomic-write helper in the portfolio.
+
+**Open questions / blockers:** none.
+
+**Next session:** vsas's remaining open issues are JT-gated decision-revisits.

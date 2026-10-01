@@ -1799,3 +1799,22 @@ context_for_next_session:
   - WEAVIATE_HOST_MUST_BE_A_BARE_HOST_the_constructor_passes_it_as_http_host_AND_grpc_host_with_ports_as_separate_args_an_arm_pins_no_colon
   - vsas_frontier_replot_differs_by_design_its_x_axis_is_wall_clock_latency_do_not_file_as_dirtying_committed_plots
 followups: []
+
+---
+session: 2026-10-01T08:51Z
+issue: 164
+focus: ATOMIC_WRITE_TEXT_CREATED_0600_REGARDLESS_OF_UMASK_AND_AN_OVERWRITE_DEMOTED_0644_TO_0600
+phase: shipped
+duration_min: 4   # computed from the plan comment timestamp and date -u
+delta:
+  files_changed: 2
+  tests_added: 11
+  suite: "1006 -> 1017 passed, 1 skipped; ruff check clean"
+decisions_made: []
+measured: "umask 022 before: new 0o600, overwrite of 0644 -> 0o600; after: 0o644 / 0o644. Revert probe (original helper restored): 6 failed of 1017. Partial revert (0o666 create kept, mode-preserve dropped): 4 failed of 1017."
+context_for_next_session:
+  - TEMP_FILE_NOW_COMES_FROM_open_x_WITH_AN_O_EXCL_0o666_OPENER_AND_A_RANDOM_TOKEN_NOT_NamedTemporaryFile_name_shape_dot_base_dot_8hex_dot_tmp_is_unchanged
+  - NEVER_READ_THE_UMASK_VIA_os_umask_0_it_is_process_wide_and_races_threads_the_kernel_applies_it_to_the_0o666_create
+  - PART_OF_portfolio_ops_81_same_recipe_in_every_atomic_write_helper
+followups: ["portfolio-ops#81"]
+---
