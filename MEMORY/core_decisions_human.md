@@ -391,3 +391,19 @@ wide enough to round-trip an arbitrary corpus renders the shipped `0.95` as
 **Reversibility:** Cheap.
 
 **Related issues:** #152, #150, #148, #78
+
+## D-016 — `--dry` is a documented no-op, and every CLI flag must be read (2026-09-30)
+**Decision:** `scripts/cost_table.py`'s `--dry`/`--no-dry` stays accepted, its help says it has no effect, and `--no-dry` prints a stderr note pointing at `--load-results`. A lock requires every argparse destination under `scripts/` and `src/` to be read.
+
+**Why:** #144 made the row marker a property of the data and left the flag parsed and read nowhere, deliberately: its own arm asserts `--dry` and `--no-dry` give identical rows. But `--help`, the module docstring and `docs/architecture.md` went on describing the flag as controlling the marker, and #144's own sentence said it "still selects *which* inputs are used", which was false. An operator passing `--no-dry` to get unmarked, real-looking rows got byte-identical output and no signal. A portfolio-wide sweep for argparse flags that are never read found this one and no other.
+
+Accept-with-a-note rather than refuse: every documented command passes `--dry`, and #144's identical-rows arm passes `--no-dry` on purpose. The harm was the silence, not the acceptance. The `--load-results` help was stale in the same way — it said overridden tiers are "(real)" regardless, and since #144 that applies only to the engine the file was measured on.
+
+**Alternatives considered:**
+- Refuse `--no-dry` at exit 2 — rejected: it revisits #144's deliberate arm.
+- Remove the flag — rejected: every documented command passes `--dry`.
+- A compatibility-no-op exemption list in the lock — rejected, built: the note reads `args.dry`, so the flag isn't unread, and a list is where the next orphan would hide.
+
+**Reversibility:** Cheap.
+
+**Related issues:** #156, #144

@@ -164,8 +164,10 @@ embeds the same numbers and is locked to the scripts by
   engine that produced it, `(measured on <other>, not <this>)` for a
   borrowed number, `(simulated)` for a non-engine backend like the
   committed `stub` run, `(provenance unrecorded)` when the file does not
-  say. `--dry` still selects *which* inputs are used; it no longer
-  describes them.
+  say. `--dry` / `--no-dry` now has **no effect** at all — nothing reads
+  it — and is kept only so the documented `--dry` commands still work;
+  `--no-dry` says so on stderr (#156, D-016). This paragraph used to claim
+  `--dry` "still selects *which* inputs are used", which was false.
 
   The rendered prose moved with it. It said the cost-per-query
   differences between engines "come from throughput differences" — a

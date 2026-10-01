@@ -19,16 +19,21 @@ Output:
 
 Modes:
 
-- `--dry` (default): runs against the committed `results/load/stub-10k`
-  numbers for every tier, marked clearly as `(simulated)` so the table
-  doesn't claim real-engine $/query at 10M/100M scales. This is the
-  CI-safe path. `--no-dry` drops the `(simulated)` marker on
-  non-overridden tiers.
+- By default every tier reads the committed `results/load/stub-10k`
+  numbers, and each row's marker says what that measurement is — the
+  stub run records `backend: "stub"`, so its rows read `(simulated)`
+  and the table doesn't claim real-engine $/query at 10M/100M scales.
+  This is the CI-safe path.
 - `--load-results TIER=PATH` (repeatable) per-tier override: the
   operator points at their real load-test results dir for a specific
-  tier and that row uses real qps; the row is labeled `(real)`
-  regardless of `--dry`. Mix-and-match — overridden tiers go real,
-  the rest stay on the `--run-id` defaults.
+  tier and that row uses the measured qps. The marker comes from the
+  file (#144): `(real)` for the engine it was measured on, "measured
+  on X, not Y" for the other two. Mix-and-match — overridden tiers use
+  their files, the rest stay on the `--run-id` defaults.
+- `--dry` / `--no-dry` **has no effect** (#156). It selected the marker
+  before #144 made provenance a property of the data; it is still
+  accepted so the documented `--dry` commands keep working, and
+  `--no-dry` says on stderr that it changed nothing.
 
 The script is reusable from tests as `build_rows()` (pure-function over
 sizing + prices + qps) and `render_markdown()` (pure-function over rows).
@@ -219,8 +224,9 @@ def _provenance_marker(backend: str | None, engine: str) -> str:
     ``(simulated)`` with ``--dry`` and carried **no marker at all** with
     ``--no-dry`` — a flag the operator chooses decided whether a number looked
     real. That is the same defect as the engine mislabelling, one level out:
-    provenance is a property of the measurement. ``--dry`` still selects *which*
-    inputs are used; it no longer describes them.
+    provenance is a property of the measurement. (This paragraph used to end
+    "``--dry`` still selects *which* inputs are used"; nothing reads the flag, so
+    it selects nothing either -- #156.)
     """
     if backend is None:
         return "(provenance unrecorded)"
@@ -672,9 +678,9 @@ def main(argv: list[str] | None = None) -> int:
         action=argparse.BooleanOptionalAction,
         default=True,
         help=(
-            "Controls the per-row 'simulated' marker. Default `--dry` labels each "
-            "row `(simulated)` so the table doesn't pretend it's real engine numbers. "
-            "`--no-dry` drops the marker on tiers without a `--load-results` override."
+            "No effect since #144: each row's marker comes from the measurement it "
+            "reads, not from this flag. Accepted so the documented `--dry` commands "
+            "keep working; use `--load-results` to supply real measurements."
         ),
     )
     p.add_argument(
@@ -700,8 +706,8 @@ def main(argv: list[str] | None = None) -> int:
         help=(
             "Per-tier override: read that tier's `c001.json` from <PATH> instead of "
             f"the default --run-id directory. TIER must be one of {{{', '.join(SCALE_TIERS)}}}. "
-            "Repeatable; each invocation adds one mapping. Overridden tiers are "
-            "labeled `(real)` regardless of --dry."
+            "Repeatable; each invocation adds one mapping. The row's marker comes "
+            "from the file: `(real)` for the engine it was measured on."
         ),
     )
     p.add_argument(
@@ -710,6 +716,15 @@ def main(argv: list[str] | None = None) -> int:
         help="Output markdown path. Default: docs/cost_per_query.md.",
     )
     args = p.parse_args(argv)
+    # `--dry` is a documented compatibility no-op (#156, D-016). `--no-dry` is the
+    # spelling an operator reaches for when they want unmarked "real" rows, and it
+    # used to change nothing silently; say so, and say what does.
+    if not args.dry:
+        print(
+            "note: --no-dry has no effect; each row's marker comes from the "
+            "measurement it reads. Pass --load-results TIER=PATH for real rows.",
+            file=sys.stderr,
+        )
 
     try:
         load_overrides = _parse_load_results_overrides(args.load_results)

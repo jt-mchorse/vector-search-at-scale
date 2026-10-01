@@ -1762,3 +1762,22 @@ context_for_next_session:
   - GOTCHA_mypy_src_REPORTS_ONE_PRE_EXISTING_ERROR_cost_py_315_int_assigned_to_str_CI_DOES_NOT_RUN_mypy_NOT_TOUCHED_NOT_FILED
 followups: []
 ---
+
+---
+session: 2026-09-30T08:41Z
+issue: 156
+focus: A_FLAG_A_FIX_ORPHANED_WAS_STILL_DOCUMENTED_AS_DOING_SOMETHING_AND_NO_DRY_CHANGED_NOTHING_SILENTLY
+phase: shipped
+duration_min: 2   # computed from the plan comment timestamp and date -u
+delta:
+  files_changed: 4
+  tests_added: 3
+  suite: "991 -> 994 green, 1 skipped"
+decisions_made: ["D-016"]
+measured: "probes: note removed 2 red, old help text 1 red; portfolio-wide unread-dest sweep found exactly this one flag in 12 repos"
+context_for_next_session:
+  - SWEEP_FOR_PARSED_BUT_NEVER_READ_FLAGS_IS_CHEAP_AND_ONE_SHOT_it_found_one_in_the_whole_portfolio_DO_NOT_RE_SWEEP_the_new_lock_in_vsas_keeps_it_closed_there
+  - A_FIX_THAT_MAKES_A_FLAG_INERT_MUST_UPDATE_EVERY_SURFACE_THAT_DESCRIBES_IT_144_updated_the_marker_code_and_its_arm_and_left_help_docstring_and_architecture_describing_the_old_flag
+  - GOTCHA_A_MEMORY_YAML_LINE_WITHOUT_A_KEY_BREAKS_THE_WHOLE_BLOCK_validate_with_yaml_safe_load_before_committing
+followups: []
+---
