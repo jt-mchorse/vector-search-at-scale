@@ -185,8 +185,10 @@ def _load_args(results: Path, concurrency: str, run_id: str) -> list[str]:
         "20",
         "--dim",
         "8",
+        # 10, not 5: the levels these tests pass go up to 10, and a level above
+        # the query count records a concurrency that never ran (#162).
         "--queries",
-        "5",
+        "10",
         "--concurrency",
         concurrency,
         "--run-id",
@@ -295,3 +297,13 @@ def test_cli_load_unwritable_results_dir_exits_two(tmp_path: Path, capsys) -> No
     err = capsys.readouterr().err
     assert "error:" in err
     assert "Traceback" not in err
+
+
+def test_cli_load_refuses_a_level_above_the_query_count(tmp_path: Path, capsys) -> None:
+    """#162: `--queries 10 --concurrency 1,100` recorded a c=100 cell that
+    peaked at 10 in flight. Refused at exit 2, before any cell is written."""
+    results = tmp_path / "results"
+    rc = main(_load_args(results, "1,100", "over"))
+    assert rc == 2
+    assert "exceed n_queries (10)" in capsys.readouterr().err
+    assert not (results / "over").exists()

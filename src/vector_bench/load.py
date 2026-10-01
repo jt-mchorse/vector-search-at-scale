@@ -241,6 +241,21 @@ def run_under_load(
             "(duplicate levels collide on the per-cell c<NNN>.json filename)"
         )
 
+    # A level above the query count cannot happen: the pool gets `n_queries`
+    # tasks, so peak in-flight is `min(c, n_queries)` -- measured, levels 100
+    # and 1000 over 20 queries both peaked at 20 -- while the cell's own
+    # `concurrency` field, the one `render_table` and `plot_latency` read,
+    # recorded the requested number (#162). The `Workload` sibling refuses
+    # `top_k > n_vectors` for the same reason: a count larger than the
+    # population it is drawn from.
+    over = [c for c in concurrency_levels if c > workload.n_queries]
+    if over:
+        raise ValueError(
+            f"concurrency levels {over} exceed n_queries ({workload.n_queries}); at most "
+            f"{workload.n_queries} queries can be in flight, so those cells would record "
+            "a concurrency that never happened"
+        )
+
     out_dir = Path(results_dir) / run_id
     matrix_path = out_dir / "matrix.json"
     if write_json and not force and matrix_path.exists():
