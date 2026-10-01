@@ -1781,3 +1781,21 @@ context_for_next_session:
   - GOTCHA_A_MEMORY_YAML_LINE_WITHOUT_A_KEY_BREAKS_THE_WHOLE_BLOCK_validate_with_yaml_safe_load_before_committing
 followups: []
 ---
+
+---
+session: 2026-09-30T09:48:28Z
+issue: 158
+focus: env_example_for_three_backend_connection_variables
+phase: shipped
+duration_min: 0
+delta:
+  files_changed: 3
+  tests_added: 5
+  suite: "996 passed, 1 skipped; ruff check and ruff format --check clean"
+decisions_made: []
+measured: "reads found: PGVECTOR_DSN, QDRANT_URL, WEAVIATE_HOST, one per backend constructor, all explicit. Probes: file absent 3 red of 5; QDRANT_URL dropped 1 red."
+context_for_next_session:
+  - PART_OF_portfolio_ops_80_same_lock_as_lco_238_leh_272_ems_163_remaining_mcp_github_gists
+  - WEAVIATE_HOST_MUST_BE_A_BARE_HOST_the_constructor_passes_it_as_http_host_AND_grpc_host_with_ports_as_separate_args_an_arm_pins_no_colon
+  - vsas_frontier_replot_differs_by_design_its_x_axis_is_wall_clock_latency_do_not_file_as_dirtying_committed_plots
+followups: []

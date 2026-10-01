@@ -1760,3 +1760,12 @@ contract. Recorded as D-015.
 **Open questions / blockers:** #155 is also open in this repo (MEMORY conflict only).
 
 **Next session:** vsas's remaining open issues are decision-revisits.
+
+## 2026-09-30T09:48:28Z — #158: added .env.example
+
+The portfolio handoff asks every repo for a `.env.example`; this one had none. The
+README named the three backend connection variables only as `...` placeholders.
+The new file gives an example value for each. Weaviate's must be a bare host name,
+because the code uses it as both the HTTP and the gRPC host and takes the ports
+separately. A test derives the names from the source so the file can't drift.
+Part of portfolio-ops#80.

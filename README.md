@@ -100,6 +100,7 @@ set the per-engine env vars):
 
 ```bash
 pip install -e '.[pgvector,qdrant,weaviate]'
+# Example values for all three variables are in .env.example.
 
 PGVECTOR_DSN=postgresql://... \
   vector-bench run --backend pgvector --n 1000000 --dim 768 \
