@@ -1769,3 +1769,14 @@ The new file gives an example value for each. Weaviate's must be a bare host nam
 because the code uses it as both the HTTP and the gRPC host and takes the ports
 separately. A test derives the names from the source so the file can't drift.
 Part of portfolio-ops#80.
+
+## 2026-10-01 — Issue #160: hnsw_grid speaks each backend's own knob names
+**Duration:** ~4 min · **Branch:** session/2026-10-01-0830-issue-160
+
+- `hnsw_grid.py --backend qdrant` (or pgvector / weaviate) could never run: `run_grid` passed the simulator's argument names (`M=`, `ef_search=`, `seed=`) to every adapter, and each one raised `TypeError` at exit 1 before connecting to anything. A knob table now maps each backend's own names, `stub` is refused with exit 2, and tests bind the kwargs against every adapter's real signature, including one test through `run_grid` itself. 17 new tests; four revert probes all red.
+
+**Why this work, this session:** found by this run's hunt. The README and D-009 both promise this path.
+
+**Open questions / blockers:** none.
+
+**Next session:** the hunt's two other vsas findings (`load` concurrency above `n_queries`, and `cost_table` silently dropping files).
