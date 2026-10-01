@@ -1799,3 +1799,23 @@ context_for_next_session:
   - WEAVIATE_HOST_MUST_BE_A_BARE_HOST_the_constructor_passes_it_as_http_host_AND_grpc_host_with_ports_as_separate_args_an_arm_pins_no_colon
   - vsas_frontier_replot_differs_by_design_its_x_axis_is_wall_clock_latency_do_not_file_as_dirtying_committed_plots
 followups: []
+
+---
+session: 2026-10-01T08:38Z
+issue: 162
+focus: A_CONCURRENCY_LEVEL_ABOVE_THE_QUERY_COUNT_WAS_PUBLISHED_AS_IF_IT_RAN
+phase: shipped
+duration_min: 3   # 08:35 plan -> 08:38 close, from date -u
+delta:
+  files_changed: 3
+  tests_added: 5
+  suite: "1006 -> 1011 green (1 skipped)"
+decisions_made: []
+measured: "hunt agent with a peak-in-flight stub: recorded c=100 and c=1000 over 20 queries both peaked at 20. Revert probes, control 1011: no check 4 red, >= instead of > 3 (the boundary arm)."
+context_for_next_session:
+  - AN_EXISTING_TEST_ENCODED_THE_DEFECT_test_cli_load_valid_distinct_levels_ran_levels_1_10_over_5_queries_and_called_it_valid_A_FIXTURE_CAN_BE_THE_BUG
+  - THE_BOUNDARY_ARM_MEASURES_PEAK_IN_FLIGHT_rather_than_trusting_the_recorded_field_which_is_the_field_that_lied
+  - MERGE_ORDER_161_THEN_163_both_append_MEMORY
+  - cost_table_dropping_unnamed_tier_files_from_the_same_hunt_NOT_FILED_may_be_within_D_013
+followups: []
+---

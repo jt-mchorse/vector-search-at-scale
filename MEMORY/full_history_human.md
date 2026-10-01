@@ -1769,3 +1769,15 @@ The new file gives an example value for each. Weaviate's must be a bare host nam
 because the code uses it as both the HTTP and the gRPC host and takes the ports
 separately. A test derives the names from the source so the file can't drift.
 Part of portfolio-ops#80.
+
+## 2026-10-01 — Issue #162: load refuses a concurrency level above the query count
+**Duration:** ~3 min · **Branch:** session/2026-10-01-0850-issue-162
+
+- `vector-bench load --queries 20 --concurrency 1,20,1000` published a "concurrency 1000" row, but at most 20 queries can ever be in flight. That level is now refused before ingest (exit 2). The boundary `c == n_queries` stays legal, and a test checks that it really runs that many at once.
+- One existing CLI test had run levels 1,10 over 5 queries, i.e. the defect itself; it now uses 10 queries. 5 new tests; two revert probes are red.
+
+**Why this work, this session:** found by this run's hunt.
+
+**Open questions / blockers:** none. Merge #161 first, then this one; both append to MEMORY.
+
+**Next session:** decide whether cost_table's silently dropped unnamed tier files fall under D-013.
