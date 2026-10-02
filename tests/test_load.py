@@ -541,3 +541,55 @@ class TestRunUnderLoadDegenerateQueryPhase:
                 results_dir=tmp_path,
                 write_json=False,
             )
+
+
+# ----------------------------------------------------------------------
+# #162: a level above n_queries cannot happen
+# ----------------------------------------------------------------------
+
+
+class _CountingStub(StubBackend):
+    """Records the most queries ever in flight at once."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self._lock = threading.Lock()
+        self._live = 0
+        self.peak = 0
+        self.ingested = False
+
+    def ingest(self, vectors, ids) -> None:  # type: ignore[override]
+        self.ingested = True
+        super().ingest(vectors, ids)
+
+    def query(self, vector, top_k):  # type: ignore[override]
+        with self._lock:
+            self._live += 1
+            self.peak = max(self.peak, self._live)
+        try:
+            time.sleep(0.05)  # wide enough that every worker overlaps
+            return super().query(vector, top_k)
+        finally:
+            with self._lock:
+                self._live -= 1
+
+
+@pytest.mark.parametrize("levels", [(21,), (1, 100), (1, 20, 1000)])
+def test_a_level_above_n_queries_is_refused_before_ingest(tmp_path: Path, levels) -> None:
+    backend = _CountingStub()
+    with pytest.raises(ValueError, match=r"exceed n_queries \(20\)"):
+        run_under_load(
+            backend, _wl(), run_id="over", concurrency_levels=levels, results_dir=tmp_path
+        )
+    assert not backend.ingested
+    assert not (tmp_path / "over").exists()
+
+
+def test_a_level_equal_to_n_queries_runs_that_many_at_once(tmp_path: Path) -> None:
+    """The boundary is legal, and it is real: all 20 queries are in flight."""
+    backend = _CountingStub()
+    matrix = run_under_load(
+        backend, _wl(), run_id="edge", concurrency_levels=(20,), results_dir=tmp_path
+    )
+    assert [c.concurrency for c in matrix.cells] == [20]
+    assert backend.peak == 20

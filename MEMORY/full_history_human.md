@@ -1770,6 +1770,29 @@ because the code uses it as both the HTTP and the gRPC host and takes the ports
 separately. A test derives the names from the source so the file can't drift.
 Part of portfolio-ops#80.
 
+## 2026-10-01 — Issue #160: hnsw_grid speaks each backend's own knob names
+**Duration:** ~4 min · **Branch:** session/2026-10-01-0830-issue-160
+
+- `hnsw_grid.py --backend qdrant` (or pgvector / weaviate) could never run: `run_grid` passed the simulator's argument names (`M=`, `ef_search=`, `seed=`) to every adapter, and each one raised `TypeError` at exit 1 before connecting to anything. A knob table now maps each backend's own names, `stub` is refused with exit 2, and tests bind the kwargs against every adapter's real signature, including one test through `run_grid` itself. 17 new tests; four revert probes all red.
+
+**Why this work, this session:** found by this run's hunt. The README and D-009 both promise this path.
+
+**Open questions / blockers:** none.
+
+**Next session:** the hunt's two other vsas findings (`load` concurrency above `n_queries`, and `cost_table` silently dropping files).
+
+## 2026-10-01 — Issue #162: load refuses a concurrency level above the query count
+**Duration:** ~3 min · **Branch:** session/2026-10-01-0850-issue-162
+
+- `vector-bench load --queries 20 --concurrency 1,20,1000` published a "concurrency 1000" row, but at most 20 queries can ever be in flight. That level is now refused before ingest (exit 2). The boundary `c == n_queries` stays legal, and a test checks that it really runs that many at once.
+- One existing CLI test had run levels 1,10 over 5 queries, i.e. the defect itself; it now uses 10 queries. 5 new tests; two revert probes are red.
+
+**Why this work, this session:** found by this run's hunt.
+
+**Open questions / blockers:** none. Merge #161 first, then this one; both append to MEMORY.
+
+**Next session:** decide whether cost_table's silently dropped unnamed tier files fall under D-013.
+
 ## 2026-10-01 — Issue #164: atomic_write_text honours the umask and keeps the target's mode
 **Duration:** ~4 min · **Branch:** session/2026-10-01-0848-issue-164
 

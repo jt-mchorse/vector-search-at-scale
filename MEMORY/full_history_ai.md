@@ -1801,6 +1801,46 @@ context_for_next_session:
 followups: []
 
 ---
+session: 2026-10-01T08:27Z
+issue: 160
+focus: THE_DOCUMENTED_REAL_ENGINE_GRID_PATH_COULD_NEVER_RUN_hnsw_sim_KNOB_NAMES_PASSED_TO_EVERY_ADAPTER
+phase: shipped
+duration_min: 4   # 08:23 plan -> 08:27 close, from date -u
+delta:
+  files_changed: 2
+  tests_added: 17
+  suite: "1006 -> 1023 green (1 skipped)"
+decisions_made: []
+measured: "874c90d: hnsw_grid --backend qdrant|pgvector|weaviate|stub -> TypeError unexpected keyword argument 'M', exit 1. Revert probes, control 1023: old call 4 red (1 before the through-run_grid arm was added), qdrant efc misnamed 1, seed to all 6, stub not refused 2."
+context_for_next_session:
+  - A_PROMISE_IN_A_DOCSTRING_AND_A_DECISION_THAT_NOTHING_EXERCISED_pass_backend_qdrant_when_the_bring_up_is_done_signature_bind_tests_check_it_with_no_services
+  - THE_FIRST_PROBE_OF_THE_OLD_CALL_WAS_ONLY_1_RED_because_the_bind_arms_tested_the_helper_not_the_call_site_ADDED_AN_ARM_THROUGH_run_grid_and_it_went_to_4_RUN_THE_PROBE_BEFORE_BELIEVING_THE_ARM
+  - BackendError_FOR_A_MISSING_EXTRA_STILL_EXITS_1_in_hnsw_grid_AND_in_the_main_cli_consistent_left_alone
+  - vsas_hunt_also_found_load_concurrency_above_n_queries_recorded_as_a_level_that_never_happened_and_cost_table_dropping_unnamed_files_NOT_FILED_YET
+followups: []
+---
+
+---
+session: 2026-10-01T08:38Z
+issue: 162
+focus: A_CONCURRENCY_LEVEL_ABOVE_THE_QUERY_COUNT_WAS_PUBLISHED_AS_IF_IT_RAN
+phase: shipped
+duration_min: 3   # 08:35 plan -> 08:38 close, from date -u
+delta:
+  files_changed: 3
+  tests_added: 5
+  suite: "1006 -> 1011 green (1 skipped)"
+decisions_made: []
+measured: "hunt agent with a peak-in-flight stub: recorded c=100 and c=1000 over 20 queries both peaked at 20. Revert probes, control 1011: no check 4 red, >= instead of > 3 (the boundary arm)."
+context_for_next_session:
+  - AN_EXISTING_TEST_ENCODED_THE_DEFECT_test_cli_load_valid_distinct_levels_ran_levels_1_10_over_5_queries_and_called_it_valid_A_FIXTURE_CAN_BE_THE_BUG
+  - THE_BOUNDARY_ARM_MEASURES_PEAK_IN_FLIGHT_rather_than_trusting_the_recorded_field_which_is_the_field_that_lied
+  - MERGE_ORDER_161_THEN_163_both_append_MEMORY
+  - cost_table_dropping_unnamed_tier_files_from_the_same_hunt_NOT_FILED_may_be_within_D_013
+followups: []
+---
+
+---
 session: 2026-10-01T08:51Z
 issue: 164
 focus: ATOMIC_WRITE_TEXT_CREATED_0600_REGARDLESS_OF_UMASK_AND_AN_OVERWRITE_DEMOTED_0644_TO_0600
