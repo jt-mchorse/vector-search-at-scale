@@ -91,6 +91,22 @@ def run_grid(
     Side effect: writes one BenchmarkResult JSON per cell under `out_dir/`
     plus `grid.json` summarizing the full grid.
     """
+    # Distinct values per axis, before anything runs or is written (#169). A
+    # repeated value gives two cells one `run_id`, so the second run overwrote
+    # the first's `<run_id>.json` while `grid.json` listed both -- the frontier
+    # then kept whichever was faster. `run_under_load` refuses the same collision
+    # for its `c<NNN>.json` cells (load.py); this is that rule for the grid.
+    for axis, values in (
+        ("M", M_values),
+        ("ef_construction", ef_construction_values),
+        ("ef_search", ef_search_values),
+    ):
+        dups = sorted({v for v in values if values.count(v) > 1})
+        if dups:
+            raise ValueError(
+                f"{axis} values must be distinct; got {list(values)} (repeated: {dups}); "
+                "duplicate values collide on the per-cell <run_id>.json filename"
+            )
     out_dir.mkdir(parents=True, exist_ok=True)
     workload = Workload(n_vectors=n_vectors, dim=dim, n_queries=n_queries, top_k=top_k, seed=seed)
 
