@@ -1803,3 +1803,11 @@ Part of portfolio-ops#80.
 **Open questions / blockers:** none.
 
 **Next session:** vsas's remaining open issues are JT-gated decision-revisits.
+
+## 2026-10-02 — the demo's "real qps" hint does what it says (#171)
+
+The demo script ends by suggesting a `cost_table.py` command for real
+throughput. That command read the default stub run, so its output matched the
+simulated table. With no `--out`, it also overwrote the committed
+`docs/cost_per_query.md`. It now passes `--load-results` and writes to
+`/tmp`. A test checks every `cost_table.py` command the demo prints.
