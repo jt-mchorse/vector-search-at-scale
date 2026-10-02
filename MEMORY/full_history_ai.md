@@ -1819,3 +1819,23 @@ context_for_next_session:
   - vsas_hunt_also_found_load_concurrency_above_n_queries_recorded_as_a_level_that_never_happened_and_cost_table_dropping_unnamed_files_NOT_FILED_YET
 followups: []
 ---
+
+---
+session: 2026-10-01T08:38Z
+issue: 162
+focus: A_CONCURRENCY_LEVEL_ABOVE_THE_QUERY_COUNT_WAS_PUBLISHED_AS_IF_IT_RAN
+phase: shipped
+duration_min: 3   # 08:35 plan -> 08:38 close, from date -u
+delta:
+  files_changed: 3
+  tests_added: 5
+  suite: "1006 -> 1011 green (1 skipped)"
+decisions_made: []
+measured: "hunt agent with a peak-in-flight stub: recorded c=100 and c=1000 over 20 queries both peaked at 20. Revert probes, control 1011: no check 4 red, >= instead of > 3 (the boundary arm)."
+context_for_next_session:
+  - AN_EXISTING_TEST_ENCODED_THE_DEFECT_test_cli_load_valid_distinct_levels_ran_levels_1_10_over_5_queries_and_called_it_valid_A_FIXTURE_CAN_BE_THE_BUG
+  - THE_BOUNDARY_ARM_MEASURES_PEAK_IN_FLIGHT_rather_than_trusting_the_recorded_field_which_is_the_field_that_lied
+  - MERGE_ORDER_161_THEN_163_both_append_MEMORY
+  - cost_table_dropping_unnamed_tier_files_from_the_same_hunt_NOT_FILED_may_be_within_D_013
+followups: []
+---
