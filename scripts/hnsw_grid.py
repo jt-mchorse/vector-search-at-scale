@@ -36,6 +36,38 @@ from vector_bench.backends import make_backend  # noqa: E402
 from vector_bench.harness import Workload, run_benchmark  # noqa: E402
 from vector_bench.io_utils import atomic_write_text  # noqa: E402
 
+#: Each backend's own argument names for the grid's three HNSW knobs, and
+#: whether it takes `seed` (#160). `run_grid` passed `HnswSimBackend`'s names to
+#: every backend, so the documented `--backend qdrant` (or pgvector / weaviate)
+#: raised `TypeError: ... unexpected keyword argument 'M'` before connecting to
+#: anything. `tests/test_hnsw_grid_backend_knobs.py` binds each row against the
+#: adapter's real `__init__` signature.
+_HNSW_KNOBS: dict[str, tuple[str, str, str, bool]] = {
+    "hnsw-sim": ("M", "ef_construction", "ef_search", True),
+    "qdrant": ("hnsw_m", "hnsw_ef_construct", "hnsw_ef", False),
+    "pgvector": ("hnsw_m", "hnsw_ef_construction", "hnsw_ef_search", False),
+    "weaviate": ("hnsw_max_connections", "hnsw_ef_construction", "hnsw_ef", False),
+}
+
+#: Backends `make_backend` knows that have no HNSW knobs to sweep.
+_NO_HNSW_KNOBS = frozenset({"stub"})
+
+
+def _backend_kwargs(backend_name: str, *, M: int, efc: int, efs: int, seed: int) -> dict:
+    """The grid cell's knobs, spelled the way `backend_name` takes them (#160)."""
+    if backend_name in _NO_HNSW_KNOBS:
+        raise ValueError(
+            f"backend {backend_name!r} has no HNSW parameters to grid over; "
+            f"choose one of {sorted(_HNSW_KNOBS)}"
+        )
+    if backend_name not in _HNSW_KNOBS:
+        raise ValueError(f"unknown backend: {backend_name!r}")
+    m_name, efc_name, efs_name, takes_seed = _HNSW_KNOBS[backend_name]
+    kwargs: dict = {m_name: M, efc_name: efc, efs_name: efs}
+    if takes_seed:
+        kwargs["seed"] = seed
+    return kwargs
+
 
 def _parse_int_list(s: str) -> list[int]:
     return [int(p.strip()) for p in s.split(",") if p.strip()]
@@ -65,7 +97,9 @@ def run_grid(
     cells: list[dict] = []
     for M, efc, efs in itertools.product(M_values, ef_construction_values, ef_search_values):
         run_id = f"M{M}_efc{efc}_efs{efs}"
-        backend = make_backend(backend_name, M=M, ef_construction=efc, ef_search=efs, seed=seed)
+        backend = make_backend(
+            backend_name, **_backend_kwargs(backend_name, M=M, efc=efc, efs=efs, seed=seed)
+        )
         result = run_benchmark(backend, workload, run_id=run_id, results_dir=out_dir, force=True)
         cells.append(
             {

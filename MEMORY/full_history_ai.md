@@ -1799,3 +1799,23 @@ context_for_next_session:
   - WEAVIATE_HOST_MUST_BE_A_BARE_HOST_the_constructor_passes_it_as_http_host_AND_grpc_host_with_ports_as_separate_args_an_arm_pins_no_colon
   - vsas_frontier_replot_differs_by_design_its_x_axis_is_wall_clock_latency_do_not_file_as_dirtying_committed_plots
 followups: []
+
+---
+session: 2026-10-01T08:27Z
+issue: 160
+focus: THE_DOCUMENTED_REAL_ENGINE_GRID_PATH_COULD_NEVER_RUN_hnsw_sim_KNOB_NAMES_PASSED_TO_EVERY_ADAPTER
+phase: shipped
+duration_min: 4   # 08:23 plan -> 08:27 close, from date -u
+delta:
+  files_changed: 2
+  tests_added: 17
+  suite: "1006 -> 1023 green (1 skipped)"
+decisions_made: []
+measured: "874c90d: hnsw_grid --backend qdrant|pgvector|weaviate|stub -> TypeError unexpected keyword argument 'M', exit 1. Revert probes, control 1023: old call 4 red (1 before the through-run_grid arm was added), qdrant efc misnamed 1, seed to all 6, stub not refused 2."
+context_for_next_session:
+  - A_PROMISE_IN_A_DOCSTRING_AND_A_DECISION_THAT_NOTHING_EXERCISED_pass_backend_qdrant_when_the_bring_up_is_done_signature_bind_tests_check_it_with_no_services
+  - THE_FIRST_PROBE_OF_THE_OLD_CALL_WAS_ONLY_1_RED_because_the_bind_arms_tested_the_helper_not_the_call_site_ADDED_AN_ARM_THROUGH_run_grid_and_it_went_to_4_RUN_THE_PROBE_BEFORE_BELIEVING_THE_ARM
+  - BackendError_FOR_A_MISSING_EXTRA_STILL_EXITS_1_in_hnsw_grid_AND_in_the_main_cli_consistent_left_alone
+  - vsas_hunt_also_found_load_concurrency_above_n_queries_recorded_as_a_level_that_never_happened_and_cost_table_dropping_unnamed_files_NOT_FILED_YET
+followups: []
+---
