@@ -1858,3 +1858,19 @@ context_for_next_session:
   - PART_OF_portfolio_ops_81_same_recipe_in_every_atomic_write_helper
 followups: ["portfolio-ops#81"]
 ---
+
+---
+session: 2026-10-02T12:15Z
+issue: 169
+focus: hnsw_grid_ACCEPTED_DUPLICATE_AXIS_VALUES_TWO_CELLS_ONE_RUN_ID_ONE_FILE_OVERWRITTEN
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 5
+  suite: "1039 -> 1044 green; ruff clean"
+decisions_made: []
+measured: "main: --M 8,8 --ef-search 16,32 -> exit 0, grid.json 4 cells, 2 per-cell files. Revert: 4 of 5 red."
+context_for_next_session:
+  - load_py_ALREADY_REFUSED_THE_SAME_COLLISION_FOR_c_NNN_json_A_RULE_APPLIED_TO_ONE_OF_TWO_ENTRY_POINTS
+followups: []
+---
