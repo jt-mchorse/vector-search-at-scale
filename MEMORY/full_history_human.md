@@ -1803,3 +1803,14 @@ Part of portfolio-ops#80.
 **Open questions / blockers:** none.
 
 **Next session:** vsas's remaining open issues are JT-gated decision-revisits.
+
+## 2026-10-02 — recall_at_k refuses a bare string of ids (#167)
+
+Found by a portfolio-wide sweep for public parameters typed as a collection of
+strings that don't refuse a bare one. `recall_at_k("abc", "cba", 3)` reported a
+perfect 1.0 for two different ids, and `recall_at_k(["c1"], "c1", 5)` reported
+0.0 for a correct prediction, because a string is compared character by
+character. `ground_truth_topk` has the same shape for `corpus_ids`. Both
+exported functions now raise with the working spelling. The harness always
+passes lists, and a test pins the stub backend's recall at exactly 1.0 through
+`run_benchmark`. 12 new tests.
