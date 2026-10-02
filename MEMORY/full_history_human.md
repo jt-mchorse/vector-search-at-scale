@@ -1803,3 +1803,11 @@ Part of portfolio-ops#80.
 **Open questions / blockers:** none.
 
 **Next session:** vsas's remaining open issues are JT-gated decision-revisits.
+
+## 2026-10-02 — the HNSW grid refuses a repeated axis value (#169)
+
+`hnsw_grid.py --M 8,8` ran two cells with the same name. The second run's
+result file overwrote the first, while `grid.json` still listed both, and the
+frontier plot then kept whichever happened to be faster. `vector-bench load`
+already refuses the same collision. The grid script now does too, with exit 2,
+before anything is written. 5 new tests.
