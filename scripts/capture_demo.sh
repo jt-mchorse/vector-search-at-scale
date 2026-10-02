@@ -106,6 +106,9 @@ banner "done · stub-mode harness + cost table are wired end-to-end"
 printf 'next stop for real backends:\n'
 printf '  cd terraform/envs/benchmark && terraform init && terraform apply\n'
 printf '  vector-bench run --backend pgvector --n 1000000 ...\n'
-printf '  python scripts/cost_table.py --results-dir results/load  # real qps\n'
+# Real throughput enters through --load-results (D-016, #156): a bare
+# --results-dir still reads the default stub run, and without --out the table
+# lands on the committed docs/cost_per_query.md (#171).
+printf '  python scripts/cost_table.py --load-results 1m=results/load/<run-dir> --out /tmp/cost_real.md  # real qps, 1m tier\n'
 printf 'optional third surface JT runs locally before recording:\n'
 printf '  make validate                # terraform validate across modules\n'
