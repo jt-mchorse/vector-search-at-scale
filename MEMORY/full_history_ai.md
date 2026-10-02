@@ -1858,3 +1858,21 @@ context_for_next_session:
   - PART_OF_portfolio_ops_81_same_recipe_in_every_atomic_write_helper
 followups: ["portfolio-ops#81"]
 ---
+
+---
+session: 2026-10-02T08:40Z
+issue: 167
+focus: recall_at_k_AND_ground_truth_topk_COMPARED_A_BARE_STRING_CHARACTER_BY_CHARACTER_fabricated_recall_in_both_directions
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 12
+  suite: "1039 -> 1051 green (1 pre-existing skip); ruff clean"
+decisions_made: []
+measured: "main: recall_at_k('abc','cba',3)=1.0, recall_at_k(['c1'],'c1',5)=0.0. Revert probe ONE SUBPROCESS PER ID, 12 counted: recall guards removed 7 red, ground_truth_topk guard removed 1 red, truth-only removed 3 red."
+context_for_next_session:
+  - FILED_AND_FIXED_IN_ONE_RUN_FROM_A_PORTFOLIO_AST_SWEEP_FOR_COLLECTION_OF_str_PARAMS_WITHOUT_A_BARE_STRING_GUARD
+  - backends_ingest_ids_STILL_UNGUARDED_ON_PURPOSE_check_ingest_shape_NEEDS_A_LENGTH_COINCIDENCE_cleared_as_marginal_2026_09_28
+  - run_benchmark_ARM_PINS_THE_STUBS_mean_recall_at_k_EQUAL_1_0_through_the_harness_so_the_guard_cannot_over_reject_the_orchestrators_lists
+followups: []
+---
