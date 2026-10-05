@@ -1910,3 +1910,19 @@ context_for_next_session:
   - load_py_ALREADY_REFUSED_THE_SAME_COLLISION_FOR_c_NNN_json_A_RULE_APPLIED_TO_ONE_OF_TWO_ENTRY_POINTS
 followups: []
 ---
+
+---
+session: 2026-10-02T12:25Z
+issue: 171
+focus: THE_DEMOS_REAL_QPS_COST_TABLE_HINT_READ_THE_STUB_RUN_AND_OVERWROTE_THE_COMMITTED_TABLE
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 3
+  suite: "1039 -> 1042 green"
+decisions_made: []
+measured: "hunt agent: the printed command's output was identical to the committed docs/cost_per_query.md (9 rows simulated); no --out means it writes there. Revert: 2 of 3 lock arms red."
+context_for_next_session:
+  - D_016_FIXED_THE_no_dry_HINT_AND_MISSED_THIS_PRINTED_LINE_a_fixs_scope_vs_every_place_the_same_advice_is_printed
+followups: []
+---
