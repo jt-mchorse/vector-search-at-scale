@@ -287,6 +287,22 @@ def generate_corpus(workload: Workload) -> tuple[np.ndarray, np.ndarray, list[st
     return corpus, queries, corpus_ids, query_ids
 
 
+def _refuse_bare_string(name: str, value: object) -> None:
+    """Raise ``ValueError`` if *value* is a bare ``str``/``bytes`` (#167).
+
+    A ``str`` slices and iterates like a list of one-character ids, so
+    ``recall_at_k("abc", "cba", 3)`` reported a perfect 1.0 for two different
+    ids and ``recall_at_k(["c1"], "c1", 5)`` reported 0.0 for a correct one.
+    Only the bare-string shape; every other sequence is accepted as before.
+    """
+    if isinstance(value, (str, bytes, bytearray)):
+        fix = f"pass [{value!r}]" if isinstance(value, str) else "decode it to str ids first"
+        raise ValueError(
+            f"{name} must be a sequence of ids, not a bare {type(value).__name__}: "
+            f"{value!r} would be compared one character at a time -- {fix}"
+        )
+
+
 def ground_truth_topk(
     corpus: np.ndarray, queries: np.ndarray, corpus_ids: list[str], k: int
 ) -> list[list[str]]:
@@ -295,6 +311,8 @@ def ground_truth_topk(
     Returns a list-of-lists of corpus ids, one inner list per query, in
     descending similarity order.
     """
+    # `corpus_ids[idx]` below returns a character for a long-enough string (#167).
+    _refuse_bare_string("corpus_ids", corpus_ids)
     # Both arrays are already L2-normalized — dot product is cosine similarity.
     #
     # Score per-query with the *same* GEMV expression `StubBackend.query` uses
@@ -319,6 +337,8 @@ def ground_truth_topk(
 
 def recall_at_k(predicted: list[str], truth: list[str], k: int) -> float:
     """Fraction of the top-k truth ids present anywhere in the top-k predicted."""
+    _refuse_bare_string("predicted", predicted)
+    _refuse_bare_string("truth", truth)
     # Integer guard (#29) — NaN passed sign-only and silently miscounted via
     # set-slicing; fractional k truncated via list slicing.
     if not isinstance(k, int) or isinstance(k, bool) or k <= 0:

@@ -1804,6 +1804,31 @@ Part of portfolio-ops#80.
 
 **Next session:** vsas's remaining open issues are JT-gated decision-revisits.
 
+## 2026-10-02 — the test session fails if any test rewrites a committed file (portfolio-ops#79)
+
+Ported from python-async-llm-pipelines#115, where a test overwrote a committed
+artifact on every CI run. The overwrite only happened on Linux, so nobody
+noticed. `tests/_committed_files_guard.py` records a hash of every git-tracked
+file when the session starts and fails the session if any changed or
+disappeared. It covers every tracked file, not only `docs/`, because committed
+outputs live in different places in each repo and no current test writes any of
+them. A self-test runs a real inner pytest session in a throwaway git repo
+using the same guard file. A test that writes a tracked file fails that
+session, a test that deletes one fails it, and a test that writes only under
+`tmp_path` passes. Checked here by running a throwaway test that appended to
+`README.md`: the session failed and named the file.
+
+## 2026-10-02 — recall_at_k refuses a bare string of ids (#167)
+
+Found by a portfolio-wide sweep for public parameters typed as a collection of
+strings that don't refuse a bare one. `recall_at_k("abc", "cba", 3)` reported a
+perfect 1.0 for two different ids, and `recall_at_k(["c1"], "c1", 5)` reported
+0.0 for a correct prediction, because a string is compared character by
+character. `ground_truth_topk` has the same shape for `corpus_ids`. Both
+exported functions now raise with the working spelling. The harness always
+passes lists, and a test pins the stub backend's recall at exactly 1.0 through
+`run_benchmark`. 12 new tests.
+
 ## 2026-10-02 — the HNSW grid refuses a repeated axis value (#169)
 
 `hnsw_grid.py --M 8,8` ran two cells with the same name. The second run's

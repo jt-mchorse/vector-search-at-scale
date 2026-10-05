@@ -1860,6 +1860,42 @@ followups: ["portfolio-ops#81"]
 ---
 
 ---
+session: 2026-10-02T07:55Z
+issue: "portfolio-ops#79"
+focus: PORT_THE_TESTS_MAY_NOT_REWRITE_A_COMMITTED_FILE_SESSION_GUARD_WIDENED_FROM_docs_TO_EVERY_GIT_TRACKED_FILE
+phase: shipped
+delta:
+  files_changed: 3
+  tests_added: 6
+  suite: "1045 green under the guard; ruff check and format clean"
+decisions_made: []
+measured: "full suite under the guard = 0 tracked files changed; a throwaway test appending to README.md fails the session with 'rewrote committed files: [README.md]' (README restored from a cp copy, tree clean after); unwiring the conftest import turns the wiring arm red."
+context_for_next_session:
+  - tests_committed_files_guard_py_IS_SELF_CONTAINED_AND_IDENTICAL_ACROSS_7_REPOS_its_self_test_COPIES_IT_VERBATIM_AS_AN_INNER_SESSIONS_CONFTEST_in_a_throwaway_git_repo_writer_FAILS_deleter_FAILS_tmp_path_writer_PASSES
+  - EVERY_TRACKED_FILE_NOT_A_DIRECTORY_LIST_the_2026_10_01_probe_found_ZERO_tracked_files_modified_by_any_suite_so_the_wider_rule_costs_nothing_A_NEW_TEST_THAT_REGENERATES_A_COMMITTED_ARTIFACT_MUST_WRITE_TO_tmp_path_AND_COMPARE
+  - THE_CORPUS_ARM_test_this_checkout_is_what_the_guard_snapshots_FAILS_UNTIL_THE_FILE_IS_COMMITTED_that_is_by_design
+followups: []
+---
+
+---
+session: 2026-10-02T08:40Z
+issue: 167
+focus: recall_at_k_AND_ground_truth_topk_COMPARED_A_BARE_STRING_CHARACTER_BY_CHARACTER_fabricated_recall_in_both_directions
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 12
+  suite: "1039 -> 1051 green (1 pre-existing skip); ruff clean"
+decisions_made: []
+measured: "main: recall_at_k('abc','cba',3)=1.0, recall_at_k(['c1'],'c1',5)=0.0. Revert probe ONE SUBPROCESS PER ID, 12 counted: recall guards removed 7 red, ground_truth_topk guard removed 1 red, truth-only removed 3 red."
+context_for_next_session:
+  - FILED_AND_FIXED_IN_ONE_RUN_FROM_A_PORTFOLIO_AST_SWEEP_FOR_COLLECTION_OF_str_PARAMS_WITHOUT_A_BARE_STRING_GUARD
+  - backends_ingest_ids_STILL_UNGUARDED_ON_PURPOSE_check_ingest_shape_NEEDS_A_LENGTH_COINCIDENCE_cleared_as_marginal_2026_09_28
+  - run_benchmark_ARM_PINS_THE_STUBS_mean_recall_at_k_EQUAL_1_0_through_the_harness_so_the_guard_cannot_over_reject_the_orchestrators_lists
+followups: []
+---
+
+---
 session: 2026-10-02T12:15Z
 issue: 169
 focus: hnsw_grid_ACCEPTED_DUPLICATE_AXIS_VALUES_TWO_CELLS_ONE_RUN_ID_ONE_FILE_OVERWRITTEN
