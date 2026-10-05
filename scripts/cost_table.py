@@ -411,8 +411,13 @@ def render_markdown(
     prices: PriceTable,
     qps_source: dict[tuple[str, str], str],
     qps_backend: dict[tuple[str, str], str | None] | None = None,
+    results_dir_display: str = "results/load",
 ) -> str:
     """Render the per-tier table + assumptions block.
+
+    `results_dir_display` is the default-run directory as the method bullet
+    names it: repo-relative for the committed `results/load`, and the
+    operator's `--results-dir` otherwise (#174).
 
     `qps_source` and `qps_backend` are keyed by `(tier, engine)` (#145, D-013).
     They were keyed by tier, which was correct only while every engine in a
@@ -437,7 +442,7 @@ def render_markdown(
         "- **Hours per month**: 730 (AWS billing convention, 8760 / 12).",
         "- **Amortization basis**: monthly cost ÷ (throughput_qps × 2,628,000 s). "
         "If your workload doesn't run 24/7, multiply by (24 / avg_active_hours_per_day).",
-        "- **Throughput**: from `results/load/<run_id>/c001.json` (single-client "
+        f"- **Throughput**: from `{results_dir_display}/<run_id>/c001.json` (single-client "
         "p50; the conservative basis). For each tier the source is listed in "
         "the table.",
         "- **Instance sizing**: read live from "
@@ -765,8 +770,16 @@ def main(argv: list[str] | None = None) -> int:
             )
 
         def _display(directory: Path) -> str:
-            """The source cell. Default-run directories render repo-relative."""
-            if directory == results_dir / args.run_id:
+            """The source cell: the file this row's throughput was read from.
+
+            Repo-relative only for the committed default directory. It used to
+            ask whether `directory` was `results_dir / run_id`, which is true for
+            every default-run directory *whatever* `--results-dir` was, and then
+            print a hard-coded `results/load/` -- so `--results-dir /tmp/vr`
+            credited the committed `results/load/stub-10k/c001.json` (1623.5 qps)
+            for the 50.0 qps it read from `/tmp/vr` (#174).
+            """
+            if directory.resolve() == (DEFAULT_RESULTS_DIR / args.run_id).resolve():
                 return f"`results/load/{args.run_id}/c001.json`"
             return f"`{directory}/c001.json`"
 
@@ -866,6 +879,11 @@ def main(argv: list[str] | None = None) -> int:
         prices=prices,
         qps_source=qps_source,
         qps_backend=qps_backend,
+        results_dir_display=(
+            "results/load"
+            if results_dir.resolve() == DEFAULT_RESULTS_DIR.resolve()
+            else str(results_dir)
+        ),
     )
 
     out_path = Path(args.out)
