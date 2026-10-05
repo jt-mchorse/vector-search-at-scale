@@ -1929,7 +1929,7 @@ followups: []
 
 ---
 session: 2026-10-05T07:59Z
-duration_min: 7   # plan comment 2026-10-05T07:58:19Z -> 07:59Z; first repro ~07:59Z
+duration_min: 4   # plan comment 2026-10-05T07:58:19Z -> 07:59Z; first repro ~07:59Z
 issue: 174
 branch: session/2026-10-05-0758-issue-174
 focus: cost_table_SOURCE_CELL_AND_METHOD_BULLET_HARD_CODED_results_load_SO_A_RESULTS_DIR_RUN_WAS_CREDITED_TO_THE_COMMITTED_FILE
