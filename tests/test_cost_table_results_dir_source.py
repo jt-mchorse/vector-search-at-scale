@@ -77,3 +77,30 @@ def test_the_committed_directory_still_renders_repo_relative(
     md = out.read_text()
     assert _source_cells(md) == {f"results/load/{_RUN_ID}/c001.json"}
     assert "`results/load/<run_id>/c001.json`" in _bullet(md)
+
+
+def test_a_non_utf8_results_dir_is_shown_escaped(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The directory now goes into the report's TEXT (cell and bullet).
+
+    A filesystem byte that is not UTF-8 is a lone surrogate in the path, and
+    writing it into the markdown raised UnicodeEncodeError -- a traceback, not
+    the OSError the write seam handles -- on any filesystem that accepted the
+    name (ext4: CI); APFS refuses it first. Stub the two loaders and capture
+    what `main` writes, so this runs the real call site everywhere.
+    """
+    import scripts.cost_table as ct
+
+    written: dict[str, str] = {}
+
+    def capture(path: Path, text: str) -> None:
+        text.encode("utf-8")  # what atomic_write_text does; must not raise
+        written["md"] = text
+
+    monkeypatch.setattr(ct, "load_throughput_qps", lambda d: 1000.0)
+    monkeypatch.setattr(ct, "load_throughput_backend", lambda d: None)
+    monkeypatch.setattr(ct, "atomic_write_text", capture)
+    odd = tmp_path / "load\udcff"
+    assert main(["--dry", "--results-dir", str(odd), "--out", str(tmp_path / "c.md")]) == 0
+    assert f"{tmp_path}/load\\xff/stub-10k/c001.json" in written["md"]

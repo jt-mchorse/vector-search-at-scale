@@ -405,6 +405,17 @@ def format_qps(value: float) -> str:
     return f"{value:.{decimals}f}"
 
 
+def _shown(path: Path) -> str:
+    """A path as report TEXT: a non-UTF-8 filesystem byte shown as `\\xff`.
+
+    Such a byte is a lone surrogate in the decoded path, and the markdown is
+    written as UTF-8, so printing the path raw raised UnicodeEncodeError on any
+    filesystem that accepted the name (ext4) -- a traceback rather than the
+    OSError the write seam handles (#174).
+    """
+    return str(path).encode("utf-8", "surrogateescape").decode("utf-8", "backslashreplace")
+
+
 def render_markdown(
     rows: Iterable[CostPerQuery],
     *,
@@ -781,7 +792,7 @@ def main(argv: list[str] | None = None) -> int:
             """
             if directory.resolve() == (DEFAULT_RESULTS_DIR / args.run_id).resolve():
                 return f"`results/load/{args.run_id}/c001.json`"
-            return f"`{directory}/c001.json`"
+            return f"`{_shown(directory)}/c001.json`"
 
         for tier in SCALE_TIERS:
             default_dir = results_dir / args.run_id
@@ -882,7 +893,7 @@ def main(argv: list[str] | None = None) -> int:
         results_dir_display=(
             "results/load"
             if results_dir.resolve() == DEFAULT_RESULTS_DIR.resolve()
-            else str(results_dir)
+            else _shown(results_dir)
         ),
     )
 
