@@ -59,6 +59,7 @@ from vector_bench.cost import (  # noqa: E402
     CostPerQuery,
     InfraSpec,
     PriceTable,
+    UnknownInstanceTypeError,
     cost_per_query,
 )
 from vector_bench.io_utils import atomic_write_text  # noqa: E402
@@ -155,9 +156,14 @@ def load_throughput_qps(results_dir: Path) -> float:
     c01_path = results_dir / "c001.json"  # concurrency=1 cell from the load harness
     if not c01_path.exists():
         raise FileNotFoundError(
-            f"expected {c01_path} to exist for the cost table. "
-            f"Re-run the load harness (`python -m vector_bench.load --run-id ...`) "
-            f"to produce it."
+            f"expected {c01_path} to exist for the cost table: the concurrency-1 "
+            f"cell of a load run. Produce it with the load harness, keeping "
+            f"concurrency 1 in the run (the default `--concurrency 1,10,100` does): "
+            f"`vector-bench load --backend <backend> --n <N> --run-id <run_id> "
+            f"--results-dir <dir>` writes `<dir>/<run_id>/c001.json`."
+            # It named `python -m vector_bench.load`, which has no __main__ and
+            # exits 0 having written nothing; and a run without concurrency 1
+            # writes no c001.json at all (#176).
         )
     payload = json.loads(c01_path.read_text(encoding="utf-8"))
     qps = payload["throughput_qps"]
@@ -854,6 +860,17 @@ def main(argv: list[str] | None = None) -> int:
     # feeding this call.
     try:
         rows = build_rows(tiers, qps_by_tier_engine, prices)
+    except UnknownInstanceTypeError as exc:
+        # Not a throughput problem: the instance type comes from `--tf-main`, and
+        # the library's "Pass a PriceTable" cannot be followed from this script,
+        # whose prices are `aws_us_east_1_snapshot()` (#176).
+        print(
+            f"no price for an instance type in {args.tf_main}: {exc.args[0].split(' Pass a')[0]} "
+            f"This script prices with vector_bench.prices.aws_us_east_1_snapshot(); "
+            f"add the instance there, or use an instance type it lists.",
+            file=sys.stderr,
+        )
+        return 2
     except (TypeError, ValueError, KeyError) as exc:
         sources = ", ".join(sorted({s.replace("`", "") for s in qps_source.values()}))
         print(

@@ -474,12 +474,12 @@ def test_main_malformed_c001_json_exits_2_not_traceback(tmp_path: Path, capsys):
 
 def test_main_missing_results_dir_exits_2_with_operator_message(tmp_path: Path, capsys):
     # A missing load-harness c001.json must surface load_throughput_qps's
-    # operator-facing "Re-run the load harness" message on stderr with exit 2,
+    # operator-facing "produce it with `vector-bench load`" message (#176) on stderr with exit 2,
     # instead of burying it in a traceback.
     rc = main(["--run-id", "no-such-run", "--out", str(tmp_path / "out.md")])
     assert rc == 2
     err = capsys.readouterr().err
-    assert "Re-run the load harness" in err
+    assert "vector-bench load" in err
 
 
 # ----- the value axis of the exit-code contract (#115) -----------------------
