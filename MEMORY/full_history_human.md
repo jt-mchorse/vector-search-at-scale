@@ -1844,3 +1844,14 @@ throughput. That command read the default stub run, so its output matched the
 simulated table. With no `--out`, it also overwrote the committed
 `docs/cost_per_query.md`. It now passes `--load-results` and writes to
 `/tmp`. A test checks every `cost_table.py` command the demo prints.
+
+## 2026-10-05 — the cost table's error hints work when followed (#176)
+
+When a results file was missing, the cost table suggested a command that
+quietly does nothing. A run without the single-client level wouldn't produce
+the file anyway. It now names the real `vector-bench load` command and says
+the run must include concurrency 1. When the Terraform file named an instance
+type with no price, it blamed the throughput file and gave advice only library
+users can follow. It now names the Terraform file and where the script's
+prices come from. One test follows the first hint literally with the stub
+backend and reruns the cost table.
