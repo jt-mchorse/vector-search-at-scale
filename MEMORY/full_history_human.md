@@ -1828,3 +1828,11 @@ character. `ground_truth_topk` has the same shape for `corpus_ids`. Both
 exported functions now raise with the working spelling. The harness always
 passes lists, and a test pins the stub backend's recall at exactly 1.0 through
 `run_benchmark`. 12 new tests.
+
+## 2026-10-02 — the HNSW grid refuses a repeated axis value (#169)
+
+`hnsw_grid.py --M 8,8` ran two cells with the same name. The second run's
+result file overwrote the first, while `grid.json` still listed both, and the
+frontier plot then kept whichever happened to be faster. `vector-bench load`
+already refuses the same collision. The grid script now does too, with exit 2,
+before anything is written. 5 new tests.
