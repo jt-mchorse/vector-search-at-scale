@@ -1865,3 +1865,12 @@ type with no price, it blamed the throughput file and gave advice only library
 users can follow. It now names the Terraform file and where the script's
 prices come from. One test follows the first hint literally with the stub
 backend and reruns the cost table.
+
+## 2026-10-06 — the cost doc names the throughput it divides by (#180)
+
+The cost-per-query document said it divides by the single-client "p50"
+throughput. The number it uses is the measured rate, queries divided by
+wall-clock time, which is a little lower than a rate computed from the median
+latency (1623.5 against 1634.2 queries per second in the committed run). The
+document now describes the measured rate, which is also why it is the more
+conservative choice.

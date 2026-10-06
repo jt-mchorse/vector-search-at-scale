@@ -1964,3 +1964,22 @@ context_for_next_session:
   - CONFLICTS_WITH_175_ON_scripts_cost_table_py_IN_SEPARATE_HUNKS
 followups: []
 ---
+
+---
+session: 2026-10-06T09:01Z
+duration_min: 1   # computed: plan comment 09:00:37Z -> 09:01Z (date -u)
+issue: 180
+branch: session/2026-10-06-0900-issue-180
+focus: cost_doc_LABELLED_THE_AMORTISATION_THROUGHPUT_SINGLE_CLIENT_p50_it_is_n_queries_over_wall_clock_1623_5_vs_1634_2
+phase: shipped
+delta:
+  files_changed: 3
+  tests_added: 3
+  suite: "1073 -> 1076 passed; ruff, format clean; doc regenerated, one line changed"
+decisions_made: []
+measured: "committed c001: throughput_qps 1623.5, 1000/p50 1634.2. Revert probe: the bullet arm red, the two fact arms green."
+context_for_next_session:
+  - MY_FIRST_BULLET_ARM_SPLIT_ON_A_PHRASE_AND_CAUGHT_MY_OWN_LEGITIMATE_p50_MENTION_assert_on_the_old_phrase_not_on_a_token
+  - MERGE_ORDER_179_181_independent_files
+followups: []
+---
