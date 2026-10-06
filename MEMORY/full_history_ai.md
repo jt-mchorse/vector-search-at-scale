@@ -1964,3 +1964,23 @@ context_for_next_session:
   - CONFLICTS_WITH_175_ON_scripts_cost_table_py_IN_SEPARATE_HUNKS
 followups: []
 ---
+
+---
+session: 2026-10-06T08:41Z
+duration_min: 1   # computed: plan comment 08:39:59Z -> 08:41Z (date -u); reproduced in a scratch clone from ~08:38Z after a hunt agent's report
+issue: 178
+branch: session/2026-10-06-0839-issue-178
+focus: capture_demo_STAGE_1_RAN_THE_vector_bench_ON_PATH_another_checkouts_editable_install_on_py3_11_WHILE_STAGE_2_USED_venv
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 1
+  suite: "1073 -> 1074 passed; ruff, format clean"
+decisions_made: []
+measured: "clone with a LOADED-FROM marker: main prints it only in stage 2; fixed prints it in both stages. Revert probe: the fake-on-PATH arm red."
+context_for_next_session:
+  - A_CONSOLE_SCRIPT_IS_BOUND_TO_THE_INSTALL_THAT_MADE_IT_NOT_THE_CHECKOUT_run_python_m_with_PYTHONPATH_src
+  - TEST_SHAPE_A_FAKE_CONSOLE_SCRIPT_FIRST_ON_PATH_THAT_MUST_NEVER_RUN_works_in_CI_where_there_is_no_venv
+  - DONT_PRINT_ABSOLUTE_HOME_PATHS_INTO_A_RECORDING_strip_REPO_ROOT
+followups: []
+---

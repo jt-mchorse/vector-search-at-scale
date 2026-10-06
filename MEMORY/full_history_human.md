@@ -1865,3 +1865,12 @@ type with no price, it blamed the throughput file and gave advice only library
 users can follow. It now names the Terraform file and where the script's
 prices come from. One test follows the first hint literally with the stub
 backend and reruns the cost table.
+
+## 2026-10-06 — both demo stages run this checkout's code (#178)
+
+The demo script's first stage ran the `vector-bench` command found on the
+shell's PATH. That command belongs to whichever install created it: on this
+machine it was a different checkout of the repo on an older Python, so a fresh
+clone's demo recorded code the clone did not contain. Both stages now run this
+checkout's package with the same interpreter, and the script prints that
+interpreter's repo-relative path rather than an absolute home directory.
