@@ -459,9 +459,15 @@ def render_markdown(
         "- **Hours per month**: 730 (AWS billing convention, 8760 / 12).",
         "- **Amortization basis**: monthly cost ÷ (throughput_qps × 2,628,000 s). "
         "If your workload doesn't run 24/7, multiply by (24 / avg_active_hours_per_day).",
-        f"- **Throughput**: from `{results_dir_display}/<run_id>/c001.json` (single-client "
-        "p50; the conservative basis). For each tier the source is listed in "
-        "the table.",
+        # The measured rate, not a p50-derived one (#180): `load.py` sets
+        # `throughput_qps = n_queries / query_elapsed_s`, which pays the
+        # per-query overhead a 1000 / p50 rate leaves out (committed c001:
+        # 1623.5 qps measured vs 1634.2 from its p50).
+        f"- **Throughput**: from `{results_dir_display}/<run_id>/c001.json`: the "
+        "single-client measured rate, `n_queries` ÷ the query phase's "
+        "wall-clock at concurrency 1 (the conservative basis; it includes the "
+        "per-query overhead a p50-derived rate would leave out). For each tier "
+        "the source is listed in the table.",
         "- **Instance sizing**: read live from "
         "[`terraform/envs/benchmark/main.tf`](../terraform/envs/benchmark/main.tf) "
         "so this doc and the infra layer can't drift.",

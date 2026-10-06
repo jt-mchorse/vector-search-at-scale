@@ -7,7 +7,7 @@ Amortized USD per query at each (tier, engine), computed from the infrastructure
 - **Pricing snapshot**: AWS public on-demand list, region us-east-1, as of 2026-05-17. Source: <https://aws.amazon.com/ec2/pricing/on-demand/>. Operators with contracted rates (Reserved, Spot, EDP) override the `PriceTable` and re-run the script.
 - **Hours per month**: 730 (AWS billing convention, 8760 / 12).
 - **Amortization basis**: monthly cost ÷ (throughput_qps × 2,628,000 s). If your workload doesn't run 24/7, multiply by (24 / avg_active_hours_per_day).
-- **Throughput**: from `results/load/<run_id>/c001.json` (single-client p50; the conservative basis). For each tier the source is listed in the table.
+- **Throughput**: from `results/load/<run_id>/c001.json`: the single-client measured rate, `n_queries` ÷ the query phase's wall-clock at concurrency 1 (the conservative basis; it includes the per-query overhead a p50-derived rate would leave out). For each tier the source is listed in the table.
 - **Instance sizing**: read live from [`terraform/envs/benchmark/main.tf`](../terraform/envs/benchmark/main.tf) so this doc and the infra layer can't drift.
 
 ## Per-tier table
