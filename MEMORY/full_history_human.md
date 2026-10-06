@@ -1865,3 +1865,13 @@ type with no price, it blamed the throughput file and gave advice only library
 users can follow. It now names the Terraform file and where the script's
 prices come from. One test follows the first hint literally with the stub
 backend and reruns the cost table.
+
+## 2026-10-06 — each pgvector grid cell builds its own index (#184)
+
+The pgvector backend created its table and HNSW index only "if not exists". In
+an HNSW parameter grid each cell makes a new backend, but Postgres kept the
+first cell's index, so every later cell measured the first cell's settings
+while being labelled with its own. A different vector size also failed against
+the old column. The backend now drops and recreates its own table and index
+for each run. I could not run pgvector itself here; the Postgres behaviour
+behind the bug was confirmed separately, and the PR says so.
