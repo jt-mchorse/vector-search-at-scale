@@ -1845,6 +1845,16 @@ simulated table. With no `--out`, it also overwrote the committed
 `docs/cost_per_query.md`. It now passes `--load-results` and writes to
 `/tmp`. A test checks every `cost_table.py` command the demo prints.
 
+## 2026-10-05 — the cost table credits the file it actually read (#174)
+
+The cost table names the results file each row's throughput came from. With
+`--results-dir` pointing somewhere else, it still printed the committed
+`results/load/...` path. So a test copy reporting 50 queries per second was
+credited to the committed file, which says 1,623. The source column and the
+method note now name the directory actually read, and the default run's output
+is unchanged byte for byte. One of my checks couldn't tell a resolved path
+comparison from a textual one until I gave it a path spelled with `..`.
+
 ## 2026-10-05 — the cost table's error hints work when followed (#176)
 
 When a results file was missing, the cost table suggested a command that

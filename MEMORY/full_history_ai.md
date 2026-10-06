@@ -1928,6 +1928,25 @@ followups: []
 ---
 
 ---
+session: 2026-10-05T07:59Z
+duration_min: 4   # plan comment 2026-10-05T07:58:19Z -> 07:59Z; first repro ~07:59Z
+issue: 174
+branch: session/2026-10-05-0758-issue-174
+focus: cost_table_SOURCE_CELL_AND_METHOD_BULLET_HARD_CODED_results_load_SO_A_RESULTS_DIR_RUN_WAS_CREDITED_TO_THE_COMMITTED_FILE
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 5
+  suite: "1065 -> 1070 green; ruff clean; docs/cost_per_query.md regenerates with zero diff"
+decisions_made: []
+measured: "copy of stub-10k with throughput 50.0 under --results-dir: main credits results/load/stub-10k/c001.json (1623.5 qps) on 9 rows; now names the copy. Probes: cell revert 1 red, bullet revert 1 red, unresolved-comparison neighbour 1 red ONLY after adding a results/../results/load row - it was green against the first version"
+context_for_next_session:
+  - FOUND_BY_A_HUNT_AGENT_RUNNING_THE_DOCUMENTED_COMMAND_WITH_A_DIFFERENT_ARGUMENT_the_third_hard_coded_canonical_string_tonight_after_lco_255_and_pyasync
+  - A_RELATIVE_SPELLING_THAT_PRINTS_THE_SAME_TEXT_CANNOT_SEPARATE_RESOLVED_FROM_TEXTUAL_COMPARISON_use_a_dotdot_spelling
+followups: []
+---
+
+---
 session: 2026-10-05T09:07Z
 duration_min: 4   # computed: started 09:04Z -> 09:07Z
 issue: 176
