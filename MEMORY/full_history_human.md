@@ -1865,3 +1865,12 @@ type with no price, it blamed the throughput file and gave advice only library
 users can follow. It now names the Terraform file and where the script's
 prices come from. One test follows the first hint literally with the stub
 backend and reruns the cost table.
+
+## 2026-10-06 — a failed load-test query stops the rest of the level (#186)
+
+The load harness queues every query of a concurrency level up front. When one
+failed, Python's thread pool still ran every remaining queued query against
+the backend before reporting the error: all 200 queries and 5.5 seconds on a
+slow stub, which could be minutes of load on a real database. The queued
+queries are now cancelled on the first failure, and only the ones already
+running finish.

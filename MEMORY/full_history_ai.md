@@ -1964,3 +1964,22 @@ context_for_next_session:
   - CONFLICTS_WITH_175_ON_scripts_cost_table_py_IN_SEPARATE_HUNKS
 followups: []
 ---
+
+---
+session: 2026-10-06T10:01Z
+duration_min: 1   # computed: plan comment 10:00:51Z -> 10:01Z (date -u)
+issue: 186
+branch: session/2026-10-06-1000-issue-186
+focus: load_ONE_FAILED_QUERY_LET_EVERY_REMAINING_SUBMITTED_QUERY_RUN_the_executor_exit_waited_on_all_200_of_200_calls
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 2
+  suite: "1073 -> 1075 passed; ruff, format clean"
+decisions_made: []
+measured: "50 ms stub failing first, n=200 c=2: main 5.55 s / 200 calls; fixed 0.12 s / 4 calls. Revert probe: failure arm red, healthy control green."
+context_for_next_session:
+  - A_ThreadPoolExecutor_WITH_EXIT_RUNS_EVERY_SUBMITTED_FUTURE_use_shutdown_cancel_futures_on_the_failure_path
+  - MERGE_NOTE_183_AND_187_BOTH_EDIT_load_py_in_different_functions
+followups: []
+---
