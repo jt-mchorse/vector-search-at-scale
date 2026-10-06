@@ -1945,3 +1945,22 @@ context_for_next_session:
   - A_RELATIVE_SPELLING_THAT_PRINTS_THE_SAME_TEXT_CANNOT_SEPARATE_RESOLVED_FROM_TEXTUAL_COMPARISON_use_a_dotdot_spelling
 followups: []
 ---
+
+---
+session: 2026-10-05T09:07Z
+duration_min: 4   # computed: started 09:04Z -> 09:07Z
+issue: 176
+branch: session/2026-10-05-0905-issue-176
+focus: COST_TABLE_HINTS_DID_NOT_WORK_WHEN_FOLLOWED_python_m_vector_bench_load_IS_A_NO_OP_AND_A_PRICING_ERROR_WAS_BLAMED_ON_THROUGHPUT
+phase: shipped
+delta:
+  files_changed: 3
+  tests_added: 2
+  suite: "1065 -> 1067 green; ruff clean"
+decisions_made: []
+measured: "python -m vector_bench.load: rc 0, nothing written; m6i.weird reported as a rejected throughput. The test follows the new hint with the stub backend end to end. Both arms red against main."
+context_for_next_session:
+  - RUN_THE_HINT_A_TEST_CAN_FOLLOW_A_HINT_LITERALLY_fill_placeholders_run_it_then_rerun_the_command_that_printed_it
+  - CONFLICTS_WITH_175_ON_scripts_cost_table_py_IN_SEPARATE_HUNKS
+followups: []
+---

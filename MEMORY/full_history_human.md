@@ -1854,3 +1854,14 @@ credited to the committed file, which says 1,623. The source column and the
 method note now name the directory actually read, and the default run's output
 is unchanged byte for byte. One of my checks couldn't tell a resolved path
 comparison from a textual one until I gave it a path spelled with `..`.
+
+## 2026-10-05 — the cost table's error hints work when followed (#176)
+
+When a results file was missing, the cost table suggested a command that
+quietly does nothing. A run without the single-client level wouldn't produce
+the file anyway. It now names the real `vector-bench load` command and says
+the run must include concurrency 1. When the Terraform file named an instance
+type with no price, it blamed the throughput file and gave advice only library
+users can follow. It now names the Terraform file and where the script's
+prices come from. One test follows the first hint literally with the stub
+backend and reruns the cost table.
