@@ -1964,3 +1964,23 @@ context_for_next_session:
   - CONFLICTS_WITH_175_ON_scripts_cost_table_py_IN_SEPARATE_HUNKS
 followups: []
 ---
+
+---
+session: 2026-10-06T09:46Z
+duration_min: 1   # computed: plan comment 09:45:12Z -> 09:46Z (date -u)
+issue: 182
+branch: session/2026-10-06-0945-issue-182
+focus: load_force_LEFT_THE_PREVIOUS_RUNS_CELL_FILES_and_cost_table_PUBLISHED_A_STALE_c001_as_this_runs_throughput
+phase: shipped
+delta:
+  files_changed: 3
+  tests_added: 3
+  suite: "1073 -> 1076 passed; ruff, format clean"
+decisions_made: []
+measured: "rerun 1,10 -> 10,20 --force: main leaves c001 (n500 dim64) beside matrix [10,20] (n2000 dim32); fixed leaves only c010 c020 matrix. Revert probes per file: each lights exactly its arm."
+context_for_next_session:
+  - A_FORCE_REWRITE_MUST_REMOVE_WHAT_THE_NEW_RUN_DOES_NOT_WRITE_and_a_reader_should_check_membership_in_the_index_file
+  - OPEN_FROM_THE_SAME_HUNT_pgvector_backend_keeps_the_first_cells_index_settings_CREATE_INDEX_IF_NOT_EXISTS_across_hnsw_grid_cells
+  - MERGE_ORDER_vsas_179_181_183_independent
+followups: []
+---

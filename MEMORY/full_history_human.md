@@ -1865,3 +1865,12 @@ type with no price, it blamed the throughput file and gave advice only library
 users can follow. It now names the Terraform file and where the script's
 prices come from. One test follows the first hint literally with the stub
 backend and reruns the cost table.
+
+## 2026-10-06 — a forced rerun can no longer leave stale load results (#182)
+
+Re-running the load benchmark with `--force` rewrote the run's files but left
+any per-concurrency results the new run did not produce. A rerun without
+concurrency 1 kept the old run's `c001.json`, and the cost table then used that
+stale file as this run's throughput. The rerun now removes the old cells, and
+the cost table refuses a `c001.json` that the run's own index file does not
+list.
