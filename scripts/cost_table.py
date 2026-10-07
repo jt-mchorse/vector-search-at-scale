@@ -165,6 +165,21 @@ def load_throughput_qps(results_dir: Path) -> float:
             # exits 0 having written nothing; and a run without concurrency 1
             # writes no c001.json at all (#176).
         )
+    # The cell must belong to this run (#182): a `load --force` rerun without
+    # concurrency 1 used to leave the previous run's `c001.json` in place, and
+    # it was amortized over as this run's throughput. `matrix.json` lists the
+    # run's cells, so a `c001.json` it does not list is stale.
+    matrix_path = results_dir / "matrix.json"
+    if matrix_path.exists():
+        cells = json.loads(matrix_path.read_text(encoding="utf-8")).get("cells", [])
+        levels = sorted(c.get("concurrency") for c in cells if isinstance(c, dict))
+        if 1 not in levels:
+            raise FileNotFoundError(
+                f"{c01_path} is not part of this run: {matrix_path} lists concurrency "
+                f"{levels}, no concurrency-1 cell, so the c001.json beside it is left "
+                f"over from an earlier run. Re-run the load harness with concurrency 1 "
+                f"in `--concurrency` to measure the cost-table basis."
+            )
     payload = json.loads(c01_path.read_text(encoding="utf-8"))
     qps = payload["throughput_qps"]
     # Reject a boolean before `float()` coercion: `bool` subclasses `int`, so
@@ -459,9 +474,15 @@ def render_markdown(
         "- **Hours per month**: 730 (AWS billing convention, 8760 / 12).",
         "- **Amortization basis**: monthly cost ÷ (throughput_qps × 2,628,000 s). "
         "If your workload doesn't run 24/7, multiply by (24 / avg_active_hours_per_day).",
-        f"- **Throughput**: from `{results_dir_display}/<run_id>/c001.json` (single-client "
-        "p50; the conservative basis). For each tier the source is listed in "
-        "the table.",
+        # The measured rate, not a p50-derived one (#180): `load.py` sets
+        # `throughput_qps = n_queries / query_elapsed_s`, which pays the
+        # per-query overhead a 1000 / p50 rate leaves out (committed c001:
+        # 1623.5 qps measured vs 1634.2 from its p50).
+        f"- **Throughput**: from `{results_dir_display}/<run_id>/c001.json`: the "
+        "single-client measured rate, `n_queries` ÷ the query phase's "
+        "wall-clock at concurrency 1 (the conservative basis; it includes the "
+        "per-query overhead a p50-derived rate would leave out). For each tier "
+        "the source is listed in the table.",
         "- **Instance sizing**: read live from "
         "[`terraform/envs/benchmark/main.tf`](../terraform/envs/benchmark/main.tf) "
         "so this doc and the infra layer can't drift.",

@@ -63,12 +63,19 @@ class PgVectorBackend:
         conn = self._ensure_conn()
         with conn.cursor() as cur:
             cur.execute("CREATE EXTENSION IF NOT EXISTS vector;")
+            # Recreated, not `IF NOT EXISTS` (#184). Postgres skips an existing
+            # object without comparing definitions, so every hnsw_grid cell after
+            # the first ran on the FIRST cell's index (m, ef_construction) under
+            # a grid.json labelled with its own, and a new `--dim` hit the old
+            # `vector(dim)` column. The table is bench-owned and `ingest`
+            # empties it anyway; dropping it takes the index with it.
+            cur.execute(f"DROP TABLE IF EXISTS {TABLE_NAME};")
             cur.execute(
-                f"CREATE TABLE IF NOT EXISTS {TABLE_NAME} (id TEXT PRIMARY KEY, embedding vector({dim}));"
+                f"CREATE TABLE {TABLE_NAME} (id TEXT PRIMARY KEY, embedding vector({dim}));"
             )
             if self._index_method == "hnsw":
                 cur.execute(
-                    f"CREATE INDEX IF NOT EXISTS {TABLE_NAME}_hnsw ON {TABLE_NAME} "
+                    f"CREATE INDEX {TABLE_NAME}_hnsw ON {TABLE_NAME} "
                     f"USING hnsw (embedding vector_cosine_ops) "
                     f"WITH (m = {self._hnsw_m}, ef_construction = {self._hnsw_ef_construction});"
                 )

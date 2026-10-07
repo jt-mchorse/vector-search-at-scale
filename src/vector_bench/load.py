@@ -369,11 +369,22 @@ def dump_load_matrix_json(
         raise FileExistsError(
             f"matrix already exists at {matrix_path}; pass force=True to overwrite"
         )
+    written = set()
     for cell in matrix.cells:
+        name = f"c{cell.concurrency:03d}.json"
         atomic_write_text(
-            out_dir_path / f"c{cell.concurrency:03d}.json",
+            out_dir_path / name,
             json.dumps(cell.to_dict(), indent=2, sort_keys=True),
         )
+        written.add(name)
+    # A `force` rewrite replaces the run, so the old run's cells go too (#182).
+    # They stayed: a rerun at `--concurrency 10,20` over one at `1,10` left the
+    # old `c001.json` beside a matrix with no concurrency-1 cell, and
+    # `cost_table.py` published it as this run's throughput. Only the exact
+    # cell-name shape is touched; `matrix.json` is written last, as before.
+    for stale in out_dir_path.glob("c[0-9][0-9][0-9].json"):
+        if stale.name not in written:
+            stale.unlink()
     atomic_write_text(
         matrix_path,
         json.dumps(matrix.to_dict(), indent=2, sort_keys=True),

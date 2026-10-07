@@ -1866,6 +1866,43 @@ users can follow. It now names the Terraform file and where the script's
 prices come from. One test follows the first hint literally with the stub
 backend and reruns the cost table.
 
+## 2026-10-06 — both demo stages run this checkout's code (#178)
+
+The demo script's first stage ran the `vector-bench` command found on the
+shell's PATH. That command belongs to whichever install created it: on this
+machine it was a different checkout of the repo on an older Python, so a fresh
+clone's demo recorded code the clone did not contain. Both stages now run this
+checkout's package with the same interpreter, and the script prints that
+interpreter's repo-relative path rather than an absolute home directory.
+
+## 2026-10-06 — the cost doc names the throughput it divides by (#180)
+
+The cost-per-query document said it divides by the single-client "p50"
+throughput. The number it uses is the measured rate, queries divided by
+wall-clock time, which is a little lower than a rate computed from the median
+latency (1623.5 against 1634.2 queries per second in the committed run). The
+document now describes the measured rate, which is also why it is the more
+conservative choice.
+
+## 2026-10-06 — a forced rerun can no longer leave stale load results (#182)
+
+Re-running the load benchmark with `--force` rewrote the run's files but left
+any per-concurrency results the new run did not produce. A rerun without
+concurrency 1 kept the old run's `c001.json`, and the cost table then used that
+stale file as this run's throughput. The rerun now removes the old cells, and
+the cost table refuses a `c001.json` that the run's own index file does not
+list.
+
+## 2026-10-06 — each pgvector grid cell builds its own index (#184)
+
+The pgvector backend created its table and HNSW index only "if not exists". In
+an HNSW parameter grid each cell makes a new backend, but Postgres kept the
+first cell's index, so every later cell measured the first cell's settings
+while being labelled with its own. A different vector size also failed against
+the old column. The backend now drops and recreates its own table and index
+for each run. I could not run pgvector itself here; the Postgres behaviour
+behind the bug was confirmed separately, and the PR says so.
+
 ## 2026-10-06 — a failed load-test query stops the rest of the level (#186)
 
 The load harness queues every query of a concurrency level up front. When one
