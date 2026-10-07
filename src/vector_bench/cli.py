@@ -24,6 +24,7 @@ from typing import Any
 from vector_bench.backends import make_backend
 from vector_bench.harness import Workload, run_benchmark
 from vector_bench.load import render_table, run_under_load
+from vector_bench.types import BackendError
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -101,9 +102,29 @@ def main(argv: list[str] | None = None) -> int:
     return 2  # unreachable
 
 
+def _make_backend_or_none(name: str, **kwargs: Any) -> Any:
+    """Build the backend, or print the setup error and return None (#195).
+
+    `make_backend` sat outside every try in both subcommands, and a backend's
+    constructor raises `BackendError` (a `RuntimeError`, which no clause caught)
+    for a setup problem that is the operator's input: `--backend qdrant` with no
+    `QDRANT_URL`, or `--backend weaviate` without its extra. Both leaked a
+    traceback at exit 1, the code #83/#101/#117/#160 keep reserving for
+    something other than operator error. `ValueError` (an unknown backend name)
+    joins it for the same reason.
+    """
+    try:
+        return make_backend(name, **kwargs)
+    except (BackendError, ValueError) as e:
+        print(f"error: {e}", file=sys.stderr)
+        return None
+
+
 def _do_run(args: argparse.Namespace) -> int:
     backend_kwargs: dict[str, Any] = {}
-    backend = make_backend(args.backend, **backend_kwargs)
+    backend = _make_backend_or_none(args.backend, **backend_kwargs)
+    if backend is None:
+        return 2
     # `Workload.__post_init__` raises ValueError on invalid dimensions (e.g.
     # `--n 0`), `run_benchmark` raises ValueError on a `--concurrency > 1`
     # request (D-011) and FileExistsError on a run-id collision without --force.
@@ -149,7 +170,9 @@ def _do_load(args: argparse.Namespace) -> int:
         print("--concurrency must contain at least one value", file=sys.stderr)
         return 2
 
-    backend = make_backend(args.backend)
+    backend = _make_backend_or_none(args.backend)
+    if backend is None:
+        return 2
     # `Workload.__post_init__` validates the dimensions (`--n 0`, `--top-k` >
     # `--n`, etc.). This construction sat OUTSIDE the `run_under_load` try below,
     # so a bad `--n`/`--top-k`/`--queries` leaked a raw traceback at exit 1 —
