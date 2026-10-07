@@ -33,6 +33,7 @@ the one adapter with no test file, deliberately skipped for the `query` contract
 
 from __future__ import annotations
 
+import threading
 import types
 from typing import Any
 
@@ -159,9 +160,11 @@ def _build(name: str):
     if name == "pgvector":
         sink = []
         b = object.__new__(PgVectorBackend)
-        b._conn = _FakePgConn(sink)
         b._conninfo = "postgres:///fake"
-        b._psycopg = None
+        # Connections are per thread since #191: hand `connect` the fake.
+        b._psycopg = types.SimpleNamespace(connect=lambda _info: _FakePgConn(sink))
+        b._local = threading.local()
+        b._conns, b._conns_lock, b._ef_search_set = [], threading.Lock(), set()
         b._index_method = "hnsw"
         b._hnsw_m, b._hnsw_ef_construction, b._hnsw_ef_search = 16, 64, 40
         b._dim = None
