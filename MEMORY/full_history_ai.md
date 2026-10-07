@@ -1966,6 +1966,65 @@ followups: []
 ---
 
 ---
+session: 2026-10-06T08:41Z
+duration_min: 1   # computed: plan comment 08:39:59Z -> 08:41Z (date -u); reproduced in a scratch clone from ~08:38Z after a hunt agent's report
+issue: 178
+branch: session/2026-10-06-0839-issue-178
+focus: capture_demo_STAGE_1_RAN_THE_vector_bench_ON_PATH_another_checkouts_editable_install_on_py3_11_WHILE_STAGE_2_USED_venv
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 1
+  suite: "1073 -> 1074 passed; ruff, format clean"
+decisions_made: []
+measured: "clone with a LOADED-FROM marker: main prints it only in stage 2; fixed prints it in both stages. Revert probe: the fake-on-PATH arm red."
+context_for_next_session:
+  - A_CONSOLE_SCRIPT_IS_BOUND_TO_THE_INSTALL_THAT_MADE_IT_NOT_THE_CHECKOUT_run_python_m_with_PYTHONPATH_src
+  - TEST_SHAPE_A_FAKE_CONSOLE_SCRIPT_FIRST_ON_PATH_THAT_MUST_NEVER_RUN_works_in_CI_where_there_is_no_venv
+  - DONT_PRINT_ABSOLUTE_HOME_PATHS_INTO_A_RECORDING_strip_REPO_ROOT
+followups: []
+---
+
+---
+session: 2026-10-06T09:01Z
+duration_min: 1   # computed: plan comment 09:00:37Z -> 09:01Z (date -u)
+issue: 180
+branch: session/2026-10-06-0900-issue-180
+focus: cost_doc_LABELLED_THE_AMORTISATION_THROUGHPUT_SINGLE_CLIENT_p50_it_is_n_queries_over_wall_clock_1623_5_vs_1634_2
+phase: shipped
+delta:
+  files_changed: 3
+  tests_added: 3
+  suite: "1073 -> 1076 passed; ruff, format clean; doc regenerated, one line changed"
+decisions_made: []
+measured: "committed c001: throughput_qps 1623.5, 1000/p50 1634.2. Revert probe: the bullet arm red, the two fact arms green."
+context_for_next_session:
+  - MY_FIRST_BULLET_ARM_SPLIT_ON_A_PHRASE_AND_CAUGHT_MY_OWN_LEGITIMATE_p50_MENTION_assert_on_the_old_phrase_not_on_a_token
+  - MERGE_ORDER_179_181_independent_files
+followups: []
+---
+
+---
+session: 2026-10-06T09:46Z
+duration_min: 1   # computed: plan comment 09:45:12Z -> 09:46Z (date -u)
+issue: 182
+branch: session/2026-10-06-0945-issue-182
+focus: load_force_LEFT_THE_PREVIOUS_RUNS_CELL_FILES_and_cost_table_PUBLISHED_A_STALE_c001_as_this_runs_throughput
+phase: shipped
+delta:
+  files_changed: 3
+  tests_added: 3
+  suite: "1073 -> 1076 passed; ruff, format clean"
+decisions_made: []
+measured: "rerun 1,10 -> 10,20 --force: main leaves c001 (n500 dim64) beside matrix [10,20] (n2000 dim32); fixed leaves only c010 c020 matrix. Revert probes per file: each lights exactly its arm."
+context_for_next_session:
+  - A_FORCE_REWRITE_MUST_REMOVE_WHAT_THE_NEW_RUN_DOES_NOT_WRITE_and_a_reader_should_check_membership_in_the_index_file
+  - OPEN_FROM_THE_SAME_HUNT_pgvector_backend_keeps_the_first_cells_index_settings_CREATE_INDEX_IF_NOT_EXISTS_across_hnsw_grid_cells
+  - MERGE_ORDER_vsas_179_181_183_independent
+followups: []
+---
+
+---
 session: 2026-10-06T09:59Z
 duration_min: 1   # computed: plan comment 09:58:47Z -> 09:59Z (date -u)
 issue: 184

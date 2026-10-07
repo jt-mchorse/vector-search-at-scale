@@ -80,8 +80,14 @@ pace
 banner "1/2 · vector-bench run · stub backend · same JSON shape real backends emit"
 printf 'vector-bench run --backend stub --n %s --dim 768 --queries %s --top-k 10 \\\n' "$N_VECTORS" "$N_QUERIES"
 printf '  --run-id demo-capture --results-dir <tmp> --force\n'
+printf '  (run as `%s -m vector_bench.cli` on this checkout'"'"'s src/)\n' "${PYTHON_BIN#"$REPO_ROOT"/}"
 printf '  prints recall@k + p50/p95/p99 latency + ingest stats on stdout.\n\n'
-vector-bench run \
+# This checkout's code on the interpreter stage 2 uses, not whatever
+# `vector-bench` comes first on PATH: a console script is bound to the install
+# that made it, and the one here was another checkout's, on Python 3.11, so
+# stage 1 recorded code this tree does not contain (#178). PYTHONPATH makes
+# src/ win whichever interpreter was resolved above.
+PYTHONPATH="$REPO_ROOT/src${PYTHONPATH:+:$PYTHONPATH}" "$PYTHON_BIN" -m vector_bench.cli run \
   --backend     stub \
   --n           "$N_VECTORS" \
   --dim         768 \
@@ -95,7 +101,7 @@ pace
 banner "2/2 · cost_table.py --dry · per-tier \$/query markdown (sourced from terraform/envs/benchmark)"
 printf 'python scripts/cost_table.py --dry --out <tmp>/cost_per_query.md\n'
 printf '  same format docs/cost_per_query.md ships (locked by test_cost_table.py).\n\n'
-"$PYTHON_BIN" scripts/cost_table.py --dry --out "$COST_MD"
+PYTHONPATH="$REPO_ROOT/src${PYTHONPATH:+:$PYTHONPATH}" "$PYTHON_BIN" scripts/cost_table.py --dry --out "$COST_MD"
 printf '\n─── rendered cost table ─────────────────────────────────────────────\n\n'
 # Show the assumptions block + per-tier table only; trailing methodology
 # notes are useful in the file but verbose for a 60s recording.
