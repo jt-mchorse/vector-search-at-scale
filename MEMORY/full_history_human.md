@@ -1874,3 +1874,12 @@ machine it was a different checkout of the repo on an older Python, so a fresh
 clone's demo recorded code the clone did not contain. Both stages now run this
 checkout's package with the same interpreter, and the script prints that
 interpreter's repo-relative path rather than an absolute home directory.
+
+## 2026-10-06 — the cost doc names the throughput it divides by (#180)
+
+The cost-per-query document said it divides by the single-client "p50"
+throughput. The number it uses is the measured rate, queries divided by
+wall-clock time, which is a little lower than a rate computed from the median
+latency (1623.5 against 1634.2 queries per second in the committed run). The
+document now describes the measured rate, which is also why it is the more
+conservative choice.
