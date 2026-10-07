@@ -2096,4 +2096,20 @@ context_for_next_session:
   - A_SESSION_SCOPED_SETTING_TRAVELS_WITH_THE_CONNECTION_any_fix_that_multiplies_connections_must_reapply_it
   - ALSO_FILED_190_JT_pgvector_returns_at_most_ef_search_rows_four_options
 followups: ["#190"]
+session: 2026-10-07T09:45Z
+duration_min: 6
+issue: 193
+branch: session/2026-10-07-vsas-qdrant-query-points
+focus: QDRANT_CLIENT_1_19_REMOVED_SEARCH_AND_THE_UNBOUNDED_PIN_INSTALLS_IT
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 1
+  suite: "1087 passed, 1 skipped (pre-existing); ruff, format clean"
+decisions_made: []
+measured: "scratch venv, in-memory client: 1.19.1 main AttributeError, fix 3 hits; 1.10.0 fix 3 hits. Fake revert: 7/7 red."
+context_for_next_session:
+  - A_FLOOR_ONLY_PIN_ON_AN_SDK_EXTRA_THAT_CI_NEVER_INSTALLS_ROTS_SILENTLY_sweep_other_extras_qdrant_weaviate_cohere_voyage_for_removed_methods
+  - GOTCHA_FAKES_SHAPED_LIKE_AN_OLD_SDK_KEEP_A_REMOVED_METHOD_ALIVE_IN_TESTS_shape_fakes_like_the_version_that_installs
+followups: []
 ---
