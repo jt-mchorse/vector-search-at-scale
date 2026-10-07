@@ -1911,3 +1911,11 @@ the backend before reporting the error: all 200 queries and 5.5 seconds on a
 slow stub, which could be minutes of load on a real database. The queued
 queries are now cancelled on the first failure, and only the ones already
 running finish.
+
+## 2026-10-07 — the pgvector grid checks pgvector's limits first (#188)
+
+pgvector won't build an HNSW index whose ef_construction is less than twice M,
+and the README's example grid contains one such pair, so a pgvector run died
+partway through with half its files written. The pgvector adapter now knows
+pgvector's limits, and the grid script checks every cell before running any,
+exiting with a clear message instead. The README says which value to use.
