@@ -165,6 +165,21 @@ def load_throughput_qps(results_dir: Path) -> float:
             # exits 0 having written nothing; and a run without concurrency 1
             # writes no c001.json at all (#176).
         )
+    # The cell must belong to this run (#182): a `load --force` rerun without
+    # concurrency 1 used to leave the previous run's `c001.json` in place, and
+    # it was amortized over as this run's throughput. `matrix.json` lists the
+    # run's cells, so a `c001.json` it does not list is stale.
+    matrix_path = results_dir / "matrix.json"
+    if matrix_path.exists():
+        cells = json.loads(matrix_path.read_text(encoding="utf-8")).get("cells", [])
+        levels = sorted(c.get("concurrency") for c in cells if isinstance(c, dict))
+        if 1 not in levels:
+            raise FileNotFoundError(
+                f"{c01_path} is not part of this run: {matrix_path} lists concurrency "
+                f"{levels}, no concurrency-1 cell, so the c001.json beside it is left "
+                f"over from an earlier run. Re-run the load harness with concurrency 1 "
+                f"in `--concurrency` to measure the cost-table basis."
+            )
     payload = json.loads(c01_path.read_text(encoding="utf-8"))
     qps = payload["throughput_qps"]
     # Reject a boolean before `float()` coercion: `bool` subclasses `int`, so

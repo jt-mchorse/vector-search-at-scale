@@ -1883,3 +1883,12 @@ wall-clock time, which is a little lower than a rate computed from the median
 latency (1623.5 against 1634.2 queries per second in the committed run). The
 document now describes the measured rate, which is also why it is the more
 conservative choice.
+
+## 2026-10-06 — a forced rerun can no longer leave stale load results (#182)
+
+Re-running the load benchmark with `--force` rewrote the run's files but left
+any per-concurrency results the new run did not produce. A rerun without
+concurrency 1 kept the old run's `c001.json`, and the cost table then used that
+stale file as this run's throughput. The rerun now removes the old cells, and
+the cost table refuses a `c001.json` that the run's own index file does not
+list.
