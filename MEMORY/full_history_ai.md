@@ -2080,4 +2080,20 @@ context_for_next_session:
   - AN_EXTERNAL_ENGINES_PARAMETER_BOUNDS_BELONG_IN_THE_ADAPTER_AS_A_PURE_FUNCTION_so_a_grid_can_check_every_cell_before_connecting
   - GOTCHA_vsas_HAS_A_DORMANT_SKIP_LOCK_importorskip_psycopg_FAILS_CI_stub_the_module_in_sys_modules_instead
 followups: []
+session: 2026-10-07T08:22Z
+duration_min: 6
+issue: 191
+branch: session/2026-10-07-vsas-pgvector-conns
+focus: PGVECTOR_LOAD_WORKERS_SHARED_ONE_CONNECTION_AND_THE_OBVIOUS_FIX_WOULD_LOSE_THE_SESSION_EF_SEARCH
+phase: shipped
+delta:
+  files_changed: 4
+  tests_added: 5
+  suite: "1091 passed, 1 skipped (pre-existing); ruff, format clean"
+decisions_made: []
+measured: "fake psycopg: main 1/5 red (4 connections arm), per-thread-without-SET neighbour 1/5 red (SET-before-SELECT arm). qps numbers are the hunt agent's on real pgvector 0.8.0, cited as such."
+context_for_next_session:
+  - A_SESSION_SCOPED_SETTING_TRAVELS_WITH_THE_CONNECTION_any_fix_that_multiplies_connections_must_reapply_it
+  - ALSO_FILED_190_JT_pgvector_returns_at_most_ef_search_rows_four_options
+followups: ["#190"]
 ---

@@ -1919,3 +1919,11 @@ and the README's example grid contains one such pair, so a pgvector run died
 partway through with half its files written. The pgvector adapter now knows
 pgvector's limits, and the grid script checks every cell before running any,
 exiting with a clear message instead. The README says which value to use.
+## 2026-10-07 — the pgvector load test gives each worker its own connection (#191)
+
+The latency-under-load study ran all its worker threads through a single
+database connection, so raising "concurrency" only made threads wait their
+turn. Each thread now gets its own connection, and each connection applies the
+backend's search setting (it's per-connection in Postgres, so a naive fix
+would have quietly reverted workers to the default). Also filed #190 for JT:
+pgvector returns at most ef_search rows, which caps recall when k is larger.
