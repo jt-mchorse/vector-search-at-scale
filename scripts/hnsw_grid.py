@@ -33,6 +33,7 @@ if str(_SRC) not in sys.path:
     sys.path.insert(0, str(_SRC))
 
 from vector_bench.backends import make_backend  # noqa: E402
+from vector_bench.backends.pgvector import validate_hnsw_params  # noqa: E402
 from vector_bench.harness import Workload, run_benchmark  # noqa: E402
 from vector_bench.io_utils import atomic_write_text  # noqa: E402
 
@@ -106,6 +107,22 @@ def run_grid(
             raise ValueError(
                 f"{axis} values must be distinct; got {list(values)} (repeated: {dups}); "
                 "duplicate values collide on the per-cell <run_id>.json filename"
+            )
+    # Every cell's knobs against the backend's own bounds, before any cell runs
+    # or is written (#188). pgvector refuses ef_construction < 2 * M when it
+    # builds the index, so the README's axes died at cell 7 of 36 (M=32,
+    # efc=50) with six cell JSONs on disk and no grid.json.
+    if backend_name == "pgvector":
+        bad = []
+        for M, efc, efs in itertools.product(M_values, ef_construction_values, ef_search_values):
+            try:
+                validate_hnsw_params(m=M, ef_construction=efc, ef_search=efs)
+            except ValueError as exc:
+                bad.append(f"M={M} efc={efc} efs={efs}: {exc}")
+        if bad:
+            raise ValueError(
+                f"{len(bad)} grid cell(s) are outside pgvector's HNSW bounds, so nothing "
+                "was run: " + "; ".join(bad[:3]) + ("; ..." if len(bad) > 3 else "")
             )
     out_dir.mkdir(parents=True, exist_ok=True)
     workload = Workload(n_vectors=n_vectors, dim=dim, n_queries=n_queries, top_k=top_k, seed=seed)
