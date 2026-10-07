@@ -2023,3 +2023,23 @@ context_for_next_session:
   - MERGE_ORDER_vsas_179_181_183_independent
 followups: []
 ---
+
+---
+session: 2026-10-06T09:59Z
+duration_min: 1   # computed: plan comment 09:58:47Z -> 09:59Z (date -u)
+issue: 184
+branch: session/2026-10-06-0958-issue-184
+focus: pgvector_backend_CREATE_IF_NOT_EXISTS_KEPT_THE_FIRST_GRID_CELLS_INDEX_m_and_ef_construction_for_every_later_cell_and_the_old_vector_dim
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 3
+  suite: "1073 -> 1076 passed; ruff, format clean"
+decisions_made: []
+measured: "recording psycopg stand-in: main 2 of 3 arms red. pgvector NOT available locally; the IF NOT EXISTS skip semantics were confirmed on plain PG17 by the hunt agent, the end-to-end grid run is unmeasured and the PR says so."
+context_for_next_session:
+  - IF_NOT_EXISTS_DOES_NOT_COMPARE_DEFINITIONS_a_parameterised_index_needs_a_drop_or_a_params_derived_name
+  - A_RECORDING_FAKE_CANNOT_MODEL_SERVER_SKIP_SEMANTICS_the_arm_that_carries_it_is_the_no_IF_NOT_EXISTS_assertion
+  - MERGE_ORDER_vsas_179_181_183_185_independent
+followups: []
+---
