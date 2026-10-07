@@ -2111,5 +2111,18 @@ measured: "scratch venv, in-memory client: 1.19.1 main AttributeError, fix 3 hit
 context_for_next_session:
   - A_FLOOR_ONLY_PIN_ON_AN_SDK_EXTRA_THAT_CI_NEVER_INSTALLS_ROTS_SILENTLY_sweep_other_extras_qdrant_weaviate_cohere_voyage_for_removed_methods
   - GOTCHA_FAKES_SHAPED_LIKE_AN_OLD_SDK_KEEP_A_REMOVED_METHOD_ALIVE_IN_TESTS_shape_fakes_like_the_version_that_installs
+session: 2026-10-07T10:18Z
+duration_min: 4
+issue: 195
+branch: session/2026-10-07-vsas-backenderror-exit
+focus: A_BACKEND_SETUP_ERROR_LEAKED_A_TRACEBACK_AT_EXIT_1
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 4
+  suite: "1090 passed, 1 skipped; ruff, format clean"
+decisions_made: []
+measured: "real CLI: main run --backend qdrant without extra -> traceback exit 1; fix exit 2 one line (run and load). Revert 3/4 red."
+context_for_next_session: []
 followups: []
 ---
