@@ -189,10 +189,18 @@ def _execute_at_concurrency(
 
     with ThreadPoolExecutor(max_workers=concurrency) as pool:
         futures = [pool.submit(_one_query, i) for i in range(n)]
-        for fut in as_completed(futures):
-            idx, latency_ms, recall = fut.result()
-            latencies_ms[idx] = latency_ms
-            recalls[idx] = recall
+        try:
+            for fut in as_completed(futures):
+                idx, latency_ms, recall = fut.result()
+                latencies_ms[idx] = latency_ms
+                recalls[idx] = recall
+        except BaseException:
+            # Cancel what has not started (#186). The `with` exit waits on every
+            # submitted query, so one failure let the whole remaining level run
+            # against the backend before the error surfaced (200 of 200 calls,
+            # 5.5 s on a 50 ms stub). Only queries already running now finish.
+            pool.shutdown(wait=True, cancel_futures=True)
+            raise
 
     return latencies_ms, recalls
 
