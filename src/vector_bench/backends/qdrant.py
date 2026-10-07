@@ -73,12 +73,20 @@ class QdrantBackend:
     def query(self, vector: np.ndarray, k: int) -> list[tuple[str, float]]:
         check_open(self._closed, backend="QdrantBackend", method="query")
         q = self._qmodels
-        results = self._client.search(
+        # `query_points`, not `search` (#193). qdrant-client 1.19 removed
+        # `QdrantClient.search`, and `qdrant-client>=1.10` installs 1.19 today,
+        # so every query died with a raw `AttributeError` before returning a
+        # hit. `query_points` (the Universal Query API) exists from 1.10, the
+        # floor this extra pins, and returns the same scored points under
+        # `.points`.
+        response = self._client.query_points(
             collection_name=self._collection,
-            query_vector=vector.tolist(),
+            query=vector.tolist(),
             limit=k,
             search_params=q.SearchParams(hnsw_ef=self._hnsw_ef),
+            with_payload=True,
         )
+        results = response.points
         out: list[tuple[str, float]] = []
         for r in results:
             payload = r.payload or {}
