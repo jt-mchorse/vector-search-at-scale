@@ -187,6 +187,10 @@ tradeoff — not a real HNSW implementation; see
 for the model. The same scripts work against the real engines when
 their bring-up lands — pass `--backend qdrant` (or `pgvector` /
 `weaviate`) and the grid + plot regenerate against measured numbers.
+pgvector refuses `ef_construction < 2 × M`, so the axes below include
+one pair it will not build (M 32 with ef_construction 50); the grid
+checks every cell first and exits 2 naming it rather than failing
+mid-sweep. Use `--ef-construction 64,100,200` there (#188).
 
 **Recommended defaults** (knee at recall ≥ 0.95, picked from the
 committed simulation grid):

@@ -2062,3 +2062,22 @@ context_for_next_session:
   - MERGE_NOTE_183_AND_187_BOTH_EDIT_load_py_in_different_functions
 followups: []
 ---
+
+---
+session: 2026-10-07T08:14Z
+duration_min: 6
+issue: 188
+branch: session/2026-10-07-vsas-pgvector-efc
+focus: PGVECTOR_REFUSES_EF_CONSTRUCTION_BELOW_2M_AT_INDEX_BUILD_AND_THE_README_GRID_HAD_SUCH_A_CELL
+phase: shipped
+delta:
+  files_changed: 4
+  tests_added: 19
+  suite: "1105 passed, 1 skipped (pre-existing); ruff, format clean"
+decisions_made: []
+measured: "README axes + --backend pgvector: exit 2 before any write (agent measured the mid-sweep crash on real pgvector 0.8.0; bounds read from v0.8.0 source). Revert: no ctor check 1, off-by-one 1, no grid pre-check 2."
+context_for_next_session:
+  - AN_EXTERNAL_ENGINES_PARAMETER_BOUNDS_BELONG_IN_THE_ADAPTER_AS_A_PURE_FUNCTION_so_a_grid_can_check_every_cell_before_connecting
+  - GOTCHA_vsas_HAS_A_DORMANT_SKIP_LOCK_importorskip_psycopg_FAILS_CI_stub_the_module_in_sys_modules_instead
+followups: []
+---

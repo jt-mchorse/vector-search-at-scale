@@ -19,6 +19,35 @@ from vector_bench.types import BackendError, check_ingest_shape, check_open
 TABLE_NAME = "vector_bench"
 
 
+# pgvector's own HNSW bounds (v0.8.0, `src/hnsw.h` and `src/hnswbuild.c`).
+# The server enforces them only when the index is BUILT, i.e. at the first
+# `ingest`; a grid cell outside them used to die mid-sweep with
+# `InvalidParameterValue: ef_construction must be greater than or equal to
+# 2 * m`, after earlier cells had already been written (#188).
+HNSW_M_RANGE = (2, 100)
+HNSW_EF_CONSTRUCTION_RANGE = (4, 1000)
+HNSW_EF_SEARCH_RANGE = (1, 1000)
+
+
+def validate_hnsw_params(*, m: int, ef_construction: int, ef_search: int) -> None:
+    """Raise ``ValueError`` unless pgvector would accept these HNSW knobs.
+
+    Pure, so callers can check a whole grid before connecting to anything.
+    """
+    for name, value, (lo, hi) in (
+        ("hnsw_m", m, HNSW_M_RANGE),
+        ("hnsw_ef_construction", ef_construction, HNSW_EF_CONSTRUCTION_RANGE),
+        ("hnsw_ef_search", ef_search, HNSW_EF_SEARCH_RANGE),
+    ):
+        if isinstance(value, bool) or not isinstance(value, int) or not lo <= value <= hi:
+            raise ValueError(f"pgvector {name} must be an int in [{lo}, {hi}]; got {value!r}")
+    if ef_construction < 2 * m:
+        raise ValueError(
+            f"pgvector requires ef_construction >= 2 * m; got ef_construction={ef_construction} "
+            f"with m={m} (needs >= {2 * m})"
+        )
+
+
 class PgVectorBackend:
     name = "pgvector"
 
@@ -37,6 +66,12 @@ class PgVectorBackend:
         hnsw_ef_construction: int = 64,
         hnsw_ef_search: int = 40,
     ) -> None:
+        # Before the import and the DSN check: a bad knob is the caller's error
+        # whatever the environment, and the grid relies on this raising early.
+        if index_method == "hnsw":
+            validate_hnsw_params(
+                m=hnsw_m, ef_construction=hnsw_ef_construction, ef_search=hnsw_ef_search
+            )
         try:
             import psycopg  # type: ignore
         except ImportError as e:  # pragma: no cover - exercised only without the extra
