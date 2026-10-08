@@ -1934,3 +1934,8 @@ the version that installs today, removed, so every Qdrant benchmark crashed on
 its first query. It now uses `query_points`, which exists from the oldest
 version the project supports (1.10) to the newest. Checked against the real
 library at both versions.
+## 2026-10-07 — a missing backend setting is a clean error (#195)
+
+Running the benchmark against Qdrant or Weaviate without the library installed
+or the URL set crashed with a Python traceback. It now prints one error line
+and exits with the "operator error" code, like the CLI's other input mistakes.
