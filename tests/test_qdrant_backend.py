@@ -17,6 +17,8 @@ contract can't be violated there.
 
 from __future__ import annotations
 
+import types
+
 import numpy as np
 import pytest
 
@@ -33,11 +35,17 @@ class _Pt:
 
 
 class _Client:
+    """Shaped like qdrant-client 1.19: `query_points` returns `.points`, and
+    there is NO `search` method (#193) -- so a backend that still calls
+    `search` fails here exactly as it did against the installed SDK."""
+
     def __init__(self, points: list[_Pt]) -> None:
         self._points = points
+        self.calls: list[dict[str, object]] = []
 
-    def search(self, **_kwargs: object) -> list[_Pt]:
-        return self._points
+    def query_points(self, **kwargs: object) -> object:
+        self.calls.append(kwargs)
+        return types.SimpleNamespace(points=self._points)
 
 
 class _QModels:
@@ -98,3 +106,15 @@ def test_query_well_formed_results_unchanged_after_guards():
     backend = _backend_with([_Pt({"orig_id": "a"}, 0.8), _Pt({"orig_id": "c"}, 0.95)])
     out = backend.query(np.zeros(4, dtype=np.float32), k=2)
     assert [hit_id for hit_id, _ in out] == ["a", "c"]
+
+
+def test_query_uses_query_points_with_payload_and_the_hnsw_ef(  # #193
+) -> None:
+    # qdrant-client 1.19 removed `QdrantClient.search`; `>=1.10` installs it.
+    backend = _backend_with([_Pt({"orig_id": "a"}, 0.9)])
+    assert backend.query(np.ones(4, dtype=np.float32), k=3) == [("a", 0.9)]
+    (call,) = backend._client.calls  # type: ignore[attr-defined]
+    assert call["collection_name"] == "vector_bench"
+    assert call["limit"] == 3
+    assert call["with_payload"] is True
+    assert call["query"] == [1.0, 1.0, 1.0, 1.0]

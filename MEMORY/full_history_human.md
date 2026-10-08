@@ -1927,3 +1927,10 @@ turn. Each thread now gets its own connection, and each connection applies the
 backend's search setting (it's per-connection in Postgres, so a naive fix
 would have quietly reverted workers to the default). Also filed #190 for JT:
 pgvector returns at most ef_search rows, which caps recall when k is larger.
+## 2026-10-07 — the Qdrant backend works with today's qdrant-client (#193)
+
+The Qdrant adapter called a client method (`search`) that qdrant-client 1.19,
+the version that installs today, removed, so every Qdrant benchmark crashed on
+its first query. It now uses `query_points`, which exists from the oldest
+version the project supports (1.10) to the newest. Checked against the real
+library at both versions.
