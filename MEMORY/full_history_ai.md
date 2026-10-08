@@ -2126,3 +2126,22 @@ measured: "real CLI: main run --backend qdrant without extra -> traceback exit 1
 context_for_next_session: []
 followups: []
 ---
+
+---
+session: 2026-10-08T07:33Z
+duration_min: 20
+issue: 197
+branch: session/2026-10-08-issue-197
+focus: HNSW_GRID_WAS_THE_SIBLING_196_DID_NOT_REACH_a_backend_setup_error_was_a_traceback_at_exit_1_and_left_an_empty_out_dir
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 6
+  suite: "1121 passed, 1 skipped (pre-existing); ruff, format clean"
+decisions_made: []
+measured: "real script, base install: main --backend qdrant/weaviate/pgvector -> BackendError traceback exit 1 + empty out-dir; fix exit 2, one error line, nothing created. Revert probe: 4 of 6 red (the two controls green)."
+context_for_next_session:
+  - ONLY_CONSTRUCTION_IS_TRANSLATED_a_BackendError_mid_cell_stays_a_traceback_as_in_run_and_load_an_arm_pins_it
+  - GOTCHA_the_main_clone_venv_is_an_editable_install_of_the_MAIN_CLONE_src_run_the_worktree_suite_with_PYTHONPATH_src
+followups: []
+---

@@ -1939,3 +1939,11 @@ library at both versions.
 Running the benchmark against Qdrant or Weaviate without the library installed
 or the URL set crashed with a Python traceback. It now prints one error line
 and exits with the "operator error" code, like the CLI's other input mistakes.
+## 2026-10-08 — the HNSW grid script reports a missing backend setting cleanly (#197)
+
+Yesterday's fix (#195) made `vector-bench run` and `load` print one error line
+when a backend's library or URL is missing. The HNSW grid script builds
+backends the same way and was missed. It still crashed with a traceback and
+left an empty output folder behind. It now prints the same one-line error,
+exits with the operator-error code, and creates nothing. A backend that fails
+partway through a grid is still treated as a real failure.
