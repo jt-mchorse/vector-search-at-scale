@@ -171,9 +171,10 @@ def _execute_at_concurrency(
 
     `backend.query` must already be safe to call from multiple threads
     against a single ingested backend instance — the SDK adapters this
-    ships against (pgvector via psycopg connection pool, qdrant via
-    sync client, weaviate via sync client) are documented as such for
-    read-only queries.
+    ships against (pgvector with one psycopg connection per worker thread,
+    #191; qdrant via sync client, weaviate via sync client) are documented
+    as such for read-only queries. pgvector's used to be one shared
+    connection, so its "concurrency" levels measured queueing on it.
     """
     n = queries.shape[0]
     latencies_ms = [0.0] * n

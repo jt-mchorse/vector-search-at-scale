@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import contextlib
 import os
+import threading
 from collections.abc import Sequence
 
 import numpy as np
@@ -86,13 +87,39 @@ class PgVectorBackend:
         self._hnsw_m = hnsw_m
         self._hnsw_ef_construction = hnsw_ef_construction
         self._hnsw_ef_search = hnsw_ef_search
-        self._conn = None  # type: ignore[assignment]
+        # One connection PER THREAD (#191). A single shared connection was what
+        # every load-test worker queued on: psycopg runs one statement at a time
+        # per connection, so concurrency only added waiting. Measured on
+        # pgvector 0.8.0 (5k x 64, 400 queries): 3806 / 4007 / 3780 qps at
+        # concurrency 1 / 4 / 16 shared, against 3698 / 9035 / 5928 with a
+        # connection per thread -- and p50 rose 0.24 -> 4.12 ms on the shared
+        # one. `load.py` documented "a psycopg connection pool" all along.
+        self._local = threading.local()
+        self._conns: list = []
+        self._conns_lock = threading.Lock()
+        # `SET hnsw.ef_search` is per SESSION, so each new connection needs its
+        # own; a worker connection without it would query at pgvector's default
+        # (40) under a cell labelled with this backend's value.
+        self._ef_search_set: set[int] = set()
         self._dim: int | None = None
 
     def _ensure_conn(self):
-        if self._conn is None:
-            self._conn = self._psycopg.connect(self._conninfo)
-        return self._conn
+        conn = getattr(self._local, "conn", None)
+        if conn is None:
+            conn = self._psycopg.connect(self._conninfo)
+            with self._conns_lock:
+                self._conns.append(conn)
+            self._local.conn = conn
+        return conn
+
+    def _apply_ef_search(self, conn) -> None:
+        if self._index_method != "hnsw" or id(conn) in self._ef_search_set:
+            return
+        with conn.cursor() as cur:
+            cur.execute(f"SET hnsw.ef_search = {self._hnsw_ef_search};")
+        conn.commit()
+        with self._conns_lock:
+            self._ef_search_set.add(id(conn))
 
     def _ensure_table(self, dim: int) -> None:
         conn = self._ensure_conn()
@@ -114,8 +141,8 @@ class PgVectorBackend:
                     f"USING hnsw (embedding vector_cosine_ops) "
                     f"WITH (m = {self._hnsw_m}, ef_construction = {self._hnsw_ef_construction});"
                 )
-                cur.execute(f"SET hnsw.ef_search = {self._hnsw_ef_search};")
         conn.commit()
+        self._apply_ef_search(conn)
 
     def ingest(self, vectors: np.ndarray, ids: Sequence[str]) -> None:
         check_open(self._closed, backend="PgVectorBackend", method="ingest")
@@ -136,6 +163,7 @@ class PgVectorBackend:
     def query(self, vector: np.ndarray, k: int) -> list[tuple[str, float]]:
         check_open(self._closed, backend="PgVectorBackend", method="query")
         conn = self._ensure_conn()
+        self._apply_ef_search(conn)
         with conn.cursor() as cur:
             cur.execute(
                 f"SELECT id, 1 - (embedding <=> %s::vector) FROM {TABLE_NAME} "
@@ -145,10 +173,13 @@ class PgVectorBackend:
             return [(row[0], float(row[1])) for row in cur.fetchall()]
 
     def close(self) -> None:
-        if self._conn is not None:
+        with self._conns_lock:
+            conns, self._conns = self._conns, []
+            self._ef_search_set.clear()
+        for conn in conns:
             with contextlib.suppress(Exception):
-                self._conn.close()
-            self._conn = None
+                conn.close()
+        self._local = threading.local()
         # Set last, so the flag is only raised once teardown has actually run
         # (#133). `close()` stays idempotent: a second call re-runs the
         # already-safe teardown above and re-sets a flag that is already True.
