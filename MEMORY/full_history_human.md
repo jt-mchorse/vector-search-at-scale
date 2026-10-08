@@ -1939,3 +1939,10 @@ library at both versions.
 Running the benchmark against Qdrant or Weaviate without the library installed
 or the URL set crashed with a Python traceback. It now prints one error line
 and exits with the "operator error" code, like the CLI's other input mistakes.
+## 2026-10-08 — saving to a symlink updates the file it points at (#201)
+
+The helper that saves benchmark artifacts safely (write a temporary file, then
+swap it into place) swapped it onto the symlink itself when the save location
+was a symlink. The link turned into an ordinary file, and the file it pointed
+at was never updated. A plain save writes through the link, and now this
+helper does too. Ordinary paths behave exactly as before.
