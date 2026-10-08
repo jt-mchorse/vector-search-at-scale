@@ -18,6 +18,15 @@ from vector_bench.types import BackendError, check_ingest_shape, check_open
 
 DEFAULT_COLLECTION = "vector_bench"
 
+#: Vector components per `upsert` request (#203). Qdrant's REST service refuses
+#: a request body over `service.max_request_size_mb`, 32 MiB by default, and the
+#: Terraform module runs the image with that default. A component serializes to
+#: about 20 bytes of JSON, so a point at `--dim 768` is ~15 KiB and one request
+#: holding the whole corpus failed above ~2,000 vectors -- every documented
+#: `--n 1000000 --dim 768` run died at ingest. 262,144 components is ~5 MiB per
+#: request: a sixth of the limit, with room for the payload and id per point.
+UPSERT_COMPONENTS_PER_REQUEST = 262_144
+
 
 class QdrantBackend:
     name = "qdrant"
@@ -64,11 +73,17 @@ class QdrantBackend:
             vectors_config=q.VectorParams(size=dim, distance=q.Distance.COSINE),
             hnsw_config=q.HnswConfigDiff(m=self._hnsw_m, ef_construct=self._hnsw_ef_construct),
         )
-        points = [
-            q.PointStruct(id=i, vector=vectors[i].tolist(), payload={"orig_id": ids[i]})
-            for i in range(vectors.shape[0])
-        ]
-        self._client.upsert(collection_name=self._collection, points=points)
+        # Several requests, each under the server's body limit (#203). The
+        # batch is sized from the dimension, so a high-dim corpus gets fewer
+        # points per request rather than a larger body.
+        n = int(vectors.shape[0])
+        per_request = max(1, UPSERT_COMPONENTS_PER_REQUEST // max(1, dim))
+        for start in range(0, n, per_request):
+            points = [
+                q.PointStruct(id=i, vector=vectors[i].tolist(), payload={"orig_id": ids[i]})
+                for i in range(start, min(start + per_request, n))
+            ]
+            self._client.upsert(collection_name=self._collection, points=points)
 
     def query(self, vector: np.ndarray, k: int) -> list[tuple[str, float]]:
         check_open(self._closed, backend="QdrantBackend", method="query")
