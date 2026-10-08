@@ -2126,3 +2126,22 @@ measured: "real CLI: main run --backend qdrant without extra -> traceback exit 1
 context_for_next_session: []
 followups: []
 ---
+
+---
+session: 2026-10-08T07:56Z
+duration_min: 15
+issue: 199
+branch: session/2026-10-08-issue-199
+focus: RUN_ID_WAS_NEVER_CHECKED_TO_BE_ONE_PATH_COMPONENT_dotdot_escaped_results_dir_empty_wrote_hidden_json_slash_broke_plot_latency
+phase: shipped
+delta:
+  files_changed: 4
+  tests_added: 24
+  suite: "1115 -> 1139 passed, 1 skipped (pre-existing); ruff, format clean"
+decisions_made: []
+measured: "real CLI on main: load --run-id .. wrote /tmp/matrix.json + /tmp/c001.json outside --results-dir; run --run-id '' wrote .json; load --run-id team/baseline exit 0 then plot_latency exit 2. Revert probe: 18 of 24 red, the 6 controls green."
+context_for_next_session:
+  - CHECKED_ONLY_WHEN_write_json_an_in_memory_run_never_makes_run_id_a_path
+  - load_CLI_CHECKS_IT_BEFORE_run_under_load_because_that_clause_prefixes_every_ValueError_with_concurrency_invalid
+followups: []
+---

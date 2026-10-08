@@ -1939,3 +1939,11 @@ library at both versions.
 Running the benchmark against Qdrant or Weaviate without the library installed
 or the URL set crashed with a Python traceback. It now prints one error line
 and exits with the "operator error" code, like the CLI's other input mistakes.
+## 2026-10-08 — a run id has to be a plain name (#199)
+
+The run id becomes a file or folder name under the results folder, and nothing
+checked it. `..` wrote the load study's files into the folder *above* the
+results folder, an empty id wrote a hidden `.json`, and an id with a slash
+produced a run the latency-chart script then couldn't draw. `run` and `load`
+now refuse those ids with a one-line error before doing any work. Ordinary ids,
+including ones with dots or spaces, are unaffected.
