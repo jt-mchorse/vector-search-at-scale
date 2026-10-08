@@ -2126,3 +2126,24 @@ measured: "real CLI: main run --backend qdrant without extra -> traceback exit 1
 context_for_next_session: []
 followups: []
 ---
+
+---
+session: 2026-10-08T08:06Z
+duration_min: 4   # computed: plan comment 08:06:01Z -> 08:10Z (date -u)
+issue: 205
+branch: session/2026-10-08-issue-205
+focus: QDRANT_QUERIES_RAN_BEFORE_THE_HNSW_INDEX_EXISTED_below_the_indexing_threshold_never_built_above_it_still_building
+phase: shipped
+delta:
+  files_changed: 3
+  tests_added: 5
+  suite: "1114 -> 1119 passed, 1 skipped (pre-existing); ruff, format clean"
+decisions_made: []
+measured: "real qdrant v1.14.0 dim 768 (with #203 batching applied in a scratch tree): main n=20000 indexed 0, recall 1.0 at hnsw_ef 4 AND 40; n=100000 status yellow 73656/103410 indexed, recall 0.618 vs 0.446-0.472 once complete. Fixed: n=20000 ef4 0.682, ef40 0.912, n=100000 ef128 0.446, all green and fully indexed. Revert probe 5/5 red; green-only neighbour 1 red, threshold-0 neighbour 1 red."
+context_for_next_session:
+  - MERGE_ORDER_204_THEN_206_both_edit_QdrantBackend_ingest_adjacent_lines_206_needs_a_rebase_keep_both_the_batch_loop_and_the_wait_call
+  - AN_ENGINE_WITH_ASYNC_INDEXING_RETURNS_FROM_WRITE_BEFORE_THE_INDEX_EXISTS_measure_after_status_GREEN_AND_indexed_equals_points
+  - QDRANT_indexing_threshold_0_DISABLES_indexing_use_1
+  - A_REVERT_PROBE_FIXTURE_THAT_PATCHES_mod_time_ERRORS_ON_A_MODULE_WITHOUT_import_time_patch_the_time_module_itself
+followups: []
+---
