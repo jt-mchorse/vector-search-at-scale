@@ -61,6 +61,11 @@ class _FakeQdrantClient:
     def upsert(self, collection_name: str, points: list[Any]) -> None:
         self.points = points
 
+    def get_collection(self, collection_name: str) -> Any:
+        # Fully indexed and green, so `ingest`'s wait for the index (#205) returns at once.
+        n = len(self.points or [])
+        return types.SimpleNamespace(status="green", points_count=n, indexed_vectors_count=n)
+
 
 class _FakeQModels:
     class VectorParams:
@@ -71,6 +76,12 @@ class _FakeQModels:
 
     class HnswConfigDiff:
         def __init__(self, **_kw: Any) -> None: ...
+
+    class OptimizersConfigDiff:
+        def __init__(self, **_kw: Any) -> None: ...
+
+    class CollectionStatus:
+        GREEN, YELLOW, RED = "green", "yellow", "red"
 
     class PointStruct:
         def __init__(self, id: Any, vector: Any, payload: Any) -> None:
