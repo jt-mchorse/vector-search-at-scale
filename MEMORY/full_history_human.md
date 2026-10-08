@@ -1939,3 +1939,12 @@ library at both versions.
 Running the benchmark against Qdrant or Weaviate without the library installed
 or the URL set crashed with a Python traceback. It now prints one error line
 and exits with the "operator error" code, like the CLI's other input mistakes.
+
+## 2026-10-08 — Qdrant ingest is split into requests the server accepts (#203)
+
+The Qdrant adapter sent the whole corpus to the server in a single request.
+Qdrant rejects request bodies over 32 MiB by default, which at 768 dimensions
+means anything above roughly 2,000 vectors, so every Qdrant command in the
+README failed during ingest. Ingest now sends batches sized from the vector
+dimension, about 5 MiB each. Checked against a real Qdrant 1.14.0: 8,000 and
+20,000 vectors failed before the change and pass after it, with recall 1.0.
