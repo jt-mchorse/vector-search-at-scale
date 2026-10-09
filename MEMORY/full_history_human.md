@@ -2005,3 +2005,13 @@ then fail with a traceback. The backend now refuses a corpus that small
 straight away, explaining that it could only measure a brute-force scan. The
 benchmark commands now report any backend failure during a run as a clean
 error rather than a crash.
+
+## 2026-10-09 — The pgvector load test fits the database's connection limit (#212)
+
+The Postgres backend gives each worker thread its own database connection,
+for real parallelism. Those connections were only closed at the very end, so
+each concurrency level kept the previous level's connections open. At the
+default levels (1, 10, 100), a standard Postgres ran out of connections during
+the last level, after everything else had run. Each level now starts on fresh
+connections. A level larger than the database can actually serve for this role
+is refused up front, with the numbers.
