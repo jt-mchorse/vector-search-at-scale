@@ -2128,6 +2128,44 @@ followups: []
 ---
 
 ---
+session: 2026-10-08T07:33Z
+duration_min: 20
+issue: 197
+branch: session/2026-10-08-issue-197
+focus: HNSW_GRID_WAS_THE_SIBLING_196_DID_NOT_REACH_a_backend_setup_error_was_a_traceback_at_exit_1_and_left_an_empty_out_dir
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 6
+  suite: "1121 passed, 1 skipped (pre-existing); ruff, format clean"
+decisions_made: []
+measured: "real script, base install: main --backend qdrant/weaviate/pgvector -> BackendError traceback exit 1 + empty out-dir; fix exit 2, one error line, nothing created. Revert probe: 4 of 6 red (the two controls green)."
+context_for_next_session:
+  - ONLY_CONSTRUCTION_IS_TRANSLATED_a_BackendError_mid_cell_stays_a_traceback_as_in_run_and_load_an_arm_pins_it
+  - GOTCHA_the_main_clone_venv_is_an_editable_install_of_the_MAIN_CLONE_src_run_the_worktree_suite_with_PYTHONPATH_src
+followups: []
+---
+
+---
+session: 2026-10-08T07:56Z
+duration_min: 15
+issue: 199
+branch: session/2026-10-08-issue-199
+focus: RUN_ID_WAS_NEVER_CHECKED_TO_BE_ONE_PATH_COMPONENT_dotdot_escaped_results_dir_empty_wrote_hidden_json_slash_broke_plot_latency
+phase: shipped
+delta:
+  files_changed: 4
+  tests_added: 24
+  suite: "1115 -> 1139 passed, 1 skipped (pre-existing); ruff, format clean"
+decisions_made: []
+measured: "real CLI on main: load --run-id .. wrote /tmp/matrix.json + /tmp/c001.json outside --results-dir; run --run-id '' wrote .json; load --run-id team/baseline exit 0 then plot_latency exit 2. Revert probe: 18 of 24 red, the 6 controls green."
+context_for_next_session:
+  - CHECKED_ONLY_WHEN_write_json_an_in_memory_run_never_makes_run_id_a_path
+  - load_CLI_CHECKS_IT_BEFORE_run_under_load_because_that_clause_prefixes_every_ValueError_with_concurrency_invalid
+followups: []
+---
+
+---
 session: 2026-10-08T07:41Z
 duration_min: 1   # computed from GitHub: plan comment 2026-10-08T07:40:11Z -> commit 07:41Z
 issue: 201

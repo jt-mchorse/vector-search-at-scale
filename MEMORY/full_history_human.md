@@ -1939,6 +1939,22 @@ library at both versions.
 Running the benchmark against Qdrant or Weaviate without the library installed
 or the URL set crashed with a Python traceback. It now prints one error line
 and exits with the "operator error" code, like the CLI's other input mistakes.
+## 2026-10-08 — the HNSW grid script reports a missing backend setting cleanly (#197)
+
+Yesterday's fix (#195) made `vector-bench run` and `load` print one error line
+when a backend's library or URL is missing. The HNSW grid script builds
+backends the same way and was missed. It still crashed with a traceback and
+left an empty output folder behind. It now prints the same one-line error,
+exits with the operator-error code, and creates nothing. A backend that fails
+partway through a grid is still treated as a real failure.
+## 2026-10-08 — a run id has to be a plain name (#199)
+
+The run id becomes a file or folder name under the results folder, and nothing
+checked it. `..` wrote the load study's files into the folder *above* the
+results folder, an empty id wrote a hidden `.json`, and an id with a slash
+produced a run the latency-chart script then couldn't draw. `run` and `load`
+now refuse those ids with a one-line error before doing any work. Ordinary ids,
+including ones with dots or spaces, are unaffected.
 ## 2026-10-08 — saving to a symlink updates the file it points at (#201)
 
 The helper that saves benchmark artifacts safely (write a temporary file, then

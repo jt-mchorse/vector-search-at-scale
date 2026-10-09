@@ -36,6 +36,7 @@ import numpy as np
 from vector_bench.harness import (
     LatencyStats,
     Workload,
+    _check_run_id,
     _git_sha,
     _percentile,
     _utc_now_iso,
@@ -265,6 +266,8 @@ def run_under_load(
             "a concurrency that never happened"
         )
 
+    if write_json:
+        _check_run_id(run_id)  # one path component under results_dir (#199)
     out_dir = Path(results_dir) / run_id
     matrix_path = out_dir / "matrix.json"
     if write_json and not force and matrix_path.exists():
