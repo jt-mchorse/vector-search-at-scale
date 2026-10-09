@@ -149,6 +149,14 @@ writing one JSON per cell + a `matrix.json` summary under
 Install the renderer with the `[plot]` extra — `pip install -e '.[plot]'` —
 to get the charts rather than the skip path.
 
+With `--backend pgvector`, each worker thread holds its own connection, so a
+level of `c` needs `c` connections at once. Each level starts on fresh
+connections. Before the ingest, a level larger than the server can give the
+role is refused: that is `max_connections`, less the slots reserved for
+superusers, less other clients' connections. On a stock Postgres
+(`max_connections=100`), `100` fits for a superuser, and a non-superuser role
+tops out at 97 (#212).
+
 The committed `results/load/stub-10k/matrix.json` is a real
 in-process numpy run (10 000 corpus vectors × 64 dims × 500 queries, M-series
 Mac, Python 3.11, recall@10 = 1.0 by construction):
