@@ -184,7 +184,9 @@ def _build(name: str):
 
 
 BACKENDS = ["stub", "hnsw-sim", "pgvector", "qdrant", "weaviate"]
-VECTORS = np.random.default_rng(0).normal(size=(3, 4)).astype(np.float32)
+# 3 x 128 float32 = 1.5 KiB: at least Qdrant's 1 KiB indexing threshold, below
+# which `QdrantBackend.ingest` refuses the corpus (#209).
+VECTORS = np.random.default_rng(0).normal(size=(3, 128)).astype(np.float32)
 
 # (label, ids) — every one is a mismatch against VECTORS' three rows.
 MISMATCHES = [

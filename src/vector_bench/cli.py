@@ -152,7 +152,10 @@ def _do_run(args: argparse.Namespace) -> int:
             results_dir=args.results_dir,
             force=args.force,
         )
-    except (ValueError, OSError) as e:
+    except (ValueError, OSError, BackendError) as e:
+        # BackendError (#209): a backend can fail mid-run too -- a RED collection,
+        # an index that never finishes, a result violating the (id, score)
+        # contract -- and it is a RuntimeError, which escaped at exit 1.
         print(f"error: {e}", file=sys.stderr)
         return 2
     json.dump(result.to_json(), sys.stdout, indent=2, sort_keys=True)
@@ -213,6 +216,10 @@ def _do_load(args: argparse.Namespace) -> int:
         )
     except ValueError as e:
         print(f"--concurrency invalid: {e}", file=sys.stderr)
+        return 2
+    except BackendError as e:
+        # A backend failing mid-run (#209), as in `_do_run`.
+        print(f"error: {e}", file=sys.stderr)
         return 2
     except OSError as e:
         # A run-id collision (matrix.json already at <results-dir>/<run-id>/
