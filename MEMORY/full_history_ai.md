@@ -2164,3 +2164,22 @@ context_for_next_session:
   - load_CLI_CHECKS_IT_BEFORE_run_under_load_because_that_clause_prefixes_every_ValueError_with_concurrency_invalid
 followups: []
 ---
+
+---
+session: 2026-10-08T07:41Z
+duration_min: 1   # computed from GitHub: plan comment 2026-10-08T07:40:11Z -> commit 07:41Z
+issue: 201
+branch: session/2026-10-08-issue-201
+focus: ATOMIC_WRITE_TEXT_RENAMED_ONTO_A_SYMLINKED_DESTINATION_link_became_a_regular_file_and_the_linked_file_kept_old_contents
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 13
+  suite: "1128 collected, 1127 passed, 1 skipped (pre-existing); ruff clean"
+decisions_made: []
+measured: "main: atomic_write_text(link) -> islink False, real 'old'; cost_table.py --dry --out link.md rc 0 with the linked doc unchanged. Revert probe (main io_utils.py, __pycache__ cleared): 6 of 13 red, 7 controls green (write_text parity x4, loop x2, plain)."
+context_for_next_session:
+  - SIBLING_OF_python_async_llm_pipelines_157_same_fix_in_lco_279_and_prs_this_night
+  - THE_REPO_VENV_EDITABLE_INSTALL_POINTS_AT_THE_MAIN_CLONE_run_worktree_tests_with_PYTHONPATH_src
+followups: []
+---

@@ -1955,3 +1955,10 @@ results folder, an empty id wrote a hidden `.json`, and an id with a slash
 produced a run the latency-chart script then couldn't draw. `run` and `load`
 now refuse those ids with a one-line error before doing any work. Ordinary ids,
 including ones with dots or spaces, are unaffected.
+## 2026-10-08 — saving to a symlink updates the file it points at (#201)
+
+The helper that saves benchmark artifacts safely (write a temporary file, then
+swap it into place) swapped it onto the symlink itself when the save location
+was a symlink. The link turned into an ordinary file, and the file it pointed
+at was never updated. A plain save writes through the link, and now this
+helper does too. Ordinary paths behave exactly as before.
