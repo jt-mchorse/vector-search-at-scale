@@ -1984,3 +1984,14 @@ the index is complete before ingest returns, the same state pgvector and
 Weaviate are already in when their ingest finishes. Checked against a real
 Qdrant 1.14.0. This change and #204 edit adjacent lines, so merge #204 first and
 rebase this one.
+
+## 2026-10-09 — A tiny Qdrant corpus is refused instead of waiting an hour (#209)
+
+Earlier in this run I merged a change that makes the Qdrant backend wait until
+its search index is fully built. Measuring with a real Qdrant showed that
+Qdrant never builds the index when the vectors total less than 1 KB, so a tiny
+test run (3 vectors of 64 numbers, for example) would wait the full hour and
+then fail with a traceback. The backend now refuses a corpus that small
+straight away, explaining that it could only measure a brute-force scan. The
+benchmark commands now report any backend failure during a run as a clean
+error rather than a crash.
