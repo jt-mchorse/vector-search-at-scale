@@ -22,7 +22,7 @@ from pathlib import Path
 from typing import Any
 
 from vector_bench.backends import make_backend
-from vector_bench.harness import Workload, run_benchmark
+from vector_bench.harness import Workload, _check_run_id, run_benchmark
 from vector_bench.load import render_table, run_under_load
 from vector_bench.types import BackendError
 
@@ -183,6 +183,9 @@ def _do_load(args: argparse.Namespace) -> int:
     # prefix would misdescribe a dimension error) — use the neutral `error:` prefix
     # `_do_run` uses for the same class.
     try:
+        # Checked here as well as in `run_under_load` so it is reported as
+        # `error:`, not under that call's `--concurrency invalid:` prefix (#199).
+        _check_run_id(args.run_id)
         workload = Workload(
             n_vectors=args.n,
             dim=args.dim,

@@ -27,6 +27,7 @@ from __future__ import annotations
 
 import copy
 import json
+import os
 import time
 from contextlib import contextmanager
 from dataclasses import dataclass, field
@@ -428,6 +429,29 @@ def dump_benchmark_json(
     return out_path
 
 
+def _check_run_id(run_id: str) -> None:
+    """Refuse a `run_id` that is not exactly one path component (#199).
+
+    Both writers turn `run_id` into a path: `run_benchmark` writes
+    `<results_dir>/<run_id>.json` and `run_under_load` writes under
+    `<results_dir>/<run_id>/`. Nothing checked it, so `--run-id ..` put
+    `load`'s `matrix.json` and `c001.json` in the parent of `--results-dir`,
+    `--run-id ''` wrote a hidden `.json`, and `--run-id team/baseline` passed
+    `load` and then failed `plot_latency`, whose chart name
+    `{run_id}_{backend}_n{n}.png` names a directory that does not exist. D-007
+    is "one JSON file per run_id under results/". Only a `str` is checked;
+    other types keep their existing behaviour.
+    """
+    if not isinstance(run_id, str):
+        return
+    seps = {"/", os.sep} | ({os.altsep} if os.altsep else set())
+    if run_id in ("", ".", "..") or any(sep in run_id for sep in seps):
+        raise ValueError(
+            f"run_id must be a single path component (non-empty, not '.' or '..', "
+            f"no path separator); got {run_id!r}. Use --results-dir for a nested layout."
+        )
+
+
 def run_benchmark(
     backend: Backend,
     workload: Workload,
@@ -456,6 +480,8 @@ def run_benchmark(
             "concurrency levels and records per-cell latency. "
             "(D-011 — see MEMORY/core_decisions_human.md.)"
         )
+    if write_json:
+        _check_run_id(run_id)
     out_path = Path(results_dir) / f"{run_id}.json"
     if write_json and not force and out_path.exists():
         # Pre-flight the force-check before running the workload so a
