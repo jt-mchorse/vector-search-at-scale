@@ -2223,3 +2223,22 @@ context_for_next_session:
   - A_REVERT_PROBE_FIXTURE_THAT_PATCHES_mod_time_ERRORS_ON_A_MODULE_WITHOUT_import_time_patch_the_time_module_itself
 followups: []
 ---
+
+---
+session: 2026-10-09T10:00Z
+duration_min: 9   # computed: repro ~09:51Z, issue filed 2026-10-09T09:53:41Z, PR 2026-10-09T10:00:14Z (gh createdAt)
+issue: 212
+branch: session/2026-10-09-1020-issue-212
+focus: PGVECTOR_PER_THREAD_CONNECTIONS_LEAKED_ACROSS_LOAD_LEVELS_AND_LEVEL_100_EXCEEDED_MAX_CONNECTIONS_AFTER_INGEST
+phase: shipped
+delta:
+  files_changed: 4
+  tests_added: 6
+  suite: "1166 -> 1172 passed; ruff clean"
+decisions_made: []
+measured: "real PG 17.6 (max_connections 100) with a pgvector-SQL shim doing a real 50 ms pg_sleep per query: main 1,10,100 -> level 100 FATAL too many clients after 12 leaked; branch completes, live 1/10/100; 1,10,101 refused before ingest. Revert 5 red / 1 control."
+context_for_next_session:
+  - A_PROBE_THAT_OPENS_ITS_OWN_CONNECTION_TO_COUNT_CONNECTIONS_CAN_BE_THE_ONE_THAT_FAILS_my_first_branch_run_blamed_the_fix_for_the_probes_101st
+  - A_FAST_SHIM_HIDES_THE_LEAK_threads_get_reused_add_a_real_sleep_so_every_worker_is_needed
+followups: []
+---
