@@ -44,7 +44,7 @@ from vector_bench.harness import (
     ground_truth_topk,
     recall_at_k,
 )
-from vector_bench.io_utils import atomic_write_text
+from vector_bench.io_utils import atomic_write_text, check_writable
 from vector_bench.types import Backend, is_valid_number
 
 
@@ -277,6 +277,10 @@ def run_under_load(
         raise FileExistsError(
             f"matrix already exists at {matrix_path}; pass force=True to overwrite"
         )
+    if write_json:
+        # And that the write can happen at all (#207). The cell files share
+        # `matrix.json`'s directory, so one check covers them.
+        check_writable(matrix_path)
 
     corpus, queries, corpus_ids, _ = generate_corpus(workload)
     truth = ground_truth_topk(corpus, queries, corpus_ids, workload.top_k)

@@ -180,6 +180,30 @@ def _resolve_symlinked_target(target: Path) -> Path:
     return Path(os.path.realpath(target))
 
 
+def check_writable(path: str | Path) -> None:
+    """Raise the `OSError` `atomic_write_text(path, ...)` would, without writing (#207).
+
+    `run_benchmark` and `run_under_load` pre-flighted a results COLLISION "so
+    the operator [doesn't] pay the wall-clock of the workload only to discover
+    the destination is locked" -- and then paid exactly that for an UNWRITABLE
+    destination: a `--results-dir` that is a file ran the whole ingest and
+    every query before the write raised. This does what the writer does -- the
+    same symlink resolution (#201), the same parent `mkdir`, the same
+    exclusively-created temp file beside the target -- and removes the temp
+    file, so a path passes exactly when the real write would get that far. An
+    existing directory is refused too: the final `os.replace` onto it fails.
+    """
+    target = _resolve_symlinked_target(Path(path))
+    if target.is_dir():
+        raise IsADirectoryError(21, "Is a directory", str(target))
+    with contextlib.suppress(FileNotFoundError):
+        os.stat(target)  # what `_preserve_target_mode` stats: a link loop raises here
+    target.parent.mkdir(parents=True, exist_ok=True)
+    tmp, tmp_path = _open_temp(target, "utf-8")
+    tmp.close()
+    tmp_path.unlink()
+
+
 def atomic_write_text(path: str | Path, text: str, encoding: str = "utf-8") -> None:
     """Write *text* to *path* atomically.
 
