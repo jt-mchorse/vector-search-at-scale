@@ -1984,3 +1984,13 @@ the index is complete before ingest returns, the same state pgvector and
 Weaviate are already in when their ingest finishes. Checked against a real
 Qdrant 1.14.0. This change and #204 edit adjacent lines, so merge #204 first and
 rebase this one.
+
+## 2026-10-09 — The pgvector load test fits the database's connection limit (#212)
+
+The Postgres backend gives each worker thread its own database connection,
+for real parallelism. Those connections were only closed at the very end, so
+each concurrency level kept the previous level's connections open. At the
+default levels (1, 10, 100), a standard Postgres ran out of connections during
+the last level, after everything else had run. Each level now starts on fresh
+connections. A level larger than the database can actually serve for this role
+is refused up front, with the numbers.
