@@ -124,5 +124,6 @@ def test_batch_size_scales_down_with_dimension() -> None:
 
 
 def test_a_small_corpus_is_still_one_request() -> None:
-    client = _ingest(3, 8)
+    # 3 x 128: small, but over the 1 KiB indexing threshold (#209).
+    client = _ingest(3, 128)
     assert [len(r) for r in client.requests] == [3]

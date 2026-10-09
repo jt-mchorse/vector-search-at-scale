@@ -2223,3 +2223,24 @@ context_for_next_session:
   - A_REVERT_PROBE_FIXTURE_THAT_PATCHES_mod_time_ERRORS_ON_A_MODULE_WITHOUT_import_time_patch_the_time_module_itself
 followups: []
 ---
+
+---
+session: 2026-10-09T09:40Z
+duration_min: 12   # computed: qdrant binary fetched ~09:30Z, issue filed 2026-10-09T09:35:37Z, PR 2026-10-09T09:40:26Z (gh createdAt)
+issue: 209
+branch: session/2026-10-09-0955-issue-209
+focus: QDRANT_NEVER_INDEXES_A_COLLECTION_UNDER_1_KIB_SO_206S_INDEX_WAIT_SLEPT_AN_HOUR_AND_A_MID_RUN_BACKENDERROR_ESCAPED_RUN_LOAD_AT_EXIT_1
+phase: shipped
+delta:
+  files_changed: 7
+  tests_added: 11
+  suite: "1166 -> 1177 passed; ruff check + format clean"
+decisions_made: []
+measured: "real Qdrant 1.14.0 (gh release download qdrant/qdrant v1.14.0 aarch64-apple-darwin, ports 56333/56334, killed by PID): 3x64 (768 B), 15x16, 50x4 never indexed (0 of n) -> timeout; 4x64 and 16x16 (1024 B) indexed in 0.6 s. CLI run --n 3 --dim 64 raised BackendError traceback. Branch: refused in 0.0 s, rc=2. Revert 7 red / 4 controls."
+context_for_next_session:
+  - QDRANT_RUNS_LOCALLY_WITHOUT_DOCKER_the_release_tarball_has_a_macOS_binary_set_QDRANT__SERVICE__HTTP_PORT_and_STORAGE_PATH
+  - THE_THRESHOLD_IS_ON_TOTAL_COLLECTION_BYTES_NOT_PER_SEGMENT_my_per_segment_model_predicted_n_lt_32_at_dim_64_and_was_wrong_measure_the_boundary
+  - SECOND_ORDER_BUG_IN_THIS_RUNS_OWN_PHASE_A_MERGE_206
+  - FOUR_EXISTING_TESTS_USED_TINY_FAKE_CORPORA_raised_to_3x128_each_change_commented
+followups: []
+---
