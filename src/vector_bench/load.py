@@ -278,6 +278,24 @@ def run_under_load(
             f"matrix already exists at {matrix_path}; pass force=True to overwrite"
         )
 
+    # A backend that holds one connection per worker thread can only run as
+    # many workers as the server will connect (#212). Asked before the ingest,
+    # so a level the server cannot serve is refused before any work rather than
+    # failing as "too many clients" after the ingest and the lower levels.
+    max_concurrency = getattr(backend, "max_query_concurrency", None)
+    release = getattr(backend, "release_connections", None)
+    if callable(max_concurrency):
+        cap = max_concurrency()
+        if callable(release):
+            release()
+        over_cap = [c for c in concurrency_levels if c > cap]
+        if over_cap:
+            raise ValueError(
+                f"concurrency levels {over_cap} need that many connections at once; "
+                f"the {backend.name} server accepts {cap} more for this role now "
+                "(max_connections less reserved slots and other clients)"
+            )
+
     corpus, queries, corpus_ids, _ = generate_corpus(workload)
     truth = ground_truth_topk(corpus, queries, corpus_ids, workload.top_k)
 
@@ -300,6 +318,11 @@ def run_under_load(
             # throughput above the backend's physical serialization ceiling
             # (#47). `_execute_at_concurrency` runs the queries for real, so the
             # honest number is queries-served / wall-clock-elapsed.
+            # Each level on fresh connections (#212): the previous level's
+            # per-thread connections, and the ingest one, would otherwise hold
+            # server slots for the rest of the run.
+            if callable(release):
+                release()
             query_start = time.perf_counter()
             latencies_ms, recalls = _execute_at_concurrency(
                 backend, queries, truth, workload.top_k, c
