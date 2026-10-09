@@ -2223,3 +2223,22 @@ context_for_next_session:
   - A_REVERT_PROBE_FIXTURE_THAT_PATCHES_mod_time_ERRORS_ON_A_MODULE_WITHOUT_import_time_patch_the_time_module_itself
 followups: []
 ---
+
+---
+session: 2026-10-09T08:51Z
+duration_min: 6   # computed: issue filed 2026-10-09T08:48:21Z -> PR 2026-10-09T08:51:10Z (gh createdAt); found sweeping ems#200's preflight lens
+issue: 207
+branch: session/2026-10-09-0855-issue-207
+focus: RUN_AND_LOAD_PREFLIGHTED_A_COLLISION_BUT_NOT_AN_UNWRITABLE_RESULTS_DIR_THE_WHOLE_INGEST_AND_QUERY_SWEEP_RAN_FIRST
+phase: shipped
+delta:
+  files_changed: 4
+  tests_added: 8
+  suite: "1166 -> 1174 passed; ruff check + format clean"
+decisions_made: []
+measured: "counting StubBackend: main run with results_dir a file / under a file raised after ingest=1 queries=200; load (1,4) after 1 / 400; branch 0 / 0 for all four. Revert 5 red / 3 controls."
+context_for_next_session:
+  - THE_COLLISION_PREFLIGHTS_OWN_COMMENT_NAMED_THE_COST_paying_the_workload_only_to_discover_the_destination_A_FIXS_WORDING_POINTS_AT_THE_SITE_IT_MISSED
+  - THIRD_PORT_OF_leh_287_check_writable_TODAY_ems_200_and_vsas_each_ported_against_their_OWN_writer_temp_open_signatures_differ
+followups: []
+---
