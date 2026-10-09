@@ -36,6 +36,7 @@ from vector_bench.backends import make_backend  # noqa: E402
 from vector_bench.backends.pgvector import validate_hnsw_params  # noqa: E402
 from vector_bench.harness import Workload, run_benchmark  # noqa: E402
 from vector_bench.io_utils import atomic_write_text  # noqa: E402
+from vector_bench.types import BackendError  # noqa: E402
 
 #: Each backend's own argument names for the grid's three HNSW knobs, and
 #: whether it takes `seed` (#160). `run_grid` passed `HnswSimBackend`'s names to
@@ -124,15 +125,27 @@ def run_grid(
                 f"{len(bad)} grid cell(s) are outside pgvector's HNSW bounds, so nothing "
                 "was run: " + "; ".join(bad[:3]) + ("; ..." if len(bad) > 3 else "")
             )
-    out_dir.mkdir(parents=True, exist_ok=True)
     workload = Workload(n_vectors=n_vectors, dim=dim, n_queries=n_queries, top_k=top_k, seed=seed)
 
     cells: list[dict] = []
     for M, efc, efs in itertools.product(M_values, ef_construction_values, ef_search_values):
         run_id = f"M{M}_efc{efc}_efs{efs}"
-        backend = make_backend(
-            backend_name, **_backend_kwargs(backend_name, M=M, efc=efc, efs=efs, seed=seed)
-        )
+        kwargs = _backend_kwargs(backend_name, M=M, efc=efc, efs=efs, seed=seed)
+        try:
+            backend = make_backend(backend_name, **kwargs)
+        except BackendError as exc:
+            # A backend's constructor raises `BackendError` (a `RuntimeError`)
+            # for setup problems that are operator input: a missing extra, or
+            # an unset QDRANT_URL / WEAVIATE_HOST / PGVECTOR_DSN. `main` caught
+            # only ValueError and OSError, so `--backend qdrant` on the base
+            # install was a traceback at exit 1 (#197); `vector-bench run` and
+            # `load` got the same exit 2 in #196. Only construction is
+            # translated: a `BackendError` raised while a cell runs is a run
+            # failure, as it is in run/load.
+            raise ValueError(str(exc)) from exc
+        # Created after the backend is built, not before (#197): a refused
+        # setup used to leave an empty `--out-dir` behind.
+        out_dir.mkdir(parents=True, exist_ok=True)
         result = run_benchmark(backend, workload, run_id=run_id, results_dir=out_dir, force=True)
         cells.append(
             {

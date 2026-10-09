@@ -1939,6 +1939,38 @@ library at both versions.
 Running the benchmark against Qdrant or Weaviate without the library installed
 or the URL set crashed with a Python traceback. It now prints one error line
 and exits with the "operator error" code, like the CLI's other input mistakes.
+## 2026-10-08 — the HNSW grid script reports a missing backend setting cleanly (#197)
+
+Yesterday's fix (#195) made `vector-bench run` and `load` print one error line
+when a backend's library or URL is missing. The HNSW grid script builds
+backends the same way and was missed. It still crashed with a traceback and
+left an empty output folder behind. It now prints the same one-line error,
+exits with the operator-error code, and creates nothing. A backend that fails
+partway through a grid is still treated as a real failure.
+## 2026-10-08 — a run id has to be a plain name (#199)
+
+The run id becomes a file or folder name under the results folder, and nothing
+checked it. `..` wrote the load study's files into the folder *above* the
+results folder, an empty id wrote a hidden `.json`, and an id with a slash
+produced a run the latency-chart script then couldn't draw. `run` and `load`
+now refuse those ids with a one-line error before doing any work. Ordinary ids,
+including ones with dots or spaces, are unaffected.
+## 2026-10-08 — saving to a symlink updates the file it points at (#201)
+
+The helper that saves benchmark artifacts safely (write a temporary file, then
+swap it into place) swapped it onto the symlink itself when the save location
+was a symlink. The link turned into an ordinary file, and the file it pointed
+at was never updated. A plain save writes through the link, and now this
+helper does too. Ordinary paths behave exactly as before.
+
+## 2026-10-08 — Qdrant ingest is split into requests the server accepts (#203)
+
+The Qdrant adapter sent the whole corpus to the server in a single request.
+Qdrant rejects request bodies over 32 MiB by default, which at 768 dimensions
+means anything above roughly 2,000 vectors, so every Qdrant command in the
+README failed during ingest. Ingest now sends batches sized from the vector
+dimension, about 5 MiB each. Checked against a real Qdrant 1.14.0: 8,000 and
+20,000 vectors failed before the change and pass after it, with recall 1.0.
 
 ## 2026-10-08 — Qdrant results now measure the HNSW index (#205)
 
