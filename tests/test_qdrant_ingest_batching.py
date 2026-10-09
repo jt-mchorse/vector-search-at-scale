@@ -47,6 +47,13 @@ class _QModels:
     class HnswConfigDiff:
         def __init__(self, **_kw: Any) -> None: ...
 
+    class OptimizersConfigDiff:
+        def __init__(self, **_kw: Any) -> None: ...
+
+    class CollectionStatus:
+        GREEN = "green"
+        RED = "red"
+
     PointStruct = _PointStruct
 
 
@@ -60,6 +67,13 @@ class _RecordingClient:
 
     def upsert(self, collection_name: str, points: list[_PointStruct]) -> None:
         self.requests.append(list(points))
+
+    def get_collection(self, collection_name: str) -> Any:
+        # Already fully indexed, so `ingest`'s index wait (#205) returns at once.
+        n = sum(len(r) for r in self.requests)
+        return type(
+            "Info", (), {"status": "green", "points_count": n, "indexed_vectors_count": n}
+        )()
 
 
 def _ingest(n: int, dim: int) -> _RecordingClient:

@@ -1971,3 +1971,16 @@ means anything above roughly 2,000 vectors, so every Qdrant command in the
 README failed during ingest. Ingest now sends batches sized from the vector
 dimension, about 5 MiB each. Checked against a real Qdrant 1.14.0: 8,000 and
 20,000 vectors failed before the change and pass after it, with recall 1.0.
+
+## 2026-10-08 — Qdrant results now measure the HNSW index (#205)
+
+By default Qdrant doesn't build an HNSW index for small collection segments,
+and for larger ones it builds the index in the background after the data is
+written. The benchmark started timing queries straight away. That meant
+corpora below about 50,000 vectors were searched by brute force (recall 1.0 at
+any search setting), and larger ones were measured while the index was still
+half built. The adapter now tells Qdrant to index every segment and waits until
+the index is complete before ingest returns, the same state pgvector and
+Weaviate are already in when their ingest finishes. Checked against a real
+Qdrant 1.14.0. This change and #204 edit adjacent lines, so merge #204 first and
+rebase this one.

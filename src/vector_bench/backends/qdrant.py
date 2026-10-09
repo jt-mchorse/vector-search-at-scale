@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import contextlib
 import os
+import time
 from collections.abc import Sequence
 
 import numpy as np
@@ -26,6 +27,19 @@ DEFAULT_COLLECTION = "vector_bench"
 #: `--n 1000000 --dim 768` run died at ingest. 262,144 components is ~5 MiB per
 #: request: a sixth of the limit, with room for the payload and id per point.
 UPSERT_COMPONENTS_PER_REQUEST = 262_144
+
+#: Qdrant leaves a segment as a plain, brute-force store until it is larger than
+#: `indexing_threshold` KB (default 20,000), and splits a collection into about
+#: one segment per CPU. Below ~50k vectors at dim 768 no HNSW index was ever
+#: built, so every query was an exact scan and `hnsw_ef` changed nothing
+#: (#205). 1 KB indexes every non-trivial segment. Not 0: that value *disables*
+#: indexing.
+INDEXING_THRESHOLD_KB = 1
+
+#: How long `ingest` waits for Qdrant's background optimizer to finish building
+#: the index before giving up with `BackendError` (#205).
+INDEX_WAIT_TIMEOUT_S = 3600.0
+INDEX_POLL_INTERVAL_S = 0.2
 
 
 class QdrantBackend:
@@ -72,6 +86,7 @@ class QdrantBackend:
             collection_name=self._collection,
             vectors_config=q.VectorParams(size=dim, distance=q.Distance.COSINE),
             hnsw_config=q.HnswConfigDiff(m=self._hnsw_m, ef_construct=self._hnsw_ef_construct),
+            optimizers_config=q.OptimizersConfigDiff(indexing_threshold=INDEXING_THRESHOLD_KB),
         )
         # Several requests, each under the server's body limit (#203). The
         # batch is sized from the dimension, so a high-dim corpus gets fewer
@@ -84,6 +99,39 @@ class QdrantBackend:
                 for i in range(start, min(start + per_request, n))
             ]
             self._client.upsert(collection_name=self._collection, points=points)
+        self._wait_until_indexed()
+
+    def _wait_until_indexed(self) -> None:
+        """Return once Qdrant has finished building the HNSW index (#205).
+
+        `upsert(wait=True)` returns when the points are written, not when they
+        are indexed: the index is built afterwards by a background optimizer.
+        Queries issued in that window hit a mix of indexed and brute-force
+        segments while the optimizer competes for CPU. Measured at n=100,000:
+        status yellow with 74k of 100k vectors indexed, and recall 0.618 against
+        0.472 once the index was complete. GREEN alone is not enough, because
+        the optimizer may not have started yet when the first poll runs. So we
+        also wait until every point is indexed, which `INDEXING_THRESHOLD_KB`
+        makes reachable at any size. This also puts the index build inside
+        `ingest_seconds`, as it already is for pgvector and Weaviate.
+        """
+        q = self._qmodels
+        deadline = time.monotonic() + INDEX_WAIT_TIMEOUT_S
+        while True:
+            info = self._client.get_collection(collection_name=self._collection)
+            if info.status == q.CollectionStatus.RED:
+                raise BackendError(f"qdrant collection {self._collection!r} is RED after ingest")
+            points = info.points_count or 0
+            indexed = info.indexed_vectors_count or 0
+            if info.status == q.CollectionStatus.GREEN and indexed >= points:
+                return
+            if time.monotonic() >= deadline:
+                raise BackendError(
+                    f"qdrant collection {self._collection!r} was not fully indexed within "
+                    f"{INDEX_WAIT_TIMEOUT_S:g}s (status {info.status}, {indexed} of "
+                    f"{points} vectors indexed)"
+                )
+            time.sleep(INDEX_POLL_INTERVAL_S)
 
     def query(self, vector: np.ndarray, k: int) -> list[tuple[str, float]]:
         check_open(self._closed, backend="QdrantBackend", method="query")
