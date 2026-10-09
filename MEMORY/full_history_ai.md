@@ -2183,3 +2183,22 @@ context_for_next_session:
   - THE_REPO_VENV_EDITABLE_INSTALL_POINTS_AT_THE_MAIN_CLONE_run_worktree_tests_with_PYTHONPATH_src
 followups: []
 ---
+
+---
+session: 2026-10-08T07:56Z
+duration_min: 3   # computed: plan comment 07:56:39Z -> 07:59Z (date -u)
+issue: 203
+branch: session/2026-10-08-issue-203
+focus: QDRANT_INGEST_SENT_THE_WHOLE_CORPUS_IN_ONE_UPSERT_AND_THE_SERVER_REFUSES_BODIES_OVER_32_MiB
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 4
+  suite: "1114 -> 1118 passed, 1 skipped (pre-existing); ruff, format clean"
+decisions_made: []
+measured: "real qdrant v1.14.0 (the D-004 pin, mac release binary) + qdrant-client 1.19.1, dim 768: main n=2000 exit 0, n=8000 and n=20000 exit 1 (server 400 'JSON payload ... larger than allowed (limit: 33554432 bytes)', client says 'timed out'); fixed n=8000 and n=20000 exit 0, recall 1.0. Revert probe: 3 of 4 arms red, the small-corpus control green."
+context_for_next_session:
+  - A_REAL_ENGINE_HAS_A_REQUEST_BODY_LIMIT_and_a_fake_client_never_does_so_a_one_shot_upsert_passes_every_fake_test
+  - QDRANT_HAS_A_MAC_RELEASE_BINARY_gh_release_download_v1_14_0_runs_without_docker_record_its_pid
+followups: []
+---

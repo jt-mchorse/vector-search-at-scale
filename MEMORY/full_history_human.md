@@ -1962,3 +1962,12 @@ swap it into place) swapped it onto the symlink itself when the save location
 was a symlink. The link turned into an ordinary file, and the file it pointed
 at was never updated. A plain save writes through the link, and now this
 helper does too. Ordinary paths behave exactly as before.
+
+## 2026-10-08 — Qdrant ingest is split into requests the server accepts (#203)
+
+The Qdrant adapter sent the whole corpus to the server in a single request.
+Qdrant rejects request bodies over 32 MiB by default, which at 768 dimensions
+means anything above roughly 2,000 vectors, so every Qdrant command in the
+README failed during ingest. Ingest now sends batches sized from the vector
+dimension, about 5 MiB each. Checked against a real Qdrant 1.14.0: 8,000 and
+20,000 vectors failed before the change and pass after it, with recall 1.0.
