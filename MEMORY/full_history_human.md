@@ -1984,3 +1984,13 @@ the index is complete before ingest returns, the same state pgvector and
 Weaviate are already in when their ingest finishes. Checked against a real
 Qdrant 1.14.0. This change and #204 edit adjacent lines, so merge #204 first and
 rebase this one.
+
+## 2026-10-09 — The benchmark checks it can save its results before it runs (#207)
+
+Before running, `run` and `load` already checked that they would not overwrite
+an earlier result. Their own comments say why: so you don't pay for the whole
+benchmark only to find the destination blocked. They did not check that the
+results folder could be written at all. A results path pointing at a file let
+the full ingest and query run, against a real cloud database if that was the
+backend, and then failed. They now check writability up front too, the same way
+the real write would.
