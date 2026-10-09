@@ -60,7 +60,11 @@ from .test_backend_ingest_shape_parity import _build
 
 BACKENDS = ["stub", "hnsw-sim", "pgvector", "qdrant", "weaviate"]
 
-VECTORS = np.array([[1.0, 0.0], [0.0, 1.0], [1.0, 1.0]], dtype=np.float32)
+# Zero-padded to 128 dims (1.5 KiB): the same three directions, over Qdrant's
+# 1 KiB indexing threshold, below which `QdrantBackend.ingest` refuses (#209).
+VECTORS = np.pad(
+    np.array([[1.0, 0.0], [0.0, 1.0], [1.0, 1.0]], dtype=np.float32), ((0, 0), (0, 126))
+)
 IDS = ["a", "b", "c"]
 
 

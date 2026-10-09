@@ -82,6 +82,20 @@ class QdrantBackend:
         check_ingest_shape(vectors, ids)
         q = self._qmodels
         dim = int(vectors.shape[1])
+        # Below the indexing threshold Qdrant never builds an index (#209):
+        # measured on 1.14.0, n=3 x dim=64 (768 B) stayed green with 0 of 3
+        # vectors indexed, and `_wait_until_indexed` then slept the whole
+        # INDEX_WAIT_TIMEOUT_S. Such a run could only measure a brute-force
+        # scan, which is what #205 exists to rule out, so refuse it up front.
+        total_bytes = int(vectors.shape[0]) * dim * 4
+        if total_bytes < INDEXING_THRESHOLD_KB * 1024:
+            raise BackendError(
+                f"qdrant never builds an HNSW index for a collection under "
+                f"{INDEXING_THRESHOLD_KB} KiB of vectors (this one is {total_bytes} B: "
+                f"{vectors.shape[0]} x {dim} float32), so the run would measure a "
+                f"brute-force scan; use at least {INDEXING_THRESHOLD_KB * 256} vector "
+                f"components (n x dim)"
+            )
         self._client.recreate_collection(
             collection_name=self._collection,
             vectors_config=q.VectorParams(size=dim, distance=q.Distance.COSINE),
