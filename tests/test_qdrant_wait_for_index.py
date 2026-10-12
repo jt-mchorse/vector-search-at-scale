@@ -98,7 +98,8 @@ def _backend(script: list[tuple[str, int, int]]) -> tuple[QdrantBackend, _Script
     return b, client
 
 
-_VECTORS = np.eye(3, dtype=np.float32)
+# 3 x 128 float32 = 1.5 KiB, over the 1 KiB indexing threshold (#209).
+_VECTORS = np.eye(3, 128, dtype=np.float32)
 _IDS = ["a", "b", "c"]
 
 
