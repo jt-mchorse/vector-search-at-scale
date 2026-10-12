@@ -30,7 +30,7 @@ dependencies = [
 [project.optional-dependencies]
 pgvector = ["psycopg[binary]>=3.2"]
 qdrant = ["qdrant-client>=1.10"]
-weaviate = ["weaviate-client>=4.7"]
+weaviate = ["weaviate-client>=4.16"]
 # Rendering deps for the two documented plotting scripts
 # (scripts/plot_latency.py, scripts/plot_hnsw_frontier.py). matplotlib was
 # previously declared nowhere, so the three `importorskip("matplotlib")`

@@ -155,13 +155,13 @@ def _build(name: str):
                 delete=lambda _n: None,
                 create=lambda **_kw: None,
                 get=lambda _n: types.SimpleNamespace(
-                    batch=types.SimpleNamespace(dynamic=lambda: _FakeBatch(sink))
+                    batch=types.SimpleNamespace(dynamic=lambda: _FakeBatch(sink), failed_objects=[])
                 ),
             )
         )
         b._wvcc = types.SimpleNamespace(
             Configure=types.SimpleNamespace(
-                Vectorizer=types.SimpleNamespace(none=lambda: None),
+                Vectors=types.SimpleNamespace(self_provided=lambda **_kw: None),
                 VectorIndex=types.SimpleNamespace(hnsw=lambda **_kw: None),
             ),
             VectorDistances=types.SimpleNamespace(COSINE="cosine"),
