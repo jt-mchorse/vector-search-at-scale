@@ -26,6 +26,7 @@ from pathlib import Path
 from typing import Any
 
 from vector_bench.comparison import render_comparison, render_exact
+from vector_bench.io_utils import loads_json
 
 #: Decimal places the recall has always been published at in the knee sentence.
 #: Passed explicitly rather than defaulted inside `render_comparison`, so this
@@ -70,6 +71,24 @@ def _require_finite_number(value: Any, field: str) -> float:
     return float(value)
 
 
+def _validate_grid_shape(grid: Any) -> None:
+    """Raise `ValueError` unless `grid` has the structure `render` reads (#217).
+
+    `render` raises on a missing or empty `cells`, but outside every exit-2 arm
+    in `main`, so `{}`, `[]`, `{"cells": 5}` and a grid with no `workload` ended
+    at exit 1 with a raw traceback, while `plot_latency.py` refuses the same
+    inputs with exit 2.
+    """
+    if not isinstance(grid, dict):
+        raise ValueError(f"it must be a JSON object; got {type(grid).__name__}")
+    cells = grid.get("cells")
+    if not isinstance(cells, list) or not cells:
+        raise ValueError(f"it needs a non-empty `cells` list; got {type(cells).__name__}")
+    workload = grid.get("workload")
+    if not isinstance(workload, dict) or "top_k" not in workload:
+        raise ValueError("it needs a `workload` object with `top_k`")
+
+
 def _validate_cells(grid: dict) -> None:
     """Guard every consumed numeric field of every grid cell at the load boundary.
 
@@ -77,11 +96,7 @@ def _validate_cells(grid: dict) -> None:
     malformed cell raises `ValueError` here rather than a raw `TypeError` deep in
     `_dominates` or a fabricated value in the published table.
     """
-    cells = grid.get("cells")
-    if not isinstance(cells, list):
-        # A non-list `cells` is caught downstream (`render` raises on empty/absent
-        # cells); leave shape validation to it and guard only value types here.
-        return
+    cells = grid["cells"]  # a non-empty list: `_validate_grid_shape` ran first
     for i, cell in enumerate(cells):
         if not isinstance(cell, dict):
             raise ValueError(f"grid cell {i} must be a JSON object; got {type(cell).__name__}")
@@ -256,7 +271,7 @@ def main(argv: list[str] | None = None) -> int:
     # and used to leak a raw traceback at exit 1. Translate to a clean exit 2 per
     # the #83/#84 exit-code contract (sibling of llm-eval-harness#174).
     try:
-        grid = json.loads(args.grid_json.read_text(encoding="utf-8"))
+        grid = loads_json(args.grid_json.read_text(encoding="utf-8"))
     except UnicodeDecodeError as exc:
         sys.stderr.write(f"{args.grid_json} is not valid UTF-8: {exc}\n")
         return 2
@@ -270,6 +285,11 @@ def main(argv: list[str] | None = None) -> int:
     # (NaN/Infinity token). Validate them at the load boundary, the value sibling
     # of the structural guards above and of plot_latency's `_reject_bool_numeric`
     # (#109/#110). A malformed value is bad input -> clean exit 2.
+    try:
+        _validate_grid_shape(grid)
+    except ValueError as exc:
+        sys.stderr.write(f"{args.grid_json} is not a valid grid: {exc}\n")
+        return 2
     try:
         _validate_cells(grid)
     except ValueError as exc:
