@@ -2015,3 +2015,14 @@ default levels (1, 10, 100), a standard Postgres ran out of connections during
 the last level, after everything else had run. Each level now starts on fresh
 connections. A level larger than the database can actually serve for this role
 is refused up front, with the numbers.
+
+## 2026-10-12 — Qdrant ingest stops using a deprecated client call (#211)
+
+Each Qdrant run cleared its collection with `recreate_collection`, which the
+current qdrant-client marks for removal. The same thing happened to `search`
+before, and nobody found out until runs broke, because every test used a fake
+client that had whatever method the code called. Ingest now checks whether the
+collection exists, deletes it if so, and creates it. A new test runs ingest
+and query through the real client's in-process mode, with deprecation warnings
+turned into errors, and CI now installs the Qdrant extra so that test runs. The
+fix was confirmed against a real Qdrant 1.14 server.
