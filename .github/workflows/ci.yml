@@ -71,9 +71,12 @@ jobs:
       # `[plot]` is installed alongside `[dev]` so the three
       # `importorskip("matplotlib")` write-seam tests in test_plot_latency.py
       # and test_hnsw_grid.py actually execute. Without it they skipped every
-      # run and this job still reported green (#113).
+      # run and this job still reported green (#113). `[qdrant]` is installed
+      # so test_qdrant_collection_lifecycle.py drives the real client, which
+      # is what the `>=1.10` floor resolves to today. A method it deprecates or
+      # removes then fails here, not at the first live run (#193, #211).
       - name: install dev extras
-        run: pip install -e '.[dev,plot]'
+        run: pip install -e '.[dev,plot,qdrant]'
       - name: ruff lint
         run: ruff check src/ tests/
       - name: pytest

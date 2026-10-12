@@ -63,7 +63,10 @@ class _RecordingClient:
     def __init__(self) -> None:
         self.requests: list[list[_PointStruct]] = []
 
-    def recreate_collection(self, **_kw: Any) -> None: ...
+    def collection_exists(self, collection_name: str) -> bool:
+        return False
+
+    def create_collection(self, **_kw: Any) -> None: ...
 
     def upsert(self, collection_name: str, points: list[_PointStruct]) -> None:
         self.requests.append(list(points))

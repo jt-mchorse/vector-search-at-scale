@@ -64,7 +64,10 @@ class _ScriptedClient:
         self.create_kw: dict[str, Any] = {}
         self.events: list[str] = []
 
-    def recreate_collection(self, **kw: Any) -> None:
+    def collection_exists(self, collection_name: str) -> bool:
+        return False
+
+    def create_collection(self, **kw: Any) -> None:
         self.create_kw = kw
 
     def upsert(self, collection_name: str, points: list[Any]) -> None:
