@@ -2319,5 +2319,22 @@ context_for_next_session:
   - A_FAKE_MISSING_THE_OLD_SPELLING_MAKES_THE_REVERT_PROBE_FAIL_ON_ATTRIBUTEERROR_NOT_THE_BEHAVIOUR_give_the_fake_both_spellings
   - FLOOR_RAISED_weaviate_client_4_7_to_4_16_Configure_Vectors_appears_there
   - PR_214_ALSO_EDITS_test_backend_ingest_shape_parity_qdrant_fake_DIFFERENT_HUNK_expect_only_a_MEMORY_conflict
+
+session: 2026-10-12T08:19:51Z
+duration_min: 2   # computed: plan comment 2026-10-12T08:19:51Z -> PR 2026-10-12T08:22:49Z (gh createdAt)
+issue: 217
+branch: session/2026-10-12-0819-issue-217
+focus: SCRIPT_READERS_FRONTIER_HAD_NO_SHAPE_ARM_COST_TABLE_MATRIX_JSON_DOT_GET_ON_A_LIST_AND_RECURSIONERROR_AT_EVERY_JSON_LOADS
+phase: shipped
+delta:
+  files_changed: 5
+  tests_added: 18
+  suite: "3.12 1183 -> 1201 passed / 9 skipped; 3.11 1209 passed / 1 skipped; ruff clean"
+decisions_made: []
+measured: "main: frontier {} [] \"x\" cells-5 cells-dict cells-null no-workload -> exit 1 tracebacks; 3.11 deep -> exit 1 in all three scripts; matrix.json [] -> AttributeError exit 1. Revert (3.11) 17 red / 1 green."
+context_for_next_session:
+  - A_COMMENT_SAYING_X_IS_CAUGHT_DOWNSTREAM_check_that_downstream_is_inside_a_catch_render_raised_into_nothing
+  - THE_EXISTING_CELL_MESSAGE_IS_PINNED_BY_TESTS_so_shape_errors_got_their_own_function_and_message
+  - THIRD_REPO_TODAY_FOR_THE_LOADS_JSON_PORT_leh_333_shape_ems_204_prs_232_vsas_217
 followups: []
 ---
