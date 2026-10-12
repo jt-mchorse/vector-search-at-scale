@@ -172,6 +172,54 @@ class PgVectorBackend:
             )
             return [(row[0], float(row[1])) for row in cur.fetchall()]
 
+    def release_connections(self) -> None:
+        """Close every per-thread connection; the next call reconnects lazily (#212).
+
+        `run_under_load` runs each concurrency level on a fresh thread pool, and
+        a finished level's threads took their connections with them only in
+        the sense that nothing could reach them any more: they stayed open
+        until `close()`. At the default levels 1/10/100 a stock Postgres
+        (`max_connections=100`) refused level 100 after ingest and two levels.
+        The table and index live on the server, and `hnsw.ef_search` is
+        re-applied on the next connection's first query.
+        """
+        with self._conns_lock:
+            conns, self._conns = self._conns, []
+            self._ef_search_set.clear()
+        for conn in conns:
+            with contextlib.suppress(Exception):
+                conn.close()
+        self._local = threading.local()
+
+    def max_query_concurrency(self) -> int:
+        """How many concurrent query connections this role can open now (#212).
+
+        `max_connections`, less the slots this role cannot use
+        (`superuser_reserved_connections` unless it is a superuser; PG 16's
+        `reserved_connections` unless it is a member of
+        `pg_use_reserved_connections`), less every OTHER client backend.
+        Measured on the connection it opens, which the caller releases before
+        the queries run.
+        """
+        check_open(self._closed, backend="PgVectorBackend", method="max_query_concurrency")
+        conn = self._ensure_conn()
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT current_setting('max_connections')::int,"
+                " current_setting('superuser_reserved_connections')::int,"
+                " COALESCE(current_setting('reserved_connections', true), '0')::int,"
+                " (SELECT rolsuper FROM pg_roles WHERE rolname = current_user),"
+                " COALESCE(pg_has_role(current_user, 'pg_use_reserved_connections', 'MEMBER'), false),"
+                " (SELECT count(*) FROM pg_stat_activity"
+                "   WHERE backend_type = 'client backend' AND pid <> pg_backend_pid())"
+            )
+            max_conn, su_reserved, reserved, is_super, may_use_reserved, others = cur.fetchone()
+        conn.commit()
+        unusable = (0 if is_super else su_reserved) + (
+            0 if is_super or may_use_reserved else reserved
+        )
+        return int(max_conn) - int(unusable) - int(others)
+
     def close(self) -> None:
         with self._conns_lock:
             conns, self._conns = self._conns, []
