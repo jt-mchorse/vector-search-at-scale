@@ -36,7 +36,7 @@ from typing import Any
 
 import numpy as np
 
-from vector_bench.io_utils import atomic_write_text
+from vector_bench.io_utils import atomic_write_text, check_writable
 from vector_bench.types import Backend, is_valid_number
 
 
@@ -491,6 +491,9 @@ def run_benchmark(
         raise FileExistsError(
             f"results file already exists at {out_path}; pass force=True to overwrite"
         )
+    if write_json:
+        # And that the write can happen at all (#207), for the same reason.
+        check_writable(out_path)
 
     corpus, queries, corpus_ids, _ = generate_corpus(workload)
     truth = ground_truth_topk(corpus, queries, corpus_ids, workload.top_k)
