@@ -23,11 +23,12 @@ from __future__ import annotations
 
 import contextlib
 import errno
+import json
 import os
 import secrets
 import stat
 from pathlib import Path
-from typing import TextIO
+from typing import Any, TextIO
 
 # Cap the target basename's contribution to the temp filename. The temp name is
 # `.<base>.<random>.tmp`; the affixes add ~13 bytes, so prepending a full
@@ -234,3 +235,23 @@ def atomic_write_text(path: str | Path, text: str, encoding: str = "utf-8") -> N
         if tmp_path is not None:
             with contextlib.suppress(FileNotFoundError):
                 tmp_path.unlink()
+
+
+def loads_json(text: str) -> Any:
+    """`json.loads`, with every way bad input fails raised as a `JSONDecodeError` (#217).
+
+    `json.loads` raises `RecursionError` on nesting deeper than the interpreter's
+    stack (about 100,000 levels on 3.11, which CI runs), and a plain `ValueError`
+    for an integer past CPython's 4300-digit limit. The script readers caught
+    `JSONDecodeError`, so both escaped as a traceback at exit 1 instead of the
+    documented exit 2. One helper, as in llm-eval-harness#333: a test pins that
+    no script calls `json.loads` directly.
+    """
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError:
+        raise
+    except RecursionError:
+        raise json.JSONDecodeError("nested too deeply to parse", text, 0) from None
+    except ValueError as e:
+        raise json.JSONDecodeError(str(e), text, 0) from None

@@ -62,7 +62,7 @@ from vector_bench.cost import (  # noqa: E402
     UnknownInstanceTypeError,
     cost_per_query,
 )
-from vector_bench.io_utils import atomic_write_text  # noqa: E402
+from vector_bench.io_utils import atomic_write_text, loads_json  # noqa: E402
 from vector_bench.prices import aws_us_east_1_snapshot  # noqa: E402
 
 DEFAULT_TFVARS_PATH = _REPO_ROOT / "terraform/envs/benchmark/main.tf"
@@ -171,7 +171,12 @@ def load_throughput_qps(results_dir: Path) -> float:
     # run's cells, so a `c001.json` it does not list is stale.
     matrix_path = results_dir / "matrix.json"
     if matrix_path.exists():
-        cells = json.loads(matrix_path.read_text(encoding="utf-8")).get("cells", [])
+        matrix = loads_json(matrix_path.read_text(encoding="utf-8"))
+        # A `matrix.json` that is not an object raised AttributeError, past every
+        # exit-2 arm in `main` (#217).
+        if not isinstance(matrix, dict):
+            raise ValueError(f"{matrix_path} must be a JSON object; got {type(matrix).__name__}")
+        cells = matrix.get("cells", [])
         levels = sorted(c.get("concurrency") for c in cells if isinstance(c, dict))
         if 1 not in levels:
             raise FileNotFoundError(
@@ -180,7 +185,7 @@ def load_throughput_qps(results_dir: Path) -> float:
                 f"over from an earlier run. Re-run the load harness with concurrency 1 "
                 f"in `--concurrency` to measure the cost-table basis."
             )
-    payload = json.loads(c01_path.read_text(encoding="utf-8"))
+    payload = loads_json(c01_path.read_text(encoding="utf-8"))
     qps = payload["throughput_qps"]
     # Reject a boolean before `float()` coercion: `bool` subclasses `int`, so
     # `float(True)` is `1.0` — a JSON `true` in a hand-edited/externally-produced
@@ -218,7 +223,7 @@ def load_throughput_backend(results_dir: Path) -> str | None:
     committed stub run records ``"stub"``, which is a truthful answer that names
     no engine, and `_provenance_marker` is where the comparison happens.
     """
-    payload = json.loads((results_dir / "c001.json").read_text(encoding="utf-8"))
+    payload = loads_json((results_dir / "c001.json").read_text(encoding="utf-8"))
     backend = payload.get("backend")
     return backend if isinstance(backend, str) else None
 

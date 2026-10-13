@@ -36,6 +36,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT / "src"))
 
 from vector_bench.harness import LatencyStats, Workload  # noqa: E402
+from vector_bench.io_utils import loads_json  # noqa: E402
 from vector_bench.load import LoadCell, LoadMatrix, render_table  # noqa: E402
 
 
@@ -56,7 +57,7 @@ def _reject_bool_numeric(value: Any, field: str) -> Any:
 
 
 def _load_matrix(path: Path) -> LoadMatrix:
-    data = json.loads(path.read_text())
+    data = loads_json(path.read_text())
     workload = Workload(**data["workload"])
     cells: list[LoadCell] = []
     for c in data["cells"]:

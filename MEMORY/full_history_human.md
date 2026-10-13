@@ -2036,3 +2036,12 @@ client only logged a message and carried on, so a benchmark could run on an
 incomplete index and publish the result. Ingest now uses the current
 arguments and raises an error if any object failed. Both were checked against
 a real Weaviate 1.34 server, the version the deployment pins.
+
+## 2026-10-12 — The plotting and cost scripts reject bad files cleanly (#217)
+
+`plot_hnsw_frontier.py` crashed with a raw Python error on a grid file of the
+wrong shape, such as an empty object or a list, while its sibling scripts
+reject the same files with a clear message. On the Python version CI uses,
+all three scripts also crashed on extremely nested JSON. The cost table
+crashed when its `matrix.json` wasn't an object. All of these now exit with
+code 2 and a message naming the file.
