@@ -2045,3 +2045,16 @@ reject the same files with a clear message. On the Python version CI uses,
 all three scripts also crashed on extremely nested JSON. The cost table
 crashed when its `matrix.json` wasn't an object. All of these now exit with
 code 2 and a message naming the file.
+
+## 2026-10-13 — Qdrant queries actually use the HNSW index (#219)
+
+An earlier fix (#205) made Qdrant build its search index at any size and wait
+for it before timing queries. Measured against a real Qdrant, the index was
+built but not used: Qdrant's query planner does a brute-force scan of any
+collection smaller than 10,000 KB of vectors, which is about 40,000 vectors at
+64 dimensions. So the documented 64-dimension tuning grid still reported a
+perfect recall of 1.0 whatever the search setting. Qdrant's own counters showed
+every search taking the brute-force path. The backend now sets that threshold
+to Qdrant's minimum (10 KB). On the same grid, recall now rises with the search
+setting (0.62, 0.76, 0.97), the way an HNSW index should behave. Corpora under
+10 KB are tracked separately in #220.
