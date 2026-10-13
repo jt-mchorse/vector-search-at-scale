@@ -36,6 +36,17 @@ UPSERT_COMPONENTS_PER_REQUEST = 262_144
 #: indexing.
 INDEXING_THRESHOLD_KB = 1
 
+#: A built index is not a used one (#219). Qdrant's query planner answers an
+#: unfiltered search by plain scan while the collection holds fewer than
+#: `hnsw_config.full_scan_threshold` KB of vectors, 10,000 by default: ~40,000
+#: vectors at dim 64, so every documented `--dim 64` grid stayed an exact scan at
+#: recall 1.0 with every vector `indexed`. Measured on Qdrant 1.14.0 and 1.19.2 at
+#: n=20,000 x 64, hnsw_ef=4: recall 1.000 with every search `unfiltered_plain`,
+#: against 0.556 / 0.567 `unfiltered_hnsw` here (and n=60,000 x 64, 15,000 KB,
+#: already searched the graph at the default). 10 is the smallest value the
+#: server accepts.
+FULL_SCAN_THRESHOLD_KB = 10
+
 #: How long `ingest` waits for Qdrant's background optimizer to finish building
 #: the index before giving up with `BackendError` (#205).
 INDEX_WAIT_TIMEOUT_S = 3600.0
@@ -106,7 +117,11 @@ class QdrantBackend:
         self._client.create_collection(
             collection_name=self._collection,
             vectors_config=q.VectorParams(size=dim, distance=q.Distance.COSINE),
-            hnsw_config=q.HnswConfigDiff(m=self._hnsw_m, ef_construct=self._hnsw_ef_construct),
+            hnsw_config=q.HnswConfigDiff(
+                m=self._hnsw_m,
+                ef_construct=self._hnsw_ef_construct,
+                full_scan_threshold=FULL_SCAN_THRESHOLD_KB,
+            ),
             optimizers_config=q.OptimizersConfigDiff(indexing_threshold=INDEXING_THRESHOLD_KB),
         )
         # Several requests, each under the server's body limit (#203). The
