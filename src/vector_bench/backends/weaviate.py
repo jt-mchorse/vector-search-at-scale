@@ -17,6 +17,40 @@ from vector_bench.types import BackendError, check_ingest_shape, check_open
 
 DEFAULT_COLLECTION = "VectorBench"
 
+#: Weaviate's HNSW bounds (#224), measured on 1.34.0 (the terraform pin). The
+#: server refuses `maxConnections` outside [4, 2047] and `efConstruction < 4`
+#: with a 422 at `collections.create` -- inside `ingest`, so in the grid it was a
+#: traceback mid-sweep with earlier cell JSONs on disk. `ef < 1` is accepted and
+#: stored, but Weaviate reads it as *dynamic* ef (>= dynamicEfMin, 100): an
+#: `efs=0` cell published the recall of an ef=100 search. No upper bound on
+#: either ef: the server took 100,000.
+HNSW_MAX_CONNECTIONS_RANGE = (4, 2047)
+HNSW_EF_CONSTRUCTION_MIN = 4
+HNSW_EF_MIN = 1
+
+
+def validate_hnsw_params(*, max_connections: int, ef_construction: int, ef: int) -> None:
+    """Raise ``ValueError`` unless Weaviate would build and search an HNSW graph
+    with exactly these knobs.
+
+    Pure, so callers can check a whole grid before connecting to anything --
+    the shape pgvector's `validate_hnsw_params` set in #188.
+    """
+    lo, hi = HNSW_MAX_CONNECTIONS_RANGE
+    for name, value, vlo, vhi in (
+        ("hnsw_max_connections", max_connections, lo, hi),
+        ("hnsw_ef_construction", ef_construction, HNSW_EF_CONSTRUCTION_MIN, None),
+        ("hnsw_ef", ef, HNSW_EF_MIN, None),
+    ):
+        if (
+            isinstance(value, bool)
+            or not isinstance(value, int)
+            or value < vlo
+            or (vhi is not None and value > vhi)
+        ):
+            bound = f"in [{vlo}, {vhi}]" if vhi is not None else f">= {vlo}"
+            raise ValueError(f"weaviate {name} must be an int {bound}; got {value!r}")
+
 
 class WeaviateBackend:
     name = "weaviate"
@@ -38,6 +72,13 @@ class WeaviateBackend:
         hnsw_ef_construction: int = 64,
         hnsw_ef: int = 40,
     ) -> None:
+        # Before the import and the host check: a bad knob is the caller's error
+        # whatever the environment, and the grid relies on this raising early.
+        validate_hnsw_params(
+            max_connections=hnsw_max_connections,
+            ef_construction=hnsw_ef_construction,
+            ef=hnsw_ef,
+        )
         try:
             import weaviate  # type: ignore
             import weaviate.classes.config as wvcc  # type: ignore
