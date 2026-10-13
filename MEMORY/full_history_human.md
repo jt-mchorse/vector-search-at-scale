@@ -2070,3 +2070,16 @@ accepted, but it turns the index off, so that grid cell quietly measured a
 brute-force scan. Both the Qdrant backend and the grid now refuse those values
 before connecting to anything, with the same clean error pgvector gives.
 Weaviate's limits haven't been measured yet, so it isn't covered.
+
+## 2026-10-13 — Weaviate's tuning settings are checked before it runs (#224)
+
+pgvector and Qdrant got up-front checks on their index settings. Weaviate's
+adapter still passed its settings straight to the server. On the pinned
+Weaviate 1.34, a search setting of 0 or below isn't an error: Weaviate treats
+it as "pick automatically" and searches with a setting of at least 100. So a
+tuning-grid row labelled "0" published the much higher recall of that bigger
+search. Graph settings below 4 (or a connection count of 2048 or more) were
+refused by the server only after the grid had already written earlier
+results, which ended in a raw error. The Weaviate backend now rejects all of
+these before it connects. Weaviate doesn't quietly fall back to a brute-force
+scan on small collections, so the problem Qdrant had there doesn't apply.

@@ -2379,3 +2379,22 @@ context_for_next_session:
   - QDRANT_SERVER_VALIDATION_DIFFERS_BY_VERSION_hnsw_ef_0_is_422_on_1_19_and_silently_accepted_on_1_14
 followups: []
 ---
+
+session: 2026-10-13T07:44:41Z
+duration_min: 15   # computed: issue 224 filed 2026-10-13T07:44:41Z -> commit ~07:59Z
+issue: 224
+branch: session/2026-10-13-0744-issue-224
+focus: WEAVIATE_HNSW_KNOBS_NEVER_BOUNDS_CHECKED_ef_LE_0_IS_DYNAMIC_EF_SO_AN_efs_0_CELL_PUBLISHES_AN_ef_100_RECALL_M_LT_4_efc_LT_4_DIE_MID_GRID
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 15
+  suite: "3.11 [dev,plot,qdrant] 1216 -> 1231 passed / 1 skipped; ruff check + format clean"
+decisions_made: []
+measured: "embedded Weaviate 1.34.0 (terraform pin): maxConnections <4 or >=2048 -> 422, efConstruction <4 -> 422 (100000 ok), ef 0/-1/-5 accepted+stored, read as dynamic ef (dynamicEfMin 100). Grid n=5000x64 M=4 efc=8: efs 0 -> 0.343, 1 -> 0.059, 10 -> 0.065, -3 -> 0.344. --M 16,2 -> UnexpectedStatusCodeError exit 1 with M16 cell on disk. Small unfiltered collection is NOT flat-scanned (n=200: efs 1 -> 0.420, 100 -> 0.958). Revert: no-op validator 11 red / 4 accept arms green of 15; call-site-only revert 2 red."
+context_for_next_session:
+  - GRID_ROW_DEFERRED_add_weaviate_to_hnsw_grid_HNSW_BOUNDS_once_PR_223_merges_until_then_the_ctor_stops_the_grid_at_the_first_bad_cell
+  - WEAVIATE_ef_LT_1_IS_NOT_AN_ERROR_IT_IS_A_MODE_dynamic_ef_so_a_server_side_accept_is_not_a_bounds_proof
+  - WEAVIATE_flatSearchCutoff_IS_FILTERED_ONLY_the_219_qdrant_full_scan_class_does_not_apply
+followups: [hnsw_grid weaviate _HNSW_BOUNDS row after #223]
+---
