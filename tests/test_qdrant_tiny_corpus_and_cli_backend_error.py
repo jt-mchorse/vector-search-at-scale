@@ -67,13 +67,13 @@ def test_exactly_one_kib_reaches_the_sdk(n: int, dim: int) -> None:
     calls: list[str] = []
 
     class _Recording:
-        def recreate_collection(self, **_kw: Any) -> None:
-            calls.append("recreate")
+        def collection_exists(self, collection_name: str) -> bool:
+            calls.append("exists")
             raise RuntimeError("stop here")
 
     with pytest.raises(RuntimeError, match="stop here"):
         _backend(_Recording()).ingest(_vectors(n, dim), [f"c{i}" for i in range(n)])
-    assert calls == ["recreate"]
+    assert calls == ["exists"]
 
 
 class _FailingIngest(StubBackend):

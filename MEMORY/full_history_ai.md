@@ -2282,3 +2282,23 @@ context_for_next_session:
   - A_FAST_SHIM_HIDES_THE_LEAK_threads_get_reused_add_a_real_sleep_so_every_worker_is_needed
 followups: []
 ---
+
+---
+session: 2026-10-12T07:19Z
+duration_min: 4   # computed: plan comment 2026-10-12T07:19:29Z -> PR 2026-10-12T07:23:27Z (gh createdAt)
+issue: 211
+branch: session/2026-10-12-0719-issue-211
+focus: QDRANT_INGEST_CALLED_THE_DEPRECATED_recreate_collection_AND_EVERY_FAKE_IMPLEMENTED_IT_SO_A_REMOVAL_WAS_INVISIBLE_LIKE_search_IN_193
+phase: shipped
+delta:
+  files_changed: 8
+  tests_added: 3
+  suite: "1177 -> 1182 passed, 9 skipped; ruff check + format clean"
+decisions_made: []
+measured: "QdrantClient(':memory:') with DeprecationWarning as error: main raises on recreate_collection; fixed ingest x2 + query pass. Real Qdrant 1.14.0 + client 1.19.1, -W error::DeprecationWarning: ingest 2000 then 1500 -> points_count 2000 then 1500, query d7 1.0. Revert 3 of 3 new red."
+context_for_next_session:
+  - QDRANT_CLIENT_HAS_AN_IN_PROCESS_ENGINE_QdrantClient_memory_SO_A_REAL_CLIENT_TEST_NEEDS_NO_SERVER_but_it_never_indexes_so_wrap_get_collection_for_the_205_wait
+  - CI_NOW_INSTALLS_THE_qdrant_EXTRA_the_113_importorskip_lock_DEMANDS_IT_and_that_lock_compared_module_name_to_DIST_name_literally_so_any_HYPHENATED_dist_read_as_undeclared_FIXED_WITH_A_dash_dot_to_underscore_fold
+  - SAME_SHAPE_TO_HUNT_ELSEWHERE_a_fake_that_implements_whatever_the_adapter_calls_cannot_see_an_SDK_removal_weaviate_and_psycopg_adapters_are_the_neighbours
+followups: []
+---

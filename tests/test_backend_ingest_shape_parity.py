@@ -56,7 +56,10 @@ class _FakeQdrantClient:
     def __init__(self) -> None:
         self.points: list[Any] | None = None
 
-    def recreate_collection(self, **_kw: Any) -> None: ...
+    def collection_exists(self, collection_name: str) -> bool:
+        return False
+
+    def create_collection(self, **_kw: Any) -> None: ...
 
     def upsert(self, collection_name: str, points: list[Any]) -> None:
         self.points = points

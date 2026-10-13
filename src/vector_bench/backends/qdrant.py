@@ -96,7 +96,14 @@ class QdrantBackend:
                 f"brute-force scan; use at least {INDEXING_THRESHOLD_KB * 256} vector "
                 f"components (n x dim)"
             )
-        self._client.recreate_collection(
+        # Delete-then-create, not `recreate_collection` (#211): qdrant-client
+        # 1.19 (what the `>=1.10` floor installs today) deprecates it "and will
+        # remove it in the future", the path `search` took before #193. The
+        # three calls below exist from 1.8. A stale collection from an earlier
+        # run is still dropped, so every ingest starts from an empty index.
+        if self._client.collection_exists(collection_name=self._collection):
+            self._client.delete_collection(collection_name=self._collection)
+        self._client.create_collection(
             collection_name=self._collection,
             vectors_config=q.VectorParams(size=dim, distance=q.Distance.COSINE),
             hnsw_config=q.HnswConfigDiff(m=self._hnsw_m, ef_construct=self._hnsw_ef_construct),

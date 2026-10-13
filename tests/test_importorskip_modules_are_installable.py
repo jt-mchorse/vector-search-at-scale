@@ -70,8 +70,13 @@ def _distributions_by_extra() -> dict[str, set[str]]:
 
 
 def _dist_name(spec: str) -> str:
-    # "psycopg[binary]>=3.2" -> "psycopg"; "matplotlib>=3.8" -> "matplotlib"
-    return re.split(r"[\[<>=!~ ;]", spec, maxsplit=1)[0].strip().lower()
+    # "psycopg[binary]>=3.2" -> "psycopg"; "matplotlib>=3.8" -> "matplotlib";
+    # "qdrant-client>=1.10" -> "qdrant_client". The guard names an import
+    # module, which can't contain "-", while the distribution is usually
+    # spelled with one. Without the fold the first hyphenated guard (#211)
+    # read as undeclared.
+    name = re.split(r"[\[<>=!~ ;]", spec, maxsplit=1)[0].strip().lower()
+    return re.sub(r"[-.]+", "_", name)
 
 
 def _extras_installed_by_ci() -> set[str]:
