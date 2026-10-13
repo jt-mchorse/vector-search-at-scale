@@ -69,14 +69,19 @@ class WeaviateBackend:
         wvcc = self._wvcc
         if self._client.collections.exists(self._collection_name):
             self._client.collections.delete(self._collection_name)
+        # `vector_config` with self-provided vectors, not `vectorizer_config` +
+        # `vector_index_config` (#215). weaviate-client 4.23 (what an unpinned
+        # install gets) deprecates both (Dep024/Dep025), the path that cost
+        # Qdrant `search` (#193). `Configure.Vectors` exists from 4.16, the floor.
         self._client.collections.create(
             name=self._collection_name,
-            vectorizer_config=wvcc.Configure.Vectorizer.none(),
-            vector_index_config=wvcc.Configure.VectorIndex.hnsw(
-                max_connections=self._hnsw_max_connections,
-                ef_construction=self._hnsw_ef_construction,
-                ef=self._hnsw_ef,
-                distance_metric=wvcc.VectorDistances.COSINE,
+            vector_config=wvcc.Configure.Vectors.self_provided(
+                vector_index_config=wvcc.Configure.VectorIndex.hnsw(
+                    max_connections=self._hnsw_max_connections,
+                    ef_construction=self._hnsw_ef_construction,
+                    ef=self._hnsw_ef,
+                    distance_metric=wvcc.VectorDistances.COSINE,
+                ),
             ),
             properties=[wvcc.Property(name="orig_id", data_type=wvcc.DataType.TEXT)],
         )
@@ -87,6 +92,16 @@ class WeaviateBackend:
                     properties={"orig_id": ids[i]},
                     vector=vectors[i].tolist(),
                 )
+        # The batch context does not raise when objects fail (#215). The
+        # client only logs "Failed to send N objects ... inspect failed_objects"
+        # and the block exits normally, so a partly-failed ingest went on to be
+        # queried and its recall published.
+        failed = coll.batch.failed_objects
+        if failed:
+            raise BackendError(
+                f"weaviate failed to ingest {len(failed)} of {vectors.shape[0]} objects "
+                f"into {self._collection_name!r}; first error: {failed[0].message}"
+            )
 
     def query(self, vector: np.ndarray, k: int) -> list[tuple[str, float]]:
         check_open(self._closed, backend="WeaviateBackend", method="query")

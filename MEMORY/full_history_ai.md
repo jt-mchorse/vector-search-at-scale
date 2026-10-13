@@ -2300,5 +2300,24 @@ context_for_next_session:
   - QDRANT_CLIENT_HAS_AN_IN_PROCESS_ENGINE_QdrantClient_memory_SO_A_REAL_CLIENT_TEST_NEEDS_NO_SERVER_but_it_never_indexes_so_wrap_get_collection_for_the_205_wait
   - CI_NOW_INSTALLS_THE_qdrant_EXTRA_the_113_importorskip_lock_DEMANDS_IT_and_that_lock_compared_module_name_to_DIST_name_literally_so_any_HYPHENATED_dist_read_as_undeclared_FIXED_WITH_A_dash_dot_to_underscore_fold
   - SAME_SHAPE_TO_HUNT_ELSEWHERE_a_fake_that_implements_whatever_the_adapter_calls_cannot_see_an_SDK_removal_weaviate_and_psycopg_adapters_are_the_neighbours
+
+session: 2026-10-12T07:39:55Z
+duration_min: 2   # computed: plan comment 2026-10-12T07:39:55Z -> PR 2026-10-12T07:42:19Z (gh createdAt)
+issue: 215
+branch: session/2026-10-12-0739-issue-215
+focus: WEAVIATE_INGEST_USED_DEP024_DEP025_CREATE_ARGS_AND_NEVER_READ_BATCH_FAILED_OBJECTS_SO_A_PARTIAL_INGEST_WAS_BENCHMARKED
+phase: shipped
+delta:
+  files_changed: 4
+  tests_added: 2
+  suite: "1183 -> 1185 passed, 9 skipped; ruff check + format clean"
+decisions_made: []
+measured: "embedded Weaviate 1.30.0 + client 4.23.1: main's create -> Dep024, Dep025; an injected bad object -> 'Failed to send 1 objects', block exits normally. Branch vs embedded 1.34.0 (terraform pin), DeprecationWarning as error: ingest 2000 then 1500 -> counts 2000/1500, query d7 1.0, schema default self_provided hnsw 24/96/48 cosine. Revert 2 of 2 red for the right reasons."
+context_for_next_session:
+  - WEAVIATE_RUNS_LOCALLY_WITHOUT_DOCKER_weaviate_connect_to_embedded_version_1_34_0_downloads_the_binary_to_binary_path_close_stops_it
+  - THIRD_ADAPTER_OF_THE_193_211_SHAPE_pgvector_is_SQL_only_so_the_sweep_is_done
+  - A_FAKE_MISSING_THE_OLD_SPELLING_MAKES_THE_REVERT_PROBE_FAIL_ON_ATTRIBUTEERROR_NOT_THE_BEHAVIOUR_give_the_fake_both_spellings
+  - FLOOR_RAISED_weaviate_client_4_7_to_4_16_Configure_Vectors_appears_there
+  - PR_214_ALSO_EDITS_test_backend_ingest_shape_parity_qdrant_fake_DIFFERENT_HUNK_expect_only_a_MEMORY_conflict
 followups: []
 ---
