@@ -47,6 +47,10 @@ INDEXING_THRESHOLD_KB = 1
 #: server accepts.
 FULL_SCAN_THRESHOLD_KB = 10
 
+#: The smallest corpus a Qdrant run can measure an HNSW search on: below either
+#: threshold above, every query is a brute-force scan (#209, #220).
+MIN_CORPUS_KB = max(INDEXING_THRESHOLD_KB, FULL_SCAN_THRESHOLD_KB)
+
 #: How long `ingest` waits for Qdrant's background optimizer to finish building
 #: the index before giving up with `BackendError` (#205).
 INDEX_WAIT_TIMEOUT_S = 3600.0
@@ -130,14 +134,20 @@ class QdrantBackend:
         # vectors indexed, and `_wait_until_indexed` then slept the whole
         # INDEX_WAIT_TIMEOUT_S. Such a run could only measure a brute-force
         # scan, which is what #205 exists to rule out, so refuse it up front.
+        # The floor is the larger of the two size thresholds (#220): under
+        # FULL_SCAN_THRESHOLD_KB the index is built but the planner answers
+        # every query by plain scan anyway (#219) -- measured on 1.14.0, n=30 x
+        # 64 (7,680 B) was fully indexed and searched `unfiltered_plain` at
+        # recall 1.000, n=50 x 64 (12,800 B) `unfiltered_hnsw` at 0.962.
         total_bytes = int(vectors.shape[0]) * dim * 4
-        if total_bytes < INDEXING_THRESHOLD_KB * 1024:
+        if total_bytes < MIN_CORPUS_KB * 1024:
             raise BackendError(
-                f"qdrant never builds an HNSW index for a collection under "
-                f"{INDEXING_THRESHOLD_KB} KiB of vectors (this one is {total_bytes} B: "
-                f"{vectors.shape[0]} x {dim} float32), so the run would measure a "
-                f"brute-force scan; use at least {INDEXING_THRESHOLD_KB * 256} vector "
-                f"components (n x dim)"
+                f"qdrant answers every query by brute-force scan for a collection under "
+                f"{MIN_CORPUS_KB} KiB of vectors (this one is {total_bytes} B: "
+                f"{vectors.shape[0]} x {dim} float32): under {INDEXING_THRESHOLD_KB} KiB "
+                f"it never builds an HNSW index, and under {FULL_SCAN_THRESHOLD_KB} KiB "
+                f"(full_scan_threshold) its query planner does not use it; use at least "
+                f"{MIN_CORPUS_KB * 256} vector components (n x dim)"
             )
         # Delete-then-create, not `recreate_collection` (#211): qdrant-client
         # 1.19 (what the `>=1.10` floor installs today) deprecates it "and will

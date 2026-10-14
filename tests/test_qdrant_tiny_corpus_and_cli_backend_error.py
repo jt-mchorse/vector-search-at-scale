@@ -1,6 +1,9 @@
 """A corpus Qdrant will never index is refused up front, and a mid-run
 BackendError is exit 2 (#209).
 
+The floor is now 10 KiB (#220): between 1 and 10 KiB the index is built but
+the planner answers every query by plain scan (`full_scan_threshold`, #219).
+
 Measured on Qdrant 1.14.0: below 1 KiB of vectors (n x dim < 256 float32) the
 collection stayed green with 0 vectors indexed, so #206's index wait slept the
 whole INDEX_WAIT_TIMEOUT_S (3,600 s) -- n=3 x 64 and n=15 x 16 never indexed,
@@ -17,6 +20,7 @@ import numpy as np
 import pytest
 
 from vector_bench import cli
+from vector_bench.backends import qdrant as qdrant_mod
 from vector_bench.backends.qdrant import QdrantBackend
 from vector_bench.backends.stub import StubBackend
 from vector_bench.types import BackendError
@@ -62,8 +66,28 @@ def test_a_corpus_below_the_threshold_is_refused_before_any_sdk_call(n: int, dim
     assert f"{n * dim * 4} B" in str(e.value)
 
 
-@pytest.mark.parametrize(("n", "dim"), [(4, 64), (16, 16), (1, 256), (256, 1)])
-def test_exactly_one_kib_reaches_the_sdk(n: int, dim: int) -> None:
+# Between the two thresholds (#220): indexed, then plain-scanned by the planner.
+# (30, 64) is the measured case, 7,680 B searched `unfiltered_plain` on 1.14.0.
+@pytest.mark.parametrize(
+    ("n", "dim"), [(4, 64), (16, 16), (1, 256), (256, 1), (30, 64), (39, 64), (2559, 1)]
+)
+def test_a_corpus_under_the_full_scan_threshold_is_refused_too(n: int, dim: int) -> None:
+    with pytest.raises(BackendError, match=r"under 10 KiB \(full_scan_threshold\)") as e:
+        _backend(_NoCallsClient()).ingest(_vectors(n, dim), [f"c{i}" for i in range(n)])
+    assert f"{n * dim * 4} B" in str(e.value)
+    assert "at least 2560 vector components" in str(e.value)
+
+
+def test_the_floor_is_the_larger_threshold() -> None:
+    assert (
+        max(qdrant_mod.INDEXING_THRESHOLD_KB, qdrant_mod.FULL_SCAN_THRESHOLD_KB)
+        == qdrant_mod.MIN_CORPUS_KB
+    )
+    assert qdrant_mod.MIN_CORPUS_KB == 10
+
+
+@pytest.mark.parametrize(("n", "dim"), [(40, 64), (160, 16), (1, 2560), (2560, 1)])
+def test_exactly_ten_kib_reaches_the_sdk(n: int, dim: int) -> None:
     calls: list[str] = []
 
     class _Recording:
