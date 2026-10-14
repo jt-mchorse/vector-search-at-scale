@@ -24,6 +24,7 @@ See `MEMORY/core_decisions_human.md` D-008 for the deliberation.
 from __future__ import annotations
 
 import json
+import re
 import time
 from collections import Counter
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -46,6 +47,9 @@ from vector_bench.harness import (
 )
 from vector_bench.io_utils import atomic_write_text, check_writable
 from vector_bench.types import Backend, is_valid_number
+
+#: The per-cell filename `dump_load_matrix_json` writes, `c{concurrency:03d}.json`.
+_CELL_NAME = re.compile(r"c[0-9]{3,}\.json")
 
 
 @dataclass(frozen=True)
@@ -413,8 +417,11 @@ def dump_load_matrix_json(
     # old `c001.json` beside a matrix with no concurrency-1 cell, and
     # `cost_table.py` published it as this run's throughput. Only the exact
     # cell-name shape is touched; `matrix.json` is written last, as before.
-    for stale in out_dir_path.glob("c[0-9][0-9][0-9].json"):
-        if stale.name not in written:
+    # The shape is `c` + three *or more* digits: `{:03d}` is a minimum width,
+    # so concurrency 1000 writes `c1000.json`, which a three-digit glob left
+    # behind after a rewrite without it (#230).
+    for stale in out_dir_path.glob("c*.json"):
+        if _CELL_NAME.fullmatch(stale.name) and stale.name not in written:
             stale.unlink()
     atomic_write_text(
         matrix_path,
