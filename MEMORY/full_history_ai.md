@@ -2418,3 +2418,22 @@ context_for_next_session:
   - WEAVIATE_ROW_STILL_PENDING_on_PR_225
 followups: [weaviate _HNSW_BOUNDS row after #225 merges]
 ---
+
+---
+session: 2026-10-14T07:40Z
+duration_min: 15   # computed: issue 228 filed ~07:38Z, plan comment ~07:39Z, commit ~07:50Z
+issue: 228
+branch: session/2026-10-14-0718-issue-227
+focus: WEAVIATE_HNSW_BOUNDS_ROW_225_DEFERRED_UNTIL_223_MERGED_BOTH_MERGED_ROW_STILL_MISSING_M_16_2_WROTE_THE_M16_CELL
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 6
+  suite: "3.11 [dev,plot,qdrant] 1262 -> 1268 passed / 1 skipped (after rebase onto #225); ruff check + format clean"
+decisions_made: []
+measured: "embedded Weaviate 1.34.0 on 8080/50051, weaviate-client 4.23.1, main 8f2fd76: --backend weaviate --M 16,2 --ef-construction 64 --ef-search 16 -> M16 cell run (recall 0.980) and written, then 'weaviate hnsw_max_connections must be an int in [4, 2047]; got 2' exit 2, no grid.json. Branch: exit 2 '1 grid cell(s) are outside weaviate's HNSW bounds', no out dir; --M 4,16 still runs both cells + grid.json. Revert: weaviate row only = 3 of 6 red (the pgvector/qdrant/hnsw-sim spy arms are controls); main's hnsw_grid.py = 4 of 6 red."
+context_for_next_session:
+  - _HNSW_BOUNDS_IS_NOW_LOCKED_EQUAL_TO_HNSW_KNOBS_a_new_sweepable_backend_needs_a_pure_validator
+  - A_FOLLOWUP_GATED_ON_ANOTHER_PR_MERGING_IS_DROPPED_UNLESS_SOMEONE_RECHECKS_AFTER_THE_MERGE
+followups: []
+---

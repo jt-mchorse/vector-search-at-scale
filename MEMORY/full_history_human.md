@@ -2094,3 +2094,13 @@ held a grid, it overwrote one of the old grid's results with a different
 workload, which left the folder's summary and results out of step. The grid
 now checks the simulated backend's settings for every cell before it runs
 anything, so a bad value leaves the output folder exactly as it was.
+
+## 2026-10-14 — Weaviate's settings are also checked across the whole grid (#228)
+
+Yesterday's Weaviate fix added the settings check, but it left the up-front
+grid check for later, until the Qdrant change it depended on had merged. Both
+have now merged, and the grid still checked Weaviate one cell at a time, so a
+bad value in a later cell left the earlier results on disk. The grid now checks
+Weaviate's settings for every cell before it starts, the same as for the other
+backends. A test now fails if a backend the grid can sweep doesn't have this
+up-front check.
