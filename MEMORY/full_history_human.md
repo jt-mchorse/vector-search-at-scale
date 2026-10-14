@@ -2132,3 +2132,15 @@ validator now checks every field the plotter reads, so a bad file is refused
 cleanly at exit 2 with nothing written. The workload's size fields are only
 required when the default chart title is drawn, because `--title` doesn't
 use them.
+
+## 2026-10-14 — Qdrant refuses corpora too small to measure a real index search (#220)
+
+The Qdrant backend already refused a corpus under 1 KiB of vectors, because
+Qdrant never builds an index for one, so the benchmark would only time a
+brute-force scan. Yesterday's work found a second limit: below 10 KiB, Qdrant
+builds the index but its query planner still scans every vector. A corpus
+between 1 and 10 KiB therefore passed the check and published brute-force
+numbers as if they were HNSW numbers. The floor is now 10 KiB, the larger of
+the two limits, and the error message explains both. Several Qdrant tests
+used corpora of 1.5 to 2 KiB and were moved above the new floor. No
+published number changes, because no committed result comes from Qdrant.
