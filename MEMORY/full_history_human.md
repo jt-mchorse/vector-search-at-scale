@@ -2104,3 +2104,19 @@ bad value in a later cell left the earlier results on disk. The grid now checks
 Weaviate's settings for every cell before it starts, the same as for the other
 backends. A test now fails if a backend the grid can sweep doesn't have this
 up-front check.
+
+## 2026-10-14 — Old high-concurrency cells are cleaned up, and a bad seed is named (#230, #231)
+
+Two small fixes from the same session. First: when you rerun a load study
+with `--force`, the previous run's per-concurrency result files are supposed
+to be removed. The cleanup only matched three-digit names (`c001.json` to
+`c999.json`). A run at concurrency 1000 writes `c1000.json`, so that file
+stayed behind next to a summary that no longer listed it. The cleanup now
+matches any name the writer can produce, and still leaves other files alone.
+
+Second: a negative `--seed` was only rejected deep inside a run, by numpy,
+with a message that named no setting. `vector-bench load` showed it as
+"--concurrency invalid", which pointed the operator at the wrong flag. The
+workload now checks the seed with numpy when it is created. All three entry
+points (`run`, `load`, `hnsw_grid.py`) report "seed must be a valid numpy
+seed" before doing any work.
