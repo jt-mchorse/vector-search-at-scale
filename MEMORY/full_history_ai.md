@@ -2338,3 +2338,24 @@ context_for_next_session:
   - THIRD_REPO_TODAY_FOR_THE_LOADS_JSON_PORT_leh_333_shape_ems_204_prs_232_vsas_217
 followups: []
 ---
+
+---
+session: 2026-10-13T07:25Z
+duration_min: 20   # computed: issue 219 filed ~07:22Z, plan comment ~07:24Z, commit ~07:40Z
+issue: 219
+branch: session/2026-10-13-0725-issue-219
+focus: QDRANT_PLANNER_PLAIN_SCANS_A_COLLECTION_UNDER_full_scan_threshold_10000_KB_SO_THE_INDEX_205_BUILDS_WAS_NEVER_USED_AT_DIM_64
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 2
+  suite: "1216 -> 1218 passed (after rebase onto #216/#218); ruff check + format clean"
+decisions_made: []
+measured: "real Qdrant 1.14.0 and 1.19.2 (release binaries, ports 56333/56334, killed by PID), per-segment GET /telemetry?details_level=10 vector_index_searches: n=20000 x 64 ef=4 main recall 1.000 all unfiltered_plain on indexed segments; full_scan_threshold=10 -> 0.556 (1.14) / 0.567 (1.19) unfiltered_hnsw. n=60000 x 64 (15,000 KB) uses hnsw at the default -> threshold is on the collection total, not per segment. Branch grid --dim 64 ef 4/16/64 -> 0.621/0.762/0.972. Revert 2 of 2 new red."
+context_for_next_session:
+  - INDEXED_IS_NOT_SEARCHED_qdrant_telemetry_unfiltered_plain_vs_unfiltered_hnsw_IS_THE_GROUND_TRUTH_for_which_path_a_query_took
+  - full_scan_threshold_MINIMUM_IS_10_KB_1_is_a_422
+  - FOLLOWUP_220_the_209_refusal_floor_is_1_KiB_but_a_collection_under_10_KiB_is_still_plain_scanned
+  - pgvector_RUNS_LOCALLY_build_v0.8.0_against_homebrew_postgresql@17_copied_into_a_Cellar_shaped_tree_so_its_relative_sharedir_resolves_LC_ALL_must_be_set
+followups: [220]
+---
