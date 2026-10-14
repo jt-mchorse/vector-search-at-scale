@@ -2398,3 +2398,23 @@ context_for_next_session:
   - WEAVIATE_flatSearchCutoff_IS_FILTERED_ONLY_the_219_qdrant_full_scan_class_does_not_apply
 followups: [hnsw_grid weaviate _HNSW_BOUNDS row after #223]
 ---
+
+---
+session: 2026-10-14T07:18Z
+duration_min: 20   # computed: issue 227 filed ~07:16Z, plan comment ~07:18Z, commit ~07:34Z
+issue: 227
+branch: session/2026-10-14-0718-issue-227
+focus: HNSW_SIM_THE_DEFAULT_BACKEND_HAD_NO_HNSW_BOUNDS_ROW_ITS_CTOR_CHECK_RAN_PER_CELL_SO_M_8_0_WROTE_CELL_1_AND_OVERWROTE_AN_EXISTING_GRIDS_CELL
+phase: shipped
+delta:
+  files_changed: 3
+  tests_added: 15
+  suite: "3.11 [dev,plot,qdrant] 1232 -> 1247 passed / 1 skipped; ruff check + format clean"
+decisions_made: []
+measured: "main 6509dd0: --M 8,0 --ef-construction 50 --ef-search 16 -> 'error: M must be positive, got 0' exit 2 with M8_efc50_efs16.json on disk, no grid.json. Into an existing grid dir (dim 64 n 200) with --dim 32 --n-vectors 400: the M8 cell now held dim 32 / n 400 while grid.json still said dim 64 / n 200. Branch: exit 2, '1 grid cell(s) are outside hnsw-sim's HNSW bounds', out dir untouched. Revert: full (src+script) = collection error, 15 of 15 not run; table-row-only = 5 of 15 red (the 10 validator/ctor arms test the extracted rule, green by design)."
+context_for_next_session:
+  - THE_223_NOTE_SAID_WEAVIATE_IS_THE_MISSING_ROW_THE_DEFAULT_BACKEND_WAS_ALSO_MISSING_a_ctor_check_is_not_a_grid_precheck_when_the_ctor_runs_per_cell
+  - SINGLE_VALUED_AXIS_TESTS_CANNOT_SEE_A_PER_CELL_CHECK_the_bad_cell_is_cell_1
+  - WEAVIATE_ROW_STILL_PENDING_on_PR_225
+followups: [weaviate _HNSW_BOUNDS row after #225 merges]
+---
