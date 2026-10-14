@@ -53,6 +53,35 @@ INDEX_WAIT_TIMEOUT_S = 3600.0
 INDEX_POLL_INTERVAL_S = 0.2
 
 
+#: Qdrant's HNSW lower bounds (#222), measured on 1.14.0 and 1.19.2. The server
+#: refuses `ef_construct < 4` at `create_collection` (a 422 in the middle of a
+#: grid) and 1.19.2 refuses `hnsw_ef < 1` at the first *query*, after the whole
+#: ingest and index build; 1.14.0 accepts it and publishes an `efs=0` cell.
+#: `m = 0` is accepted but switches the graph off: every segment reports
+#: `indexed` and every search is a plain scan, the brute-force run #209 refuses
+#: for a tiny corpus. No upper bound: the server took m and ef_construct of
+#: 100,000.
+HNSW_M_MIN = 1
+HNSW_EF_CONSTRUCT_MIN = 4
+HNSW_EF_MIN = 1
+
+
+def validate_hnsw_params(*, m: int, ef_construct: int, ef: int) -> None:
+    """Raise ``ValueError`` unless Qdrant would build and search an HNSW graph
+    with these knobs.
+
+    Pure, so callers can check a whole grid before connecting to anything --
+    the shape pgvector's `validate_hnsw_params` set in #188.
+    """
+    for name, value, lo in (
+        ("hnsw_m", m, HNSW_M_MIN),
+        ("hnsw_ef_construct", ef_construct, HNSW_EF_CONSTRUCT_MIN),
+        ("hnsw_ef", ef, HNSW_EF_MIN),
+    ):
+        if isinstance(value, bool) or not isinstance(value, int) or value < lo:
+            raise ValueError(f"qdrant {name} must be an int >= {lo}; got {value!r}")
+
+
 class QdrantBackend:
     name = "qdrant"
 
@@ -71,6 +100,9 @@ class QdrantBackend:
         hnsw_ef_construct: int = 64,
         hnsw_ef: int = 40,
     ) -> None:
+        # Before the import and the URL check: a bad knob is the caller's error
+        # whatever the environment, and the grid relies on this raising early.
+        validate_hnsw_params(m=hnsw_m, ef_construct=hnsw_ef_construct, ef=hnsw_ef)
         try:
             from qdrant_client import QdrantClient  # type: ignore
             from qdrant_client.http import models as qmodels  # type: ignore

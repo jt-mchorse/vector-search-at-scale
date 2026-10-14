@@ -25,6 +25,7 @@ import argparse
 import itertools
 import json
 import sys
+from collections.abc import Callable
 from pathlib import Path
 
 _REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -33,7 +34,12 @@ if str(_SRC) not in sys.path:
     sys.path.insert(0, str(_SRC))
 
 from vector_bench.backends import make_backend  # noqa: E402
-from vector_bench.backends.pgvector import validate_hnsw_params  # noqa: E402
+from vector_bench.backends.pgvector import (  # noqa: E402
+    validate_hnsw_params as validate_pgvector_hnsw,
+)
+from vector_bench.backends.qdrant import (  # noqa: E402
+    validate_hnsw_params as validate_qdrant_hnsw,
+)
 from vector_bench.harness import Workload, run_benchmark  # noqa: E402
 from vector_bench.io_utils import atomic_write_text  # noqa: E402
 from vector_bench.types import BackendError  # noqa: E402
@@ -49,6 +55,14 @@ _HNSW_KNOBS: dict[str, tuple[str, str, str, bool]] = {
     "qdrant": ("hnsw_m", "hnsw_ef_construct", "hnsw_ef", False),
     "pgvector": ("hnsw_m", "hnsw_ef_construction", "hnsw_ef_search", False),
     "weaviate": ("hnsw_max_connections", "hnsw_ef_construction", "hnsw_ef", False),
+}
+
+#: Each backend's own HNSW bounds, as a check over one grid cell's (M, efc, efs)
+#: that raises `ValueError` (#188 pgvector, #222 qdrant). Run over every cell
+#: before the first one runs. Pure functions, so neither SDK is imported.
+_HNSW_BOUNDS: dict[str, Callable[[int, int, int], None]] = {
+    "pgvector": lambda M, efc, efs: validate_pgvector_hnsw(m=M, ef_construction=efc, ef_search=efs),
+    "qdrant": lambda M, efc, efs: validate_qdrant_hnsw(m=M, ef_construct=efc, ef=efs),
 }
 
 #: Backends `make_backend` knows that have no HNSW knobs to sweep.
@@ -112,17 +126,19 @@ def run_grid(
     # Every cell's knobs against the backend's own bounds, before any cell runs
     # or is written (#188). pgvector refuses ef_construction < 2 * M when it
     # builds the index, so the README's axes died at cell 7 of 36 (M=32,
-    # efc=50) with six cell JSONs on disk and no grid.json.
-    if backend_name == "pgvector":
+    # efc=50) with six cell JSONs on disk and no grid.json. Qdrant refuses
+    # ef_construct < 4 the same way, at create_collection (#222).
+    check = _HNSW_BOUNDS.get(backend_name)
+    if check is not None:
         bad = []
         for M, efc, efs in itertools.product(M_values, ef_construction_values, ef_search_values):
             try:
-                validate_hnsw_params(m=M, ef_construction=efc, ef_search=efs)
+                check(M, efc, efs)
             except ValueError as exc:
                 bad.append(f"M={M} efc={efc} efs={efs}: {exc}")
         if bad:
             raise ValueError(
-                f"{len(bad)} grid cell(s) are outside pgvector's HNSW bounds, so nothing "
+                f"{len(bad)} grid cell(s) are outside {backend_name}'s HNSW bounds, so nothing "
                 "was run: " + "; ".join(bad[:3]) + ("; ..." if len(bad) > 3 else "")
             )
     workload = Workload(n_vectors=n_vectors, dim=dim, n_queries=n_queries, top_k=top_k, seed=seed)

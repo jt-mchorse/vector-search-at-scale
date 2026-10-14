@@ -2058,3 +2058,15 @@ every search taking the brute-force path. The backend now sets that threshold
 to Qdrant's minimum (10 KB). On the same grid, recall now rises with the search
 setting (0.62, 0.76, 0.97), the way an HNSW index should behave. Corpora under
 10 KB are tracked separately in #220.
+
+## 2026-10-13 — Qdrant's tuning settings are checked before a grid runs (#222)
+
+An earlier fix (#188) made the tuning grid check pgvector's index settings up
+front, so a bad combination fails before anything runs. Qdrant never got that
+check. A grid with a Qdrant setting the server refuses died partway through,
+with some results written and no summary. A search setting of 0 failed only
+after the whole data load, on the current Qdrant. A graph setting of 0 was
+accepted, but it turns the index off, so that grid cell quietly measured a
+brute-force scan. Both the Qdrant backend and the grid now refuse those values
+before connecting to anything, with the same clean error pgvector gives.
+Weaviate's limits haven't been measured yet, so it isn't covered.

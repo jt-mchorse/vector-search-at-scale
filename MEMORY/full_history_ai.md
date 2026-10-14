@@ -2359,3 +2359,23 @@ context_for_next_session:
   - pgvector_RUNS_LOCALLY_build_v0.8.0_against_homebrew_postgresql@17_copied_into_a_Cellar_shaped_tree_so_its_relative_sharedir_resolves_LC_ALL_must_be_set
 followups: [220]
 ---
+
+---
+session: 2026-10-13T07:45Z
+duration_min: 20   # computed: issue 222 filed ~07:35Z, plan comment ~07:36Z, commit ~07:55Z
+issue: 222
+branch: session/2026-10-13-0729-issue-222
+focus: QDRANT_HNSW_KNOBS_NEVER_BOUNDS_CHECKED_188_WAS_PGVECTOR_ONLY_efc_lt_4_DIES_MID_GRID_ef_0_AFTER_INGEST_m_0_IS_BRUTE_FORCE
+phase: shipped
+delta:
+  files_changed: 3
+  tests_added: 15
+  suite: "1216 -> 1231 passed; ruff check + format clean"
+decisions_made: []
+measured: "real Qdrant 1.14.0 + 1.19.2 REST: ef_construct 3 -> 422 (both), hnsw_ef 0 -> 422 on 1.19.2 / accepted on 1.14.0, m 0 accepted, m/ef_construct 100000 accepted, negatives -> usize format error. main grid --ef-construction 64,3 -> 1 cell JSON, no grid.json, exit 1. m=0 with the 219 threshold: every indexed segment unfiltered_plain, recall 1.000 vs 0.584 at m=16 (5000 x 64). Branch: exit 2, no out dir. Revert: grid half 2 red, ctor half 1 red, of 15 new (the 11 table arms import a function main lacks)."
+context_for_next_session:
+  - A_PER_BACKEND_PRECHECK_WRITTEN_AS_if_backend_name_EQ_X_IS_A_ONE_MEMBER_LIST_hnsw_grid_now_has_a_HNSW_BOUNDS_table_weaviate_is_the_missing_row
+  - WEAVIATE_BOUNDS_UNMEASURED_needs_connect_to_embedded_or_a_binary_do_not_guess
+  - QDRANT_SERVER_VALIDATION_DIFFERS_BY_VERSION_hnsw_ef_0_is_422_on_1_19_and_silently_accepted_on_1_14
+followups: []
+---
