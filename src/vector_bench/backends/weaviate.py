@@ -84,7 +84,7 @@ class WeaviateBackend:
             import weaviate.classes.config as wvcc  # type: ignore
         except ImportError as e:  # pragma: no cover - exercised only without the extra
             raise BackendError(
-                "WeaviateBackend requires the `weaviate` extra: pip install 'vector-bench[weaviate]'"
+                "WeaviateBackend requires the `weaviate` extra: pip install -e '.[weaviate]' from the vector-search-at-scale checkout"
             ) from e
         self._weaviate = weaviate
         self._wvcc = wvcc
