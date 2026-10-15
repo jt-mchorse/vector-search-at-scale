@@ -2420,6 +2420,25 @@ followups: [weaviate _HNSW_BOUNDS row after #225 merges]
 ---
 
 ---
+session: 2026-10-14T07:29Z
+duration_min: 20   # computed: issue 230 filed ~07:27Z, plan comment ~07:29Z, commit ~07:40Z
+issue: 230
+branch: session/2026-10-14-0729-issue-230
+focus: THE_182_STALE_CELL_CLEANUP_GLOBBED_EXACTLY_THREE_DIGITS_BUT_THE_WRITER_FORMATS_c_03d_A_MINIMUM_WIDTH_SO_c1000_json_SURVIVED_A_FORCE_REWRITE
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 1
+  suite: "3.12 [dev,plot,qdrant] 1248 -> 1257 passed / 1 skipped (with #231); ruff check + format clean"
+decisions_made: []
+measured: "stub load --queries 1000 --concurrency 1,1000 then --force --concurrency 1,10 -> dir c001 c010 c1000 matrix.json, matrix cells [1, 10]. Branch: c1000/c12000 removed; c1000.json.bak, cx.json, c01.json kept. Revert 1 of 1 new red."
+context_for_next_session:
+  - A_FORMAT_SPEC_WIDTH_IS_A_MINIMUM_any_glob_or_regex_written_from_the_padded_example_misses_the_wider_values
+  - NO_REPO_READER_OPENS_A_CELL_OTHER_THAN_c001_so_the_harm_is_a_directory_that_does_not_round_trip_its_matrix
+followups: []
+---
+
+---
 session: 2026-10-14T07:40Z
 duration_min: 15   # computed: issue 228 filed ~07:38Z, plan comment ~07:39Z, commit ~07:50Z
 issue: 228
@@ -2435,5 +2454,23 @@ measured: "embedded Weaviate 1.34.0 on 8080/50051, weaviate-client 4.23.1, main 
 context_for_next_session:
   - _HNSW_BOUNDS_IS_NOW_LOCKED_EQUAL_TO_HNSW_KNOBS_a_new_sweepable_backend_needs_a_pure_validator
   - A_FOLLOWUP_GATED_ON_ANOTHER_PR_MERGING_IS_DROPPED_UNLESS_SOMEONE_RECHECKS_AFTER_THE_MERGE
+followups: []
+---
+
+---
+duration_min: 15   # computed: issue 231 filed ~07:27Z, plan comment ~07:29Z, commit ~07:45Z
+issue: 231
+branch: session/2026-10-14-0729-issue-230
+focus: WORKLOAD_LEFT_THE_SEED_VALUE_TO_default_rng_WHICH_FIRST_SAW_IT_MID_RUN_SO_load_seed_MINUS_1_WAS_REPORTED_AS_concurrency_invalid
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 8
+  suite: "3.12 [dev,plot,qdrant] 1248 -> 1257 passed / 1 skipped (with #230); ruff check + format clean"
+decisions_made: []
+measured: "numpy 2.5.4 default_rng(-1) -> ValueError 'expected non-negative integer'. main: load -> '--concurrency invalid: expected non-negative integer' exit 2; run and hnsw_grid.py -> 'error: expected non-negative integer' exit 2. Branch: all three 'error: seed must be a valid numpy seed, got -1: ...' exit 2, no matrix/result/grid written. Revert 4 of 8 new red (the 4 accept arms seed 0/1/2**64/2**200 stay green by design)."
+context_for_next_session:
+  - THE_load_CONCURRENCY_INVALID_ARM_CATCHES_EVERY_ValueError_run_under_load_RAISES_a_value_only_validated_mid_run_lands_under_it_199_moved_run_id_231_moved_seed
+  - KEEPING_A_RULE_WITH_ITS_OWNER_default_rng_DOES_NOT_REQUIRE_ASKING_IT_LATE_call_it_in_post_init
 followups: []
 ---

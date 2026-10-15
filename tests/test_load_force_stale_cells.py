@@ -19,6 +19,9 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "scripts"))
 import cost_table  # noqa: E402
 
+from vector_bench.harness import LatencyStats, Workload  # noqa: E402
+from vector_bench.load import LoadCell, LoadMatrix, dump_load_matrix_json  # noqa: E402
+
 
 def _load(results: Path, *args: str) -> None:
     r = subprocess.run(  # noqa: S603
@@ -80,3 +83,48 @@ def test_a_run_with_concurrency_one_still_builds_the_table(tmp_path: Path) -> No
     assert rc == 0, err
     qps = json.loads((tmp_path / "r1" / "c001.json").read_text())["throughput_qps"]
     assert f"{qps:.1f}" in (tmp_path / "cost.md").read_text()
+
+
+def _matrix(*levels: int) -> LoadMatrix:
+    workload = Workload(n_vectors=50, dim=8, n_queries=2000, top_k=10)
+    stats = LatencyStats(p50_ms=1.0, p95_ms=2.0, p99_ms=3.0, max_ms=4.0)
+    cells = tuple(
+        LoadCell(
+            run_id="r1",
+            backend="stub",
+            workload=workload,
+            concurrency=c,
+            ingest_seconds=0.1,
+            query_latency=stats,
+            mean_recall_at_k=1.0,
+            throughput_qps=100.0,
+            started_at="2026-10-14T00:00:00Z",
+            git_sha=None,
+        )
+        for c in levels
+    )
+    return LoadMatrix(run_id="r1", backend="stub", workload=workload, cells=cells)
+
+
+def test_a_force_rewrite_removes_a_previous_cell_of_four_or_more_digits(tmp_path: Path) -> None:
+    # `c{:03d}` is a minimum width: concurrency 1000 is `c1000.json`, which the
+    # three-digit cleanup glob left beside a matrix that no longer lists it (#230).
+    run = tmp_path / "r1"
+    dump_load_matrix_json(run, matrix=_matrix(1, 1000, 12000))
+    assert sorted(p.name for p in run.iterdir()) == [
+        "c001.json",
+        "c1000.json",
+        "c12000.json",
+        "matrix.json",
+    ]
+    for keep in ("c1000.json.bak", "cx.json", "c01.json"):
+        (run / keep).write_text("not a cell this function writes")
+    dump_load_matrix_json(run, matrix=_matrix(1, 10), force=True)
+    assert sorted(p.name for p in run.iterdir()) == [
+        "c001.json",
+        "c01.json",
+        "c010.json",
+        "c1000.json.bak",
+        "cx.json",
+        "matrix.json",
+    ]

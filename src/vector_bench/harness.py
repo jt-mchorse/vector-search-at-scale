@@ -84,6 +84,14 @@ class Workload:
         # What a valid seed *value* is stays `np.random.default_rng`'s question.
         if not isinstance(self.seed, int) or isinstance(self.seed, bool):
             raise ValueError(f"seed must be an int, got {self.seed!r}")
+        # ...but it is asked here, at construction, rather than first inside
+        # `generate_corpus` mid-run (#231). There a negative seed surfaced as a
+        # bare "expected non-negative integer" naming no field, and `load`
+        # reported it under its `--concurrency invalid:` arm.
+        try:
+            np.random.default_rng(self.seed)
+        except ValueError as e:
+            raise ValueError(f"seed must be a valid numpy seed, got {self.seed!r}: {e}") from None
         if self.top_k > self.n_vectors:
             raise ValueError(f"top_k ({self.top_k}) exceeds n_vectors ({self.n_vectors})")
 
