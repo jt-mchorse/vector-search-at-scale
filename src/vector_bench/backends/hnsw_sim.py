@@ -42,6 +42,32 @@ import numpy as np
 from vector_bench.types import check_ingest_shape, check_open
 
 
+def validate_hnsw_params(*, M: int, ef_construction: int, ef_search: int) -> None:
+    """Raise ``ValueError`` unless every knob is a positive int.
+
+    Pure, so `hnsw_grid` can check a whole grid before the first cell runs
+    (#227), the shape pgvector's `validate_hnsw_params` set in #188. While
+    only `__post_init__` ran it, once per cell, a bad value on a later cell
+    stopped the grid after the earlier cells had written their JSONs.
+    """
+    # Integer guards (#31). Pre-#31 the sign-only `<= 0` accepted `True`
+    # (silently bound `M=True`; `topk_local = argsort(-sims)[:True]` returned
+    # 1 neighbor instead of 16 — recall silently collapsed with no error),
+    # `1.5` / `16.0` (silently bound; `[:1.5]` raised `TypeError` deep in
+    # ingest), and `NaN` / `Inf` (silently bound; surfaced as opaque numpy
+    # errors far from the configuration site). Same harm class as
+    # `Workload` / `recall_at_k` in #29.
+    for label, value in (
+        ("M", M),
+        ("ef_construction", ef_construction),
+        ("ef_search", ef_search),
+    ):
+        if not isinstance(value, int) or isinstance(value, bool):
+            raise ValueError(f"{label} must be an int, got {value!r}")
+        if value <= 0:
+            raise ValueError(f"{label} must be positive, got {value}")
+
+
 @dataclass
 class HnswSimBackend:
     """Pure-numpy simulation of HNSW's recall/latency tradeoff.
@@ -75,22 +101,9 @@ class HnswSimBackend:
     _closed = False
 
     def __post_init__(self) -> None:
-        # Integer guards (#31). Pre-#31 the sign-only `<= 0` accepted `True`
-        # (silently bound `M=True`; `topk_local = argsort(-sims)[:True]` returned
-        # 1 neighbor instead of 16 — recall silently collapsed with no error),
-        # `1.5` / `16.0` (silently bound; `[:1.5]` raised `TypeError` deep in
-        # ingest), and `NaN` / `Inf` (silently bound; surfaced as opaque numpy
-        # errors far from the configuration site). Same harm class as
-        # `Workload` / `recall_at_k` in #29.
-        for label, value in (
-            ("M", self.M),
-            ("ef_construction", self.ef_construction),
-            ("ef_search", self.ef_search),
-        ):
-            if not isinstance(value, int) or isinstance(value, bool):
-                raise ValueError(f"{label} must be an int, got {value!r}")
-            if value <= 0:
-                raise ValueError(f"{label} must be positive, got {value}")
+        validate_hnsw_params(
+            M=self.M, ef_construction=self.ef_construction, ef_search=self.ef_search
+        )
         self._vectors: np.ndarray | None = None
         self._ids: list[str] = []
         self._neighbors: list[np.ndarray] = []

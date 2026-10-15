@@ -2083,3 +2083,24 @@ refused by the server only after the grid had already written earlier
 results, which ended in a raw error. The Weaviate backend now rejects all of
 these before it connects. Weaviate doesn't quietly fall back to a brute-force
 scan on small collections, so the problem Qdrant had there doesn't apply.
+
+## 2026-10-14 — The default grid backend is checked before any cell runs (#227)
+
+The tuning grid checks pgvector's and Qdrant's settings up front. The default
+simulated backend wasn't in that list. It did refuse a setting of 0, but only
+when it reached that cell, so a grid like `--M 8,0` first ran and saved the
+M=8 result, then stopped with no summary file. Run into a folder that already
+held a grid, it overwrote one of the old grid's results with a different
+workload, which left the folder's summary and results out of step. The grid
+now checks the simulated backend's settings for every cell before it runs
+anything, so a bad value leaves the output folder exactly as it was.
+
+## 2026-10-14 — Weaviate's settings are also checked across the whole grid (#228)
+
+Yesterday's Weaviate fix added the settings check, but it left the up-front
+grid check for later, until the Qdrant change it depended on had merged. Both
+have now merged, and the grid still checked Weaviate one cell at a time, so a
+bad value in a later cell left the earlier results on disk. The grid now checks
+Weaviate's settings for every cell before it starts, the same as for the other
+backends. A test now fails if a backend the grid can sweep doesn't have this
+up-front check.

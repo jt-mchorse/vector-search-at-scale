@@ -34,11 +34,17 @@ if str(_SRC) not in sys.path:
     sys.path.insert(0, str(_SRC))
 
 from vector_bench.backends import make_backend  # noqa: E402
+from vector_bench.backends.hnsw_sim import (  # noqa: E402
+    validate_hnsw_params as validate_hnsw_sim,
+)
 from vector_bench.backends.pgvector import (  # noqa: E402
     validate_hnsw_params as validate_pgvector_hnsw,
 )
 from vector_bench.backends.qdrant import (  # noqa: E402
     validate_hnsw_params as validate_qdrant_hnsw,
+)
+from vector_bench.backends.weaviate import (  # noqa: E402
+    validate_hnsw_params as validate_weaviate_hnsw,
 )
 from vector_bench.harness import Workload, run_benchmark  # noqa: E402
 from vector_bench.io_utils import atomic_write_text  # noqa: E402
@@ -58,11 +64,20 @@ _HNSW_KNOBS: dict[str, tuple[str, str, str, bool]] = {
 }
 
 #: Each backend's own HNSW bounds, as a check over one grid cell's (M, efc, efs)
-#: that raises `ValueError` (#188 pgvector, #222 qdrant). Run over every cell
-#: before the first one runs. Pure functions, so neither SDK is imported.
+#: that raises `ValueError` (#188 pgvector, #222 qdrant, #227 hnsw-sim, #228
+#: weaviate). Run over every cell before the first one runs. Pure functions, so
+#: no SDK is imported. Every `_HNSW_KNOBS` backend needs a row: a constructor
+#: check alone runs once per cell, after the earlier cells were written.
 _HNSW_BOUNDS: dict[str, Callable[[int, int, int], None]] = {
     "pgvector": lambda M, efc, efs: validate_pgvector_hnsw(m=M, ef_construction=efc, ef_search=efs),
     "qdrant": lambda M, efc, efs: validate_qdrant_hnsw(m=M, ef_construct=efc, ef=efs),
+    "weaviate": lambda M, efc, efs: validate_weaviate_hnsw(
+        max_connections=M, ef_construction=efc, ef=efs
+    ),
+    # The default backend (#227). Its constructor refused M=0, but per cell, so
+    # `--M 8,0` wrote M8's cell first -- over an existing grid's, in a reused
+    # --out-dir -- and then exited 2 with no grid.json.
+    "hnsw-sim": lambda M, efc, efs: validate_hnsw_sim(M=M, ef_construction=efc, ef_search=efs),
 }
 
 #: Backends `make_backend` knows that have no HNSW knobs to sweep.
