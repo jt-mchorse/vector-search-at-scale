@@ -2120,3 +2120,15 @@ with a message that named no setting. `vector-bench load` showed it as
 workload now checks the seed with numpy when it is created. All three entry
 points (`run`, `load`, `hnsw_grid.py`) report "seed must be a valid numpy
 seed" before doing any work.
+
+## 2026-10-14 — The HNSW frontier plotter checks every field it uses (#226)
+
+`plot_hnsw_frontier.py` validated a grid file before drawing it, but only some
+of the fields. A grid with no vector count or dimension in its workload, or a
+row with no `run_id` or no `M` / `ef_construction` / `ef_search`, crashed with
+a raw error. In the knob case this happened after the chart image had already
+been written. A row with `M: true` was printed in the table as "True". The
+validator now checks every field the plotter reads, so a bad file is refused
+cleanly at exit 2 with nothing written. The workload's size fields are only
+required when the default chart title is drawn, because `--title` doesn't
+use them.

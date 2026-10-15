@@ -71,13 +71,26 @@ def _require_finite_number(value: Any, field: str) -> float:
     return float(value)
 
 
-def _validate_grid_shape(grid: Any) -> None:
+#: The `workload` keys the default chart title reads, besides `top_k` (#226).
+_TITLE_WORKLOAD_FIELDS = ("n_vectors", "dim", "n_queries")
+
+#: The per-cell knobs `_print_table` and the recommended-defaults line print.
+_KNOB_CELL_FIELDS = ("M", "ef_construction", "ef_search")
+
+
+def _validate_grid_shape(grid: Any, *, default_title: bool = True) -> None:
     """Raise `ValueError` unless `grid` has the structure `render` reads (#217).
 
     `render` raises on a missing or empty `cells`, but outside every exit-2 arm
     in `main`, so `{}`, `[]`, `{"cells": 5}` and a grid with no `workload` ended
     at exit 1 with a raw traceback, while `plot_latency.py` refuses the same
     inputs with exit 2.
+
+    `top_k` was the one `workload` key checked, for the y-axis label. The
+    default title also reads `n_vectors`, `dim` and `n_queries`, and a grid
+    without them got past this check and failed there as a `KeyError` at exit 1
+    (#226). They are required only when that title is drawn: under `--title`
+    nothing reads them.
     """
     if not isinstance(grid, dict):
         raise ValueError(f"it must be a JSON object; got {type(grid).__name__}")
@@ -87,6 +100,13 @@ def _validate_grid_shape(grid: Any) -> None:
     workload = grid.get("workload")
     if not isinstance(workload, dict) or "top_k" not in workload:
         raise ValueError("it needs a `workload` object with `top_k`")
+    if default_title:
+        missing = [k for k in _TITLE_WORKLOAD_FIELDS if k not in workload]
+        if missing:
+            raise ValueError(
+                f"its `workload` is missing {', '.join(missing)}, which the chart title "
+                "reads (pass --title to supply your own)"
+            )
 
 
 def _validate_cells(grid: dict) -> None:
@@ -104,6 +124,16 @@ def _validate_cells(grid: dict) -> None:
             if field not in cell:
                 raise ValueError(f"grid cell {i} is missing required numeric field {field!r}")
             _require_finite_number(cell[field], f"grid cell {i} {field}")
+        # `render` keys the frontier by `run_id` (a set, so it must be hashable),
+        # and the table and the knee line print the three knobs. None of them was
+        # checked, so a missing one was a `KeyError` at exit 1 -- after the PNG
+        # was saved, for the knobs -- and `M: true` printed `| True |` (#226).
+        if not isinstance(cell.get("run_id"), str):
+            raise ValueError(f"grid cell {i} needs a string `run_id`")
+        for field in _KNOB_CELL_FIELDS:
+            value = cell.get(field)
+            if not isinstance(value, int) or isinstance(value, bool):
+                raise ValueError(f"grid cell {i} {field} must be an int; got {value!r}")
 
 
 def _dominates(a: dict, b: dict) -> bool:
@@ -286,7 +316,7 @@ def main(argv: list[str] | None = None) -> int:
     # of the structural guards above and of plot_latency's `_reject_bool_numeric`
     # (#109/#110). A malformed value is bad input -> clean exit 2.
     try:
-        _validate_grid_shape(grid)
+        _validate_grid_shape(grid, default_title=args.title is None)
     except ValueError as exc:
         sys.stderr.write(f"{args.grid_json} is not a valid grid: {exc}\n")
         return 2

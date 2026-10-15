@@ -2474,3 +2474,21 @@ context_for_next_session:
   - KEEPING_A_RULE_WITH_ITS_OWNER_default_rng_DOES_NOT_REQUIRE_ASKING_IT_LATE_call_it_in_post_init
 followups: []
 ---
+
+---
+session: 2026-10-14T07:32Z
+duration_min: 15   # computed: plan comment ~07:40Z, commit ~07:45Z (issue filed 2026-10-13, stranded with a plan and no PR)
+issue: 226
+branch: session/2026-10-14-0732-issue-226
+focus: PLOT_HNSW_FRONTIER_217_SHAPE_GUARD_LISTED_THE_KEYS_ONE_LINE_READS_top_k_NOT_EVERY_KEY_THE_READER_READS_title_workload_keys_run_id_and_the_three_knobs
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 13
+  suite: "3.12 [dev,plot,qdrant] 1248 -> 1261 passed / 1 skipped; ruff check + format clean"
+decisions_made: []
+measured: "main: workload {top_k} only -> KeyError n_vectors exit 1; cell without run_id -> KeyError exit 1; cell without M -> KeyError exit 1 with o.png written; M true -> exit 0 table '| True |'; run_id list -> TypeError unhashable exit 1. Branch: all exit 2, no PNG; --title on a top_k-only workload still renders; an hnsw_grid.py-written grid still renders. Revert 11 of 13 new red (title arm + writer round-trip arm green by design)."
+context_for_next_session:
+  - A_KEY_ONLY_READ_ON_ONE_BRANCH_default_title_IS_REQUIRED_ONLY_ON_THAT_BRANCH_else_a_validator_rejects_input_the_reader_handles
+followups: []
+---
