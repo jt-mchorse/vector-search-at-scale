@@ -2153,3 +2153,14 @@ operator to run `pip install 'vector-bench[...]'`. This repo isn't on PyPI, and
 the backends package docstring, now say `pip install -e '.[extra]'` from the
 checkout, as the README does. A new test fails if any tracked file tells the
 reader to install this project's name from an index.
+
+## 2026-10-15 — Postgres now starts on the pgvector benchmark instance (#237)
+
+The pgvector instance formats its data disk and mounts the top of that disk
+into the container as Postgres's data directory. A freshly formatted ext4
+disk always has a `lost+found` folder at the top, and Postgres refuses to set
+up a database in a folder that isn't empty. So the container failed on every
+start and the instance never accepted connections. The data directory is now
+a subfolder (`pgdata`) on the same disk, which is what Postgres's own error
+message suggests. A new test reads the startup script and fails if the data
+directory is ever set back to the top of the disk or moved off it.
