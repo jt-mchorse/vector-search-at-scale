@@ -87,9 +87,10 @@ def _backend(client: Any, qmodels: Any) -> QdrantBackend:
     return b
 
 
-# 32 x 16 float32 = 2 KiB, over the 1 KiB indexing threshold (#209).
+# 32 x 128 float32 = 16 KiB (the 20-row reingest below is exactly 10 KiB), over
+# the 10 KiB refusal floor (#209, #220).
 _RNG = np.random.default_rng(211)
-_VECTORS = _RNG.standard_normal((32, 16)).astype(np.float32)
+_VECTORS = _RNG.standard_normal((32, 128)).astype(np.float32)
 _IDS = [f"d{i}" for i in range(32)]
 
 

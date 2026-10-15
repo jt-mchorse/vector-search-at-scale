@@ -2492,3 +2492,22 @@ context_for_next_session:
   - A_KEY_ONLY_READ_ON_ONE_BRANCH_default_title_IS_REQUIRED_ONLY_ON_THAT_BRANCH_else_a_validator_rejects_input_the_reader_handles
 followups: []
 ---
+
+---
+session: 2026-10-14T07:34Z
+duration_min: 15   # computed: plan comment ~07:50Z, commit ~07:55Z (issue filed 2026-10-13, stranded with no plan and no PR)
+issue: 220
+branch: session/2026-10-14-0734-issue-220
+focus: QDRANT_209_REFUSAL_FLOOR_WAS_THE_1_KiB_INDEXING_THRESHOLD_BUT_THE_219_full_scan_threshold_MINIMUM_IS_10_KiB_SO_1_TO_10_KiB_WAS_INDEXED_THEN_PLAIN_SCANNED
+phase: shipped
+delta:
+  files_changed: 8
+  tests_added: 8
+  suite: "3.12 [dev,plot,qdrant] 1248 -> 1256 passed / 1 skipped; ruff check + format clean"
+decisions_made: []
+measured: "no Qdrant binary this session; relied on #220's 1.14.0 measurement (n=30x64 7,680 B unfiltered_plain recall 1.000; n=50x64 12,800 B unfiltered_hnsw 0.962). MIN_CORPUS_KB = max(INDEXING_THRESHOLD_KB, FULL_SCAN_THRESHOLD_KB) = 10. Six fixture files moved from 1.5-2 KiB to >= 10 KiB corpora (3x1024, 32x96/128). Revert 8 of 8 new red; the renamed exactly-10-KiB arm is green on both by design."
+context_for_next_session:
+  - TWO_SIZE_THRESHOLDS_GATE_A_QDRANT_HNSW_SEARCH_indexing_threshold_AND_full_scan_threshold_A_REFUSAL_FLOOR_MUST_BE_THEIR_MAX
+  - THE_EXACT_KiB_BOUNDARY_10240_B_IS_NOT_LIVE_VERIFIED_re_measure_with_a_binary_if_one_is_at_hand
+followups: []
+---

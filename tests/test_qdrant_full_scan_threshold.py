@@ -34,8 +34,8 @@ from vector_bench.backends.qdrant import QdrantBackend
 # 10 or larger" (1.14.0 and 1.19.2).
 _SERVER_MINIMUM_KB = 10
 
-# 32 x 16 float32 = 2 KiB, over the 1 KiB refusal floor (#209).
-_VECTORS = np.random.default_rng(219).standard_normal((32, 16)).astype(np.float32)
+# 32 x 96 float32 = 12 KiB, over the 10 KiB refusal floor (#209, #220).
+_VECTORS = np.random.default_rng(219).standard_normal((32, 96)).astype(np.float32)
 _IDS = [f"d{i}" for i in range(32)]
 
 
