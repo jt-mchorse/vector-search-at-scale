@@ -35,12 +35,17 @@ apt-get install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
 
 systemctl enable --now docker
 
+# PGDATA is a subdirectory of the bind, not the bind itself: the bind's host
+# side is the ext4 mount root, which holds lost+found, and initdb refuses a
+# non-empty data directory ("Create a subdirectory under the mount point").
+# The image's entrypoint creates and chowns the subdirectory (#237).
 docker run -d \
   --name pgvector \
   --restart unless-stopped \
   -p 5432:5432 \
   -e POSTGRES_PASSWORD='${postgres_password}' \
   -e POSTGRES_DB=bench \
+  -e PGDATA=/var/lib/postgresql/data/pgdata \
   -v /var/lib/postgresql:/var/lib/postgresql/data \
   pgvector/pgvector:${image_tag}
 
