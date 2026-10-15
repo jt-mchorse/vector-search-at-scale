@@ -2547,3 +2547,22 @@ context_for_next_session:
   - POSTGRES_18_IMAGES_MOVED_THE_DEFAULT_PGDATA_TO_var_lib_postgresql_18_docker_a_tag_bump_without_the_explicit_PGDATA_would_write_outside_the_bind
 followups: []
 ---
+
+---
+session: 2026-10-15T07:35Z
+duration_min: 20   # computed: issue 239 filed ~07:33Z, plan comment ~07:35Z, commit ~07:50Z
+issue: 239
+branch: session/2026-10-15-0735-issue-239
+focus: PGVECTOR_index_method_TOOK_ANY_STRING_AND_ONLY_hnsw_BUILT_AN_INDEX_SO_ivfflat_OR_A_TYPO_BENCHMARKED_A_SEQUENTIAL_SCAN
+phase: shipped
+delta:
+  files_changed: 4
+  tests_added: 8
+  suite: "3.11 [dev,plot,qdrant] 1298 -> 1306 passed / 1 skipped; ruff check + format clean"
+decisions_made: []
+measured: "fake psycopg logging SQL, main @ 1e3a9c3: index_method 'hnsw' -> one CREATE INDEX ... USING hnsw; 'ivfflat' / 'HNSW' / 'hnws' -> constructed, ingested, CREATE INDEX statements NONE. Branch: each non-'hnsw' value is ValueError at construction, before the psycopg import and the DSN check. Two existing tests that used 'ivfflat' as a working path now assert the refusal. Revert 9 of 10 new/rewritten red (the INDEX_METHODS builds-an-index control is green by design)."
+context_for_next_session:
+  - A_KEYWORD_WITH_ONE_IMPLEMENTED_VALUE_AND_AN_if_EQUALS_ARM_SILENTLY_TURNS_EVERY_OTHER_VALUE_INTO_THE_NO_OP_PATH
+  - A_TEST_NAMED_FOR_A_PATH_an_ivfflat_index_IS_NOT_EVIDENCE_THE_PATH_EXISTS_check_the_SQL_it_emits
+followups: []
+---
