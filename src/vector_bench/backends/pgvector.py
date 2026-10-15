@@ -77,7 +77,7 @@ class PgVectorBackend:
             import psycopg  # type: ignore
         except ImportError as e:  # pragma: no cover - exercised only without the extra
             raise BackendError(
-                "PgVectorBackend requires the `pgvector` extra: pip install 'vector-bench[pgvector]'"
+                "PgVectorBackend requires the `pgvector` extra: pip install -e '.[pgvector]' from the vector-search-at-scale checkout"
             ) from e
         self._psycopg = psycopg
         self._conninfo = conninfo or os.environ.get("PGVECTOR_DSN")

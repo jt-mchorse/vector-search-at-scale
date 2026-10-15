@@ -112,7 +112,7 @@ class QdrantBackend:
             from qdrant_client.http import models as qmodels  # type: ignore
         except ImportError as e:  # pragma: no cover - exercised only without the extra
             raise BackendError(
-                "QdrantBackend requires the `qdrant` extra: pip install 'vector-bench[qdrant]'"
+                "QdrantBackend requires the `qdrant` extra: pip install -e '.[qdrant]' from the vector-search-at-scale checkout"
             ) from e
         self._qmodels = qmodels
         url = url or os.environ.get("QDRANT_URL")

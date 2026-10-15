@@ -2144,3 +2144,12 @@ numbers as if they were HNSW numbers. The floor is now 10 KiB, the larger of
 the two limits, and the error message explains both. Several Qdrant tests
 used corpora of 1.5 to 2 KiB and were moved above the new floor. No
 published number changes, because no committed result comes from Qdrant.
+
+## 2026-10-14 — missing-backend hints no longer point at tensorchord's package (#234)
+
+The pgvector, Qdrant and Weaviate backends' "missing extra" errors told the
+operator to run `pip install 'vector-bench[...]'`. This repo isn't on PyPI, and
+`vector-bench` there is tensorchord's unrelated benchmark package. The hints, and
+the backends package docstring, now say `pip install -e '.[extra]'` from the
+checkout, as the README does. A new test fails if any tracked file tells the
+reader to install this project's name from an index.

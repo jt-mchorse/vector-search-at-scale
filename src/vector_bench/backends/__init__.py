@@ -7,9 +7,9 @@ Available adapters:
 - `hnsw-sim`: pure-numpy *simulation* of HNSW (M / ef_construction /
   ef_search knobs) used by the parameter-tuning study (#3). NOT a real
   HNSW implementation — see `hnsw_sim.py` for the model.
-- `pgvector`: psycopg/pgvector adapter; install with `vector-bench[pgvector]`.
-- `qdrant`: qdrant-client adapter; install with `vector-bench[qdrant]`.
-- `weaviate`: weaviate-client adapter; install with `vector-bench[weaviate]`.
+- `pgvector`: psycopg/pgvector adapter; install with `pip install -e '.[pgvector]'` from the checkout.
+- `qdrant`: qdrant-client adapter; install with `pip install -e '.[qdrant]'` from the checkout.
+- `weaviate`: weaviate-client adapter; install with `pip install -e '.[weaviate]'` from the checkout.
 
 Use `make_backend(name, **kwargs)` to construct one without committing to
 a hard import in your caller code.

@@ -2511,3 +2511,20 @@ context_for_next_session:
   - THE_EXACT_KiB_BOUNDARY_10240_B_IS_NOT_LIVE_VERIFIED_re_measure_with_a_binary_if_one_is_at_hand
 followups: []
 ---
+
+---
+session: 2026-10-14T08:05Z
+issue: 234
+focus: SECURITY_MISSING_BACKEND_EXTRA_HINTS_SAID_PIP_INSTALL_VECTOR_BENCH_AND_VECTOR_BENCH_ON_PYPI_IS_TENSORCHORDS_UNRELATED_PACKAGE
+phase: shipped
+delta:
+  files_changed: 5
+  tests_added: 3
+  suite: "full suite green (rc 0); ruff check + format clean"
+decisions_made: []
+measured: "pypi.org/pypi/vector-bench/json -> 200, 0.1.0, homepage github.com/tensorchord/vectordb-benchmark. pgvector/qdrant/weaviate ImportError hints and backends/__init__ docstring all named it. Revert probe: 1 of 3 new arms red, the 2 controls green."
+context_for_next_session:
+  - SAME_LOCK_AS_leh_369_reads_dist_name_from_pyproject_scans_git_ls_files_outside_MEMORY
+  - THE_LOCK_KEYS_ON_pip_install_SO_A_BARE_install_with_DIST_extra_IN_PROSE_IS_NOT_SCANNED_the_init_docstring_was_fixed_by_hand
+followups: []
+---
