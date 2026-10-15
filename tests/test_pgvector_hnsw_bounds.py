@@ -64,13 +64,17 @@ def test_the_backend_refuses_before_it_needs_a_dsn(monkeypatch: pytest.MonkeyPat
         PgVectorBackend(hnsw_m=32, hnsw_ef_construction=50)
 
 
-def test_a_non_hnsw_index_does_not_check_hnsw_knobs(monkeypatch: pytest.MonkeyPatch) -> None:
-    # A stub module stands in for psycopg: the constructor only imports it.
+def test_a_non_hnsw_index_is_refused_rather_than_skipping_the_hnsw_check(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # This arm used to construct: a non-hnsw value skipped the bounds check, and
+    # `_ensure_table` then built no index at all (#239).
     import types
 
     monkeypatch.setitem(sys.modules, "psycopg", types.ModuleType("psycopg"))
     monkeypatch.setenv("PGVECTOR_DSN", "postgresql://unused")
-    PgVectorBackend(index_method="ivfflat", hnsw_m=32, hnsw_ef_construction=50)
+    with pytest.raises(ValueError, match="index_method"):
+        PgVectorBackend(index_method="ivfflat", hnsw_m=32, hnsw_ef_construction=50)
 
 
 def test_the_readme_grid_on_pgvector_fails_before_writing_anything(tmp_path: Path) -> None:
