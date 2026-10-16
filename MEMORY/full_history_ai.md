@@ -2585,3 +2585,20 @@ context_for_next_session:
   - THE_SWEEP_OF_METRICS_GROUND_TRUTH_AND_PUBLISHED_TABLES_WAS_CLEAN_percentile_equals_numpy_linear_cost_table_dry_byte_identical_plot_latency_table_matches_README_knee_drift_is_78_exactness_is_71
 followups: []
 ---
+
+---
+session: 2026-10-16T10:40Z
+issue: 243
+branch: session/2026-10-16-0831-issue-243
+focus: COST_TABLE_STILL_COERCED_THROUGHPUT_QPS_WITH_FLOAT_A_NUMERIC_STRING_PUBLISHED_AT_EXIT_0_THE_READER_DEFECT_241_REMOVED_FROM_PLOT_LATENCY
+phase: shipped
+delta:
+  files_changed: 3
+  tests_added: 10
+  suite: "1334 passed, 3 skipped; ruff + format clean"
+decisions_made: []
+measured: "main: c001 throughput_qps ' 1_623.5\\n' -> 9 rows at 1623.5 qps exit 0; after: exit 2 'must be a number; got str'. Revert 8 of 10 red."
+context_for_next_session:
+  - SWEPT_scripts_AND_src_FOR_float_int_COERCION_OF_RESULT_FILE_FIELDS_only_cost_table_qps_remained_tier_int_calls_parse_HCL_text_LEGITIMATELY
+followups: []
+---
