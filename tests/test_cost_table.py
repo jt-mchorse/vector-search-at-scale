@@ -507,13 +507,13 @@ def _write_c001(tmp_path: Path, body: str) -> Path:
 @pytest.mark.parametrize(
     ("body", "needle"),
     [
-        # ValueError from load_throughput_qps's own bool guard — the one whose
-        # comment asserted it reached an exit-2 handler that did not exist.
-        ('{"throughput_qps": true}', "not a bool"),
-        # ValueError from float() on a non-numeric string.
-        ('{"throughput_qps": "abc"}', "could not convert string to float"),
-        # TypeError from float(None).
-        ('{"throughput_qps": null}', "float()"),
+        # ValueError from load_throughput_qps's own type guard — the one whose
+        # comment asserted it reached an exit-2 handler that did not exist. A
+        # string and null are refused by the same guard since #243, not by
+        # `float()`, which accepted a numeric string.
+        ('{"throughput_qps": true}', "got bool True"),
+        ('{"throughput_qps": "abc"}', "got str 'abc'"),
+        ('{"throughput_qps": null}', "got NoneType None"),
         # KeyError from the absent required field.
         ('{"qps": 5}', "throughput_qps"),
         # TypeError from subscripting a non-object payload.
