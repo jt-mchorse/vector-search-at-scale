@@ -2528,3 +2528,22 @@ context_for_next_session:
   - THE_LOCK_KEYS_ON_pip_install_SO_A_BARE_install_with_DIST_extra_IN_PROSE_IS_NOT_SCANNED_the_init_docstring_was_fixed_by_hand
 followups: []
 ---
+
+---
+session: 2026-10-15T07:18Z
+duration_min: 15   # computed: branch cut ~07:18Z, commit ~07:28Z, memory ~07:33Z
+issue: 237
+branch: session/2026-10-15-0718-issue-237
+focus: PGVECTOR_USER_DATA_BOUND_THE_EXT4_MOUNT_ROOT_AS_PGDATA_ITS_LOST_FOUND_MADE_INITDB_REFUSE_IT_SO_THE_INSTANCE_NEVER_SERVED_5432
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 7
+  suite: "3.11 [dev,plot,qdrant] 1284 passed / 1 skipped; ruff check + format clean; terraform fmt -check -recursive + validate (pgvector) clean"
+decisions_made: []
+measured: "Homebrew initdb 17 -D <dir holding lost+found> -> 'exists but is not empty ... It contains a lost+found directory ... Create a subdirectory under the mount point.'; -D <dir>/pgdata -> 'Success'. Template set no PGDATA, so the postgres:16 default /var/lib/postgresql/data == the bind of the mount root. Fix: -e PGDATA=/var/lib/postgresql/data/pgdata. Revert 1 of 7 new red (the 6 rule arms run on inline shapes and are template-independent by design)."
+context_for_next_session:
+  - TERRAFORM_VALIDATE_AND_FMT_NEVER_READ_WHAT_A_USER_DATA_TEMPLATE_DOES_shellcheck_skips_tftpl_too_so_template_behaviour_needs_a_python_parse_test
+  - POSTGRES_18_IMAGES_MOVED_THE_DEFAULT_PGDATA_TO_var_lib_postgresql_18_docker_a_tag_bump_without_the_explicit_PGDATA_would_write_outside_the_bind
+followups: []
+---
