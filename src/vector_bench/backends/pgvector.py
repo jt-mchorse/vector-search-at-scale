@@ -29,6 +29,9 @@ HNSW_M_RANGE = (2, 100)
 HNSW_EF_CONSTRUCTION_RANGE = (4, 1000)
 HNSW_EF_SEARCH_RANGE = (1, 1000)
 
+#: The index methods `_ensure_table` can build (#239).
+INDEX_METHODS = ("hnsw",)
+
 
 def validate_hnsw_params(*, m: int, ef_construction: int, ef_search: int) -> None:
     """Raise ``ValueError`` unless pgvector would accept these HNSW knobs.
@@ -69,10 +72,18 @@ class PgVectorBackend:
     ) -> None:
         # Before the import and the DSN check: a bad knob is the caller's error
         # whatever the environment, and the grid relies on this raising early.
-        if index_method == "hnsw":
-            validate_hnsw_params(
-                m=hnsw_m, ef_construction=hnsw_ef_construction, ef_search=hnsw_ef_search
+        # `_ensure_table` builds an index only for "hnsw" (#239). Any other value
+        # -- "ivfflat", "HNSW", a typo -- used to construct, ingest into a table
+        # with no index, and publish a sequential scan's recall 1.0 as pgvector.
+        if index_method not in INDEX_METHODS:
+            raise ValueError(
+                f"pgvector index_method must be one of {list(INDEX_METHODS)}; got "
+                f"{index_method!r}. This adapter builds no other index, so the run "
+                f"would measure a sequential scan"
             )
+        validate_hnsw_params(
+            m=hnsw_m, ef_construction=hnsw_ef_construction, ef_search=hnsw_ef_search
+        )
         try:
             import psycopg  # type: ignore
         except ImportError as e:  # pragma: no cover - exercised only without the extra

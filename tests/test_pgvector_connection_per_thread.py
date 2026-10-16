@@ -133,7 +133,8 @@ def test_close_closes_every_threads_connection(conns: list[_Conn]) -> None:
     assert all(c.closed for c in conns)
 
 
-def test_an_ivfflat_index_sets_no_hnsw_session_knob(conns: list[_Conn]) -> None:
-    b = _backend(index_method="ivfflat")
-    _queries_from(b, 2)
-    assert not any("hnsw.ef_search" in s for c in conns for s in c.log)
+def test_an_ivfflat_index_is_refused_before_any_connection(conns: list[_Conn]) -> None:
+    # It used to construct and query on a table with no index (#239).
+    with pytest.raises(ValueError, match="index_method"):
+        _backend(index_method="ivfflat")
+    assert conns == []

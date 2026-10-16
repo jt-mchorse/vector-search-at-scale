@@ -2164,3 +2164,15 @@ start and the instance never accepted connections. The data directory is now
 a subfolder (`pgdata`) on the same disk, which is what Postgres's own error
 message suggests. A new test reads the startup script and fails if the data
 directory is ever set back to the top of the disk or moved off it.
+
+## 2026-10-15 — pgvector refuses an index type it cannot build (#239)
+
+The pgvector backend's `index_method` option took any string, but only
+`"hnsw"` ever created an index. `"ivfflat"` (which two tests treated as
+supported), `"HNSW"`, or a typo was accepted. The backend loaded the data into
+a table with no index, so every query was a full exact scan. That run reported
+perfect recall at brute-force speed and labelled it pgvector, which is the
+kind of measurement the Qdrant backend already refuses. Any value other than
+`"hnsw"` is now rejected when the backend is constructed. The command line and
+the grid script never set this option, so no published number changes. Real
+ivfflat support would be new feature work.
