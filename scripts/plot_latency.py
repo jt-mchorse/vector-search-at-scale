@@ -60,23 +60,34 @@ def _load_matrix(path: Path) -> LoadMatrix:
     data = loads_json(path.read_text())
     workload = Workload(**data["workload"])
     cells: list[LoadCell] = []
+    # The numerics go to `LoadCell` as the file holds them, with no `int()` /
+    # `float()` in front (#241). `LoadCell`'s guards are the rule, and they used
+    # to judge the *coerced* value: `"concurrency": "1"` and `10.9` both reached
+    # it as ints, as did a string `throughput_qps` -- while `LatencyStats` on the
+    # same cell got its fields raw and refused a string. The writer only ever
+    # emits ints and floats, so nothing it writes changes.
     for c in data["cells"]:
         cells.append(
             LoadCell(
                 run_id=c["run_id"],
                 backend=c["backend"],
                 workload=Workload(**c["workload"]),
-                concurrency=int(_reject_bool_numeric(c["concurrency"], "concurrency")),
-                ingest_seconds=float(_reject_bool_numeric(c["ingest_seconds"], "ingest_seconds")),
+                concurrency=_reject_bool_numeric(c["concurrency"], "concurrency"),
+                ingest_seconds=_reject_bool_numeric(c["ingest_seconds"], "ingest_seconds"),
                 query_latency=LatencyStats(**c["query_latency"]),
-                mean_recall_at_k=float(
-                    _reject_bool_numeric(c["mean_recall_at_k"], "mean_recall_at_k")
-                ),
-                throughput_qps=float(_reject_bool_numeric(c["throughput_qps"], "throughput_qps")),
+                mean_recall_at_k=_reject_bool_numeric(c["mean_recall_at_k"], "mean_recall_at_k"),
+                throughput_qps=_reject_bool_numeric(c["throughput_qps"], "throughput_qps"),
                 started_at=c["started_at"],
                 git_sha=c.get("git_sha"),
             )
         )
+    # One cell per level, the reader's half of `run_under_load`'s rule (#81).
+    # `render_table` takes the first cell at each level, so a second one was
+    # dropped from the published table at exit 0 (#241).
+    levels = [cell.concurrency for cell in cells]
+    repeated = sorted({lvl for lvl in levels if levels.count(lvl) > 1})
+    if repeated:
+        raise ValueError(f"concurrency levels {repeated} appear more than once in the cells")
     # Canonicalize cells ascending by concurrency. They're stored in whatever
     # order `--concurrency` was passed; the plot path consumes them in array
     # order on a log x-axis, so an unsorted (e.g. 100,10,1) matrix would draw a

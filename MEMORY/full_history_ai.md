@@ -2566,3 +2566,22 @@ context_for_next_session:
   - A_TEST_NAMED_FOR_A_PATH_an_ivfflat_index_IS_NOT_EVIDENCE_THE_PATH_EXISTS_check_the_SQL_it_emits
 followups: []
 ---
+
+---
+session: 2026-10-15T08:00Z
+duration_min: 30   # computed: issue filed ~08:00Z, commit ~08:20Z
+issue: 241
+branch: session/2026-10-15-0800-issue-241
+focus: PLOT_LATENCY_READER_COERCED_concurrency_WITH_int_AND_THE_FLOATS_WITH_float_BEFORE_LoadCell_SO_ITS_GUARDS_JUDGED_A_LAUNDERED_VALUE_AND_NO_READER_REFUSED_A_REPEATED_LEVEL
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 10
+  suite: "3.11 [dev,plot,qdrant] 1301 -> 1311 passed / 1 skipped; ruff check + format clean"
+decisions_made: []
+measured: "main: committed stub-10k matrix with the c=10 cell's concurrency set to 10.9 -> table row '10', exit 0; set to \"1\" or 1 -> the c=10 row vanishes from the table, exit 0. LatencyStats on the same cell already got raw values (p50_ms \"0.6\" exit 2) while throughput_qps \"1623\" loaded. Branch: all exit 2 'not a valid load matrix', no table, no PNG; the committed matrix renders byte-identically. Revert 8 of 10 new red (written-matrix round trip + committed-matrix render green by design)."
+context_for_next_session:
+  - A_COERCION_IN_FRONT_OF_A_GUARD_IS_A_GUARD_ON_THE_COERCED_VALUE_109_closed_only_the_bool_member_of_int_float_laundering
+  - THE_SWEEP_OF_METRICS_GROUND_TRUTH_AND_PUBLISHED_TABLES_WAS_CLEAN_percentile_equals_numpy_linear_cost_table_dry_byte_identical_plot_latency_table_matches_README_knee_drift_is_78_exactness_is_71
+followups: []
+---

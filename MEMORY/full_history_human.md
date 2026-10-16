@@ -2176,3 +2176,21 @@ kind of measurement the Qdrant backend already refuses. Any value other than
 `"hnsw"` is now rejected when the backend is constructed. The command line and
 the grid script never set this option, so no published number changes. Real
 ivfflat support would be new feature work.
+
+## 2026-10-15 — plot_latency refuses a matrix its own writer would not produce (#241)
+
+`scripts/plot_latency.py` converted each cell's numbers with `int()` and
+`float()` before the cell's own checks ran, so those checks only ever saw the
+converted value. A concurrency of `"1"` or `10.9` in a hand-edited or
+externally produced `matrix.json` loaded as `1` or `10`. When two cells ended
+up at the same level, the latency table showed only the first, so a measured
+row disappeared while the script still exited 0. The reader now hands the raw
+values to the cell checks and refuses a matrix that lists a level twice,
+matching what `vector-bench load` already refuses when writing. The committed
+`stub-10k` table renders exactly as before.
+
+This session also re-checked the metrics. The percentile helper matches
+numpy's linear method. `cost_table.py --dry` regenerates the committed cost
+doc byte for byte. The README latency table matches `matrix.json`. The two
+mismatches found (the stale knee, and recall under 1.0 at
+`ef_search >= n_vectors`) are already tracked as #78 and #71.
