@@ -2194,3 +2194,11 @@ numpy's linear method. `cost_table.py --dry` regenerates the committed cost
 doc byte for byte. The README latency table matches `matrix.json`. The two
 mismatches found (the stale knee, and recall under 1.0 at
 `ef_search >= n_vectors`) are already tracked as #78 and #71.
+
+## 2026-10-16 — The cost table refuses a throughput written as text (#243)
+
+The cost table reads the measured queries-per-second from a load-test result
+file. If that number had been written as text, for example `" 1_623.5"`, it was
+quietly converted and used for every row of the published table. Yesterday's
+#241 stopped the latency plot from doing the same thing with the same field.
+The cost table now refuses it with a clear error and exit code 2.
