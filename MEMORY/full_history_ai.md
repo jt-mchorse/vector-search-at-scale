@@ -2621,3 +2621,21 @@ context_for_next_session:
   - "TEST_FIXTURES_FOR_QDRANT_GRID_ARMS_MUST_CLEAR_10_KIB_n_x_dim_at_least_2560"
 followups: []
 ---
+
+---
+session: 2026-10-19T07:42Z
+duration_min: 15   # computed: issue 247 filed ~07:41Z, plan comment ~07:42Z, commit ~07:55Z
+issue: 247
+branch: session/2026-10-19-0742-issue-247
+focus: PLOT_HNSW_FRONTIER_COLOURED_BY_RUN_ID_MEMBERSHIP_AND_NO_READER_REFUSED_A_REPEATED_RUN_ID_SO_A_DOMINATED_CELL_WAS_PAINTED_FRONTIER_RED
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 5
+  suite: "3.11 [dev,plot,qdrant] 1336 -> 1341 passed / 1 skipped; ruff check + format clean"
+decisions_made: []
+measured: "main @ 89a5e5b: grid cells a(16/64/64, 0.99, 1.0ms) a(4/16/8, 0.50, 9.0ms) b(8/32/32, 0.80, 3.0ms) -> table lists only the first, exit 0, but the (9.0, 0.50) scatter is drawn #d62728 (frontier red). Branch: exit 2 'has an invalid grid cell: run_id values [...] appear more than once', no PNG. Revert 4 of 5 new arms red (the unique-run_id paints-only-the-frontier control is green by design)."
+context_for_next_session:
+  - "A_RENDERER_THAT_KEYS_A_SET_BY_AN_ID_IS_ONLY_RIGHT_WHEN_THE_ID_IS_UNIQUE_check_the_reader_refuses_what_the_writer_refuses"
+followups: []
+---

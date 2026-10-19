@@ -134,6 +134,15 @@ def _validate_cells(grid: dict) -> None:
             value = cell.get(field)
             if not isinstance(value, int) or isinstance(value, bool):
                 raise ValueError(f"grid cell {i} {field} must be an int; got {value!r}")
+    # One cell per `run_id` (#247). `render` colours a cell red when its
+    # `run_id` is in the frontier's set, so a dominated cell sharing one with a
+    # frontier cell was drawn as a frontier point at exit 0 while the table
+    # left it out. The writer refuses repeated axis values because they collide
+    # on `run_id` (#169); this is the reader's half, as #241 is for plot_latency.
+    run_ids = [cell["run_id"] for cell in cells]
+    repeated = sorted({r for r in run_ids if run_ids.count(r) > 1})
+    if repeated:
+        raise ValueError(f"run_id values {repeated} appear more than once in the cells")
 
 
 def _dominates(a: dict, b: dict) -> bool:

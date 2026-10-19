@@ -2212,3 +2212,13 @@ so it crashed with a traceback and left an empty directory behind. The size
 depends only on `--n-vectors` and `--dim`, so the grid now checks it before
 connecting, next to the HNSW bounds check #222 added, and exits 2 with one
 `error:` line. A failure in the middle of a run is still reported as it was.
+
+## 2026-10-19 — The frontier plot refuses a grid that repeats a run id (#247)
+
+`scripts/plot_hnsw_frontier.py` decides which points to draw in red, as
+frontier points, by checking each cell's `run_id` against the frontier's run
+ids. When a dominated cell had the same `run_id` as a frontier cell, it was
+drawn red too, even though the table printed below the chart correctly left it
+out. The grid writer never produces repeated run ids (#169), so the plot now
+refuses such a grid with exit 2 and draws nothing, the same way #241 made the
+latency plot refuse a repeated concurrency level.
