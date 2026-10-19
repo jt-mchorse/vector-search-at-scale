@@ -21,7 +21,10 @@ import hnsw_grid  # noqa: E402
 
 from vector_bench.types import BackendError  # noqa: E402
 
-SMALL = ["--n-vectors", "60", "--n-queries", "5", "--dim", "8", "--top-k", "5"]
+# 60 x 64 float32 is 15,360 B: over Qdrant's 10 KiB corpus floor, which the
+# grid checks before `make_backend` (#245), so the qdrant arms reach the
+# constructor error they test.
+SMALL = ["--n-vectors", "60", "--n-queries", "5", "--dim", "64", "--top-k", "5"]
 AXES = ["--M", "16", "--ef-construction", "100", "--ef-search", "64"]
 
 # The SDK module each adapter imports lazily. Setting it to None in
