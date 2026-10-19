@@ -2222,3 +2222,14 @@ drawn red too, even though the table printed below the chart correctly left it
 out. The grid writer never produces repeated run ids (#169), so the plot now
 refuses such a grid with exit 2 and draws nothing, the same way #241 made the
 latency plot refuse a repeated concurrency level.
+
+## 2026-10-19: The cost table no longer silently drops a load-results file (#249)
+
+When two or more load-test result directories were given for the same tier,
+any file whose `backend` named no engine (the stub run, a missing field, or a
+typo) was read and then quietly left out. The table was still published at
+exit 0, and that measurement appeared nowhere in it. D-013 already refuses two
+files that claim the same engine, because one of them would otherwise be thrown
+away without notice. This applies the same rule here: the script now exits 2
+and names the file. Supplying a single engine-less file still works as the
+tier's fallback, exactly as before.

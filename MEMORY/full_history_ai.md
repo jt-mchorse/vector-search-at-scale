@@ -2639,3 +2639,22 @@ context_for_next_session:
   - "A_RENDERER_THAT_KEYS_A_SET_BY_AN_ID_IS_ONLY_RIGHT_WHEN_THE_ID_IS_UNIQUE_check_the_reader_refuses_what_the_writer_refuses"
 followups: []
 ---
+
+---
+session: 2026-10-19T07:50Z
+issue: 249
+branch: session/2026-10-19-0750-issue-249
+focus: COST_TABLE_READ_AND_SILENTLY_DROPPED_AN_ENGINE_LESS_LOAD_RESULTS_FILE_WHEN_TWO_OR_MORE_WERE_SUPPLIED_FOR_A_TIER
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 9
+  suite: "3.12 [dev,plot,qdrant] 1344 -> 1353 passed / 1 skipped; ruff check + format clean"
+decisions_made: []
+measured: "main @ 8a2f730: --load-results 1m=pg(842.0,pgvector) 1m=st(50.0,stub) -> exit 0, 1m rows 842.0/1623.5/1623.5, the 50.0 file in no row and no source cell, nothing on stderr. Branch: exit 2 '<dir>/c001.json names no engine (backend 'stub' ...)', no --out written. Revert 8 of 9 new arms red (the three-engine-named control is green by design)."
+context_for_next_session:
+  - "D_013_SETTLED_AN_ENGINE_NAMED_BY_NO_FILE_NOT_A_FILE_NAMING_NO_ENGINE_the_refusal_mirrors_its_two_files_same_engine_exit_2"
+  - "SEED_load_concurrency_above_n_queries_WAS_ALREADY_FIXED_BY_162_reproduced_as_exit_2_on_8a2f730"
+  - "SEED_mypy_cost_py_315_IS_LOOP_VARIABLE_REUSE_name_value_typed_str_by_the_first_loop_in_InfraSpec_post_init_NO_RUNTIME_BUG_not_filed"
+followups: []
+---
