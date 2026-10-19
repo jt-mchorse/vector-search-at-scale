@@ -187,18 +187,17 @@ def load_throughput_qps(results_dir: Path) -> float:
             )
     payload = loads_json(c01_path.read_text(encoding="utf-8"))
     qps = payload["throughput_qps"]
-    # Reject a boolean before `float()` coercion: `bool` subclasses `int`, so
-    # `float(True)` is `1.0` — a JSON `true` in a hand-edited/externally-produced
-    # c001.json would silently amortize the cost table over a fabricated 1.0 qps
-    # (handoff §10). `float()` already raises ValueError on a non-numeric string,
-    # but a bool coerces cleanly, so guard it explicitly — the sibling of the
-    # `plot_latency._load_matrix` boolean guard. Both that ValueError and this one
-    # reach `main`'s `(TypeError, ValueError, KeyError)` arm and become a clean
-    # exit 2. Before #115 that arm did not exist, so this guard — and the comment
-    # here that already asserted it was "caught by `main`'s exit-2 handler" —
-    # raised into nothing and surfaced as a traceback at exit 1 instead.
-    if isinstance(qps, bool):
-        raise ValueError(f"throughput_qps must be a number, not a bool; got {qps!r}")
+    # The value as the file holds it: a real number, not a bool and not a string
+    # (#243). `bool` subclasses `int`, so `float(True)` is `1.0` -- a JSON `true`
+    # would amortize the cost table over a fabricated 1.0 qps (handoff §10). And
+    # `float()` *accepts* a numeric string, padding and `_` separators included,
+    # so `" 1_623.5\n"` was published as 1623.5 qps at exit 0: the coercion #241
+    # removed from `plot_latency._load_matrix` for the same field of the same
+    # file. Both refusals reach `main`'s `(TypeError, ValueError, KeyError)` arm
+    # and become a clean exit 2 (#115). Non-finite and non-positive values are
+    # refused by `cost_per_query`.
+    if isinstance(qps, bool) or not isinstance(qps, (int, float)):
+        raise ValueError(f"throughput_qps must be a number; got {type(qps).__name__} {qps!r}")
     return float(qps)
 
 
