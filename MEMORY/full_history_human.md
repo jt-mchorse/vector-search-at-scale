@@ -2202,3 +2202,13 @@ file. If that number had been written as text, for example `" 1_623.5"`, it was
 quietly converted and used for every row of the published table. Yesterday's
 #241 stopped the latency plot from doing the same thing with the same field.
 The cost table now refuses it with a clear error and exit code 2.
+
+## 2026-10-19 — The HNSW grid refuses a too-small Qdrant corpus up front (#245)
+
+Qdrant searches by brute-force scan when a collection holds less than 10 KiB
+of vectors, so the Qdrant backend refuses such a corpus. The grid script only
+hit that refusal inside the first cell, after creating the output directory,
+so it crashed with a traceback and left an empty directory behind. The size
+depends only on `--n-vectors` and `--dim`, so the grid now checks it before
+connecting, next to the HNSW bounds check #222 added, and exits 2 with one
+`error:` line. A failure in the middle of a run is still reported as it was.
