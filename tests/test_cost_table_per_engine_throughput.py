@@ -243,3 +243,60 @@ def test_duplicate_engine_from_the_cli_is_a_clean_exit_two(tmp_path: Path) -> No
     )
     assert rc == 2
     assert not out.exists()
+
+
+# ----------------------------------------------------------------------
+# A file that names no engine, among several (#249)
+# ----------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "backend",
+    ["stub", None, "pgvectr"],
+    ids=["stub", "no-backend-field", "unknown-backend"],
+)
+@pytest.mark.parametrize("position", ["first", "last"])
+def test_an_unattributable_file_among_several_is_refused(
+    backend: str | None, position: str
+) -> None:
+    """With two or more files there is no fallback slot, so an engine-less file
+    has no row to land in. It used to hit `continue` and vanish at exit 0."""
+    pg = _m("real_pgvector", "pgvector", 842.0)
+    odd = _m("odd_run", backend, 50.0)
+    supplied = [odd, pg] if position == "first" else [pg, odd]
+    with pytest.raises(ValueError, match=r"odd_run/c001\.json names no engine"):
+        resolve_engine_throughput(supplied, DEFAULT)
+
+
+def test_two_unattributable_files_are_refused() -> None:
+    """Neither can be attributed and neither is the single fallback: both
+    used to be dropped and every engine silently read the default run."""
+    a = _m("stub_a", "stub", 50.0)
+    b = _m("stub_b", "stub", 60.0)
+    with pytest.raises(ValueError, match="names no engine"):
+        resolve_engine_throughput([a, b], DEFAULT)
+
+
+def test_three_engine_named_files_still_resolve_without_refusal() -> None:
+    """Control: every file names an engine, so nothing is unattributable."""
+    pg = _m("pg", "pgvector", 842.0)
+    qd = _m("qd", "qdrant", 1310.5)
+    wv = _m("wv", "weaviate", 990.0)
+    resolved = resolve_engine_throughput([pg, qd, wv], DEFAULT)
+    assert resolved == {"pgvector": pg, "qdrant": qd, "weaviate": wv}
+
+
+def test_an_unattributable_file_among_several_from_the_cli_is_exit_two(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """End to end: the measurement the operator pointed at is not silently
+    left out of a table published at exit 0."""
+    pg = _seed(tmp_path / "pg", qps=842.0, backend="pgvector")
+    st = _seed(tmp_path / "st", qps=50.0, backend="stub")
+    out = tmp_path / "out.md"
+    rc = main(["--load-results", f"1m={pg}", "--load-results", f"1m={st}", "--out", str(out)])
+    assert rc == 2
+    assert not out.exists()
+    err = capsys.readouterr().err
+    assert f"{st}/c001.json names no engine" in err
+    assert "'stub'" in err

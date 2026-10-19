@@ -690,18 +690,29 @@ def resolve_engine_throughput(
 
     A file that names no engine (the stub) can still be the single unambiguous
     fallback; it cannot be engine-attributed, and its marker stays
-    ``(simulated)``.
+    ``(simulated)``. Among two or more it has no row to land in, so it is
+    refused rather than read and dropped (#249).
 
     Raises:
         ValueError: if two supplied files claim the same engine. That is an
             operator mistake with no defensible resolution — one of the two
             measurements would have to be discarded silently, which is what the
-            old dict-assignment did.
+            old dict-assignment did. Also if two or more files are supplied and
+            one names no engine: it can be neither engine-attributed nor the
+            single fallback, so the old ``continue`` discarded it at exit 0.
     """
     by_engine: dict[str, _Measurement] = {}
     for measurement in supplied:
         engine = measurement.engine
         if engine is None:
+            if len(supplied) > 1:
+                raise ValueError(
+                    f"--load-results supplied {len(supplied)} results for one tier and "
+                    f"{measurement.directory}/c001.json names no engine (backend "
+                    f"{measurement.backend!r}; expected one of {list(ENGINES)}). With "
+                    "two or more files per tier each must name the engine it measured, "
+                    "or it would be read and silently left out of the table."
+                )
             continue
         if engine in by_engine:
             raise ValueError(
