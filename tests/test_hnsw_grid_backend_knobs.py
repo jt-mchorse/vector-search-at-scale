@@ -154,9 +154,11 @@ def test_run_grid_hands_make_backend_kwargs_the_real_adapter_accepts(
     monkeypatch.setattr(hnsw_grid, "make_backend", fake_make_backend)
     with pytest.raises(_Stop):
         hnsw_grid.run_grid(
+            # 50 x 64 float32 is 12,800 B: over Qdrant's 10 KiB corpus floor,
+            # which the grid now checks before `make_backend` (#245).
             n_vectors=50,
             n_queries=5,
-            dim=4,
+            dim=64,
             top_k=3,
             seed=1,
             M_values=[8],

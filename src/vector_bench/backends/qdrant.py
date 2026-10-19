@@ -86,6 +86,26 @@ def validate_hnsw_params(*, m: int, ef_construct: int, ef: int) -> None:
             raise ValueError(f"qdrant {name} must be an int >= {lo}; got {value!r}")
 
 
+def validate_corpus(*, n_vectors: int, dim: int) -> None:
+    """Raise ``ValueError`` if a corpus of ``n_vectors`` x ``dim`` float32 is
+    under `MIN_CORPUS_KB`, where every Qdrant query is a brute-force scan.
+
+    Pure, like `validate_hnsw_params`, so the grid can refuse an under-floor
+    corpus before it connects or creates `--out-dir` (#245); `ingest` raises
+    the same message as `BackendError`.
+    """
+    total_bytes = n_vectors * dim * 4
+    if total_bytes < MIN_CORPUS_KB * 1024:
+        raise ValueError(
+            f"qdrant answers every query by brute-force scan for a collection under "
+            f"{MIN_CORPUS_KB} KiB of vectors (this one is {total_bytes} B: "
+            f"{n_vectors} x {dim} float32): under {INDEXING_THRESHOLD_KB} KiB "
+            f"it never builds an HNSW index, and under {FULL_SCAN_THRESHOLD_KB} KiB "
+            f"(full_scan_threshold) its query planner does not use it; use at least "
+            f"{MIN_CORPUS_KB * 256} vector components (n x dim)"
+        )
+
+
 class QdrantBackend:
     name = "qdrant"
 
@@ -139,16 +159,10 @@ class QdrantBackend:
         # every query by plain scan anyway (#219) -- measured on 1.14.0, n=30 x
         # 64 (7,680 B) was fully indexed and searched `unfiltered_plain` at
         # recall 1.000, n=50 x 64 (12,800 B) `unfiltered_hnsw` at 0.962.
-        total_bytes = int(vectors.shape[0]) * dim * 4
-        if total_bytes < MIN_CORPUS_KB * 1024:
-            raise BackendError(
-                f"qdrant answers every query by brute-force scan for a collection under "
-                f"{MIN_CORPUS_KB} KiB of vectors (this one is {total_bytes} B: "
-                f"{vectors.shape[0]} x {dim} float32): under {INDEXING_THRESHOLD_KB} KiB "
-                f"it never builds an HNSW index, and under {FULL_SCAN_THRESHOLD_KB} KiB "
-                f"(full_scan_threshold) its query planner does not use it; use at least "
-                f"{MIN_CORPUS_KB * 256} vector components (n x dim)"
-            )
+        try:
+            validate_corpus(n_vectors=int(vectors.shape[0]), dim=dim)
+        except ValueError as exc:
+            raise BackendError(str(exc)) from exc
         # Delete-then-create, not `recreate_collection` (#211): qdrant-client
         # 1.19 (what the `>=1.10` floor installs today) deprecates it "and will
         # remove it in the future", the path `search` took before #193. The

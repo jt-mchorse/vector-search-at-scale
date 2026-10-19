@@ -2602,3 +2602,22 @@ context_for_next_session:
   - SWEPT_scripts_AND_src_FOR_float_int_COERCION_OF_RESULT_FILE_FIELDS_only_cost_table_qps_remained_tier_int_calls_parse_HCL_text_LEGITIMATELY
 followups: []
 ---
+
+---
+session: 2026-10-19T07:37Z
+duration_min: 25   # computed: issue 245 filed ~07:36Z, plan comment ~07:37Z, commit ~08:00Z
+issue: 245
+branch: session/2026-10-19-0737-issue-245
+focus: HNSW_GRID_REACHED_QDRANT_CORPUS_FLOOR_INSIDE_CELL_1_INGEST_AFTER_MKDIR_A_TRACEBACK_AT_EXIT_1_WHILE_222_HAD_MOVED_ONLY_THE_HNSW_BOUNDS_TO_PRE_FLIGHT
+phase: shipped
+delta:
+  files_changed: 5
+  tests_added: 8
+  suite: "3.11 [dev,plot,qdrant] 1344 passed / 1 skipped; ruff check + format clean"
+decisions_made: []
+measured: "main @ 89a5e5b, QDRANT_URL=http://127.0.0.1:9: hnsw_grid --backend qdrant --n-vectors 30 --dim 64 -> BackendError traceback exit 1, empty --out-dir left; vector-bench run same corpus -> 'error:' exit 2. Branch: grid exits 2 with one 'error: qdrant answers every query by brute-force scan ...' line, make_backend not called, no --out-dir. Two existing fixtures (setup_errors SMALL 60x8, backend_knobs 50x4) were under the floor and moved to dim 64. Revert 5 of 8 new arms red (the two exactly-10-KiB arms and the hnsw-sim no-floor arm are controls)."
+context_for_next_session:
+  - "A_PRE_FLIGHT_THAT_MOVED_ONE_REFUSAL_LEAVES_ITS_SIBLINGS_IN_THE_ADAPTER_check_every_raise_in_ingest_and_search_that_reads_only_flags"
+  - "TEST_FIXTURES_FOR_QDRANT_GRID_ARMS_MUST_CLEAR_10_KIB_n_x_dim_at_least_2560"
+followups: []
+---

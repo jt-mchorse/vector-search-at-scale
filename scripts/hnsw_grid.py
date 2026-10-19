@@ -41,6 +41,9 @@ from vector_bench.backends.pgvector import (  # noqa: E402
     validate_hnsw_params as validate_pgvector_hnsw,
 )
 from vector_bench.backends.qdrant import (  # noqa: E402
+    validate_corpus as validate_qdrant_corpus,
+)
+from vector_bench.backends.qdrant import (  # noqa: E402
     validate_hnsw_params as validate_qdrant_hnsw,
 )
 from vector_bench.backends.weaviate import (  # noqa: E402
@@ -78,6 +81,15 @@ _HNSW_BOUNDS: dict[str, Callable[[int, int, int], None]] = {
     # `--M 8,0` wrote M8's cell first -- over an existing grid's, in a reused
     # --out-dir -- and then exited 2 with no grid.json.
     "hnsw-sim": lambda M, efc, efs: validate_hnsw_sim(M=M, ef_construction=efc, ef_search=efs),
+}
+
+#: A backend's floor on the corpus, as a check over (n_vectors, dim) that raises
+#: `ValueError`. Qdrant answers every query by brute-force scan under
+#: `MIN_CORPUS_KB` (#209, #220); its `ingest` refused that inside cell 1, after
+#: `--out-dir` was created, as a traceback at exit 1 (#245). Decidable from the
+#: flags alone, so it runs with the `_HNSW_BOUNDS` pre-flight.
+_CORPUS_BOUNDS: dict[str, Callable[[int, int], None]] = {
+    "qdrant": lambda n, dim: validate_qdrant_corpus(n_vectors=n, dim=dim),
 }
 
 #: Backends `make_backend` knows that have no HNSW knobs to sweep.
@@ -157,6 +169,11 @@ def run_grid(
                 "was run: " + "; ".join(bad[:3]) + ("; ..." if len(bad) > 3 else "")
             )
     workload = Workload(n_vectors=n_vectors, dim=dim, n_queries=n_queries, top_k=top_k, seed=seed)
+    # After `Workload` (a non-positive size gets its own message), before the
+    # first `make_backend` / `mkdir` (#245).
+    corpus_check = _CORPUS_BOUNDS.get(backend_name)
+    if corpus_check is not None:
+        corpus_check(n_vectors, dim)
 
     cells: list[dict] = []
     for M, efc, efs in itertools.product(M_values, ef_construction_values, ef_search_values):
