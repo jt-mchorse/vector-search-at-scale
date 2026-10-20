@@ -5,6 +5,9 @@ when a backend's constructor raises `BackendError` (a missing extra, an unset
 URL). The grid script calls `make_backend` inside `run_grid`, and `main` caught
 only ValueError and OSError, so on `main` `--backend qdrant` without the extra
 was a traceback at exit 1, after `--out-dir` had already been created.
+
+A `BackendError` raised while a cell runs is a run failure, and #209 gave it the
+same `error:` / exit 2 in `run` and `load`; the grid got it in #252.
 """
 
 from __future__ import annotations
@@ -71,18 +74,62 @@ def test_an_unset_url_is_exit_2(
     assert not out.exists()
 
 
-def test_a_backend_error_while_a_cell_runs_is_not_translated(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+def test_a_backend_error_while_a_cell_runs_is_exit_2_with_one_error_line(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Only construction is operator input; a failure mid-run stays a failure."""
+    """A failure mid-run is reported the way `vector-bench run`/`load` report it (#209, #252).
+
+    This arm used to pin the traceback: `main` caught only ValueError and
+    OSError, so the `BackendError` escaped at exit 1.
+    """
 
     def failing_run_benchmark(*args: object, **kwargs: object) -> object:
-        raise BackendError("connection reset during query")
+        raise BackendError("collection 'bench' not fully indexed within 0s")
 
     monkeypatch.setattr(hnsw_grid, "run_benchmark", failing_run_benchmark)
+    out = tmp_path / "grid"
 
-    with pytest.raises(BackendError, match="connection reset"):
-        hnsw_grid.main([*SMALL, *AXES, "--out-dir", str(tmp_path / "grid")])
+    rc = hnsw_grid.main([*SMALL, *AXES, "--out-dir", str(out)])
+
+    assert rc == 2
+    assert capsys.readouterr().err == "error: collection 'bench' not fully indexed within 0s\n"
+    assert not (out / "grid.json").exists()
+
+
+def test_a_backend_error_in_a_later_cell_writes_no_grid_json(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Cell 1 succeeds, cell 2 fails: exit 2 and no `grid.json` claiming a full grid (#252)."""
+    real = hnsw_grid.run_benchmark
+    calls = []
+
+    def second_cell_fails(*args: object, **kwargs: object) -> object:
+        calls.append(kwargs["run_id"])
+        if len(calls) == 2:
+            raise BackendError("connection reset during query")
+        return real(*args, **kwargs)
+
+    monkeypatch.setattr(hnsw_grid, "run_benchmark", second_cell_fails)
+    out = tmp_path / "grid"
+
+    rc = hnsw_grid.main(
+        [
+            *SMALL,
+            "--M",
+            "8,16",
+            "--ef-construction",
+            "100",
+            "--ef-search",
+            "64",
+            "--out-dir",
+            str(out),
+        ]
+    )
+
+    assert rc == 2
+    assert calls == ["M8_efc100_efs64", "M16_efc100_efs64"]
+    assert "error: connection reset during query" in capsys.readouterr().err
+    assert not (out / "grid.json").exists()
 
 
 def test_a_hnsw_sim_grid_still_exits_0(tmp_path: Path) -> None:

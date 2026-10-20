@@ -2658,3 +2658,21 @@ context_for_next_session:
   - "SEED_mypy_cost_py_315_IS_LOOP_VARIABLE_REUSE_name_value_typed_str_by_the_first_loop_in_InfraSpec_post_init_NO_RUNTIME_BUG_not_filed"
 followups: []
 ---
+
+---
+session: 2026-10-20T07:53Z
+issue: 252
+branch: session/2026-10-20-0806-issue-252
+focus: HNSW_GRID_LET_A_MID_CELL_BACKEND_ERROR_ESCAPE_AS_A_TRACEBACK_AND_A_RERUN_LEFT_THE_PREVIOUS_GRIDS_CELL_JSONS_BESIDE_A_GRID_JSON_THAT_NO_LONGER_LISTED_THEM
+phase: shipped
+delta:
+  files_changed: 3
+  tests_added: 7
+  suite: "3.11 [dev,plot,qdrant] 1365 passed / 1 skipped; ruff check + format clean"
+decisions_made: []
+measured: "main @ d9a270d: --M 8,16 --efs 16 then --M 8 --efs 32 into one --out-dir -> rc 0, M16_efc50_efs16.json + M8_efc50_efs16.json beside a grid.json listing only M8_efc50_efs32; BackendError from run_benchmark -> traceback exit 1. Branch: only M8_efc50_efs32.json + grid.json; 'error: ...' exit 2. Revert 5 of 8 new arms red (3 controls green by design); a glob-only deletion turns the near-miss-names control red."
+context_for_next_session:
+  - "DEFERRED_a_mid_grid_failure_on_a_rerun_still_leaves_the_previous_grid_json_beside_partly_overwritten_cells_needs_staging_or_up_front_grid_json_removal"
+  - "THE_SHARED_REPO_VENV_EDITABLE_INSTALL_POINTS_AT_THE_MAIN_CHECKOUT_SRC_a_worktree_suite_needs_its_own_venv"
+followups: []
+---
