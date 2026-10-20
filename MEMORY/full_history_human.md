@@ -2233,3 +2233,16 @@ files that claim the same engine, because one of them would otherwise be thrown
 away without notice. This applies the same rule here: the script now exits 2
 and names the file. Supplying a single engine-less file still works as the
 tier's fallback, exactly as before.
+
+## 2026-10-20: The HNSW grid reports a mid-run backend failure cleanly and clears old cells on rerun (#252)
+
+There were two gaps in `scripts/hnsw_grid.py`. First, when a backend failed
+while a grid cell was running (Qdrant reporting its index was not built in
+time, for example), the script crashed with a traceback at exit 1.
+`vector-bench run` and `load` print one `error:` line and exit 2 for the same
+failure (#209), and the grid now does the same. Second, rerunning the grid
+into a directory that already held results left the old run's cell files in
+place, beside a `grid.json` that no longer listed them. The script now removes
+cell files it did not write in this run, before it writes `grid.json`, the
+same way `load --force` clears old `c<NNN>.json` files (#182, #230). Only files
+named exactly like a grid cell are removed.
