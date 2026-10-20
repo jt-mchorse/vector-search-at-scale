@@ -24,6 +24,7 @@ from __future__ import annotations
 import argparse
 import itertools
 import json
+import re
 import sys
 from collections.abc import Callable
 from pathlib import Path
@@ -94,6 +95,10 @@ _CORPUS_BOUNDS: dict[str, Callable[[int, int], None]] = {
 
 #: Backends `make_backend` knows that have no HNSW knobs to sweep.
 _NO_HNSW_KNOBS = frozenset({"stub"})
+
+#: The exact name `run_grid` gives a cell's JSON (`M{M}_efc{efc}_efs{efs}.json`).
+#: Only files of this shape are removed as stale after a rerun (#252).
+_CELL_NAME = re.compile(r"M[0-9]+_efc[0-9]+_efs[0-9]+\.json")
 
 
 def _backend_kwargs(backend_name: str, *, M: int, efc: int, efs: int, seed: int) -> dict:
@@ -176,6 +181,7 @@ def run_grid(
         corpus_check(n_vectors, dim)
 
     cells: list[dict] = []
+    written: set[str] = set()
     for M, efc, efs in itertools.product(M_values, ef_construction_values, ef_search_values):
         run_id = f"M{M}_efc{efc}_efs{efs}"
         kwargs = _backend_kwargs(backend_name, M=M, efc=efc, efs=efs, seed=seed)
@@ -188,13 +194,15 @@ def run_grid(
             # only ValueError and OSError, so `--backend qdrant` on the base
             # install was a traceback at exit 1 (#197); `vector-bench run` and
             # `load` got the same exit 2 in #196. Only construction is
-            # translated: a `BackendError` raised while a cell runs is a run
-            # failure, as it is in run/load.
+            # translated here: a `BackendError` raised while a cell runs is a
+            # run failure, which `main` reports as `error:` at exit 2, as
+            # run/load do (#209, #252).
             raise ValueError(str(exc)) from exc
         # Created after the backend is built, not before (#197): a refused
         # setup used to leave an empty `--out-dir` behind.
         out_dir.mkdir(parents=True, exist_ok=True)
         result = run_benchmark(backend, workload, run_id=run_id, results_dir=out_dir, force=True)
+        written.add(f"{run_id}.json")
         cells.append(
             {
                 "run_id": run_id,
@@ -229,6 +237,14 @@ def run_grid(
         },
         "cells": cells,
     }
+    # A rerun into the same `--out-dir` replaces the grid, so the previous grid's
+    # cells go too (#252). They stayed: `--M 8,16` then `--M 8` left
+    # `M16_*.json` beside a `grid.json` that no longer listed it -- the grid's
+    # version of `load --force`'s stale `c<NNN>.json` (#182, #230). Only the
+    # exact cell-name shape is touched; `grid.json` is written last, as before.
+    for stale in out_dir.glob("M*_efc*_efs*.json"):
+        if _CELL_NAME.fullmatch(stale.name) and stale.name not in written:
+            stale.unlink()
     grid_path = out_dir / "grid.json"
     atomic_write_text(grid_path, json.dumps(grid_payload, indent=2, sort_keys=True))
     sys.stdout.write(f"\nwrote {grid_path}\n")
@@ -301,6 +317,13 @@ def main(argv: list[str] | None = None) -> int:
         # the same ValueError as a clean exit 2 (#83), and `_do_load`'s comment
         # describes precisely this bug shape. Reuse their neutral `error:`
         # prefix so the three read the same.
+        sys.stderr.write(f"error: {exc}\n")
+        return 2
+    except BackendError as exc:
+        # A backend failing while a cell runs (#252): a RED collection, an index
+        # not built in time, a result violating the (id, score) contract. It is
+        # a `RuntimeError`, so it escaped as a traceback at exit 1 here after
+        # #209 gave `vector-bench run` and `load` this exact arm in `cli.py`.
         sys.stderr.write(f"error: {exc}\n")
         return 2
     except OSError as exc:
