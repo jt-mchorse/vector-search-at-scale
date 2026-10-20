@@ -2676,3 +2676,22 @@ context_for_next_session:
   - "THE_SHARED_REPO_VENV_EDITABLE_INSTALL_POINTS_AT_THE_MAIN_CHECKOUT_SRC_a_worktree_suite_needs_its_own_venv"
 followups: []
 ---
+
+---
+session: 2026-10-20T07:53Z
+issue: 251
+branch: session/2026-10-20-0805-issue-251
+focus: LOAD_TIMED_EACH_PGVECTOR_WORKERS_CONNECT_AND_SET_EF_SEARCH_INSIDE_ITS_FIRST_QUERY_AFTER_212_RELEASED_CONNECTIONS_PER_LEVEL_AND_THE_SLOW_CONNECTS_HELD_C100_TO_HALF_ITS_WORKERS
+phase: shipped
+delta:
+  files_changed: 5
+  tests_added: 15
+  suite: "3.11 [dev,plot,qdrant] 1358 -> 1373 passed / 1 skipped; ruff check + format clean"
+decisions_made: []
+measured: "main @ d9a270d, PG17 + pgvector 0.8.7 TCP, 2000x64, 200 queries: c=100 53/200 timed queries connected (median 23.9 vs 4.0 ms reused), p95 33.8, qps 2486, peak in-flight 45. Branch: 0/200 connected, peak in-flight 100, p50 16.3 p95 41.2 qps 4239 -- c=100 latency ROSE because the level now really runs 100 workers. Revert 13 of 15 new arms red (hook-less control + fake-charges-setup control green); no-barrier wrong fix 2 red."
+context_for_next_session:
+  - "THREADPOOLEXECUTOR_STARTS_A_THREAD_ONLY_WHEN_NONE_IS_IDLE_a_level_of_c_with_fast_tasks_never_reaches_c_workers_filed_254_for_hookless_backends"
+  - "REMOVING_A_TIMED_SETUP_COST_CAN_RAISE_THE_CELL_when_the_setup_was_also_throttling_concurrency_measure_peak_in_flight_before_and_after"
+followups:
+  - "#254 hook-less backends (stub/hnsw-sim/qdrant/weaviate) under-deliver c; committed stub-10k c=100 ran ~34 in flight; JT decision on regenerating"
+---
