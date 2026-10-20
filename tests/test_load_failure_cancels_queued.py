@@ -46,7 +46,7 @@ def test_a_failure_cancels_the_queued_queries_and_surfaces_promptly() -> None:
 
 def test_a_healthy_level_still_runs_every_query() -> None:
     backend = _Backend(fail_first=False)
-    latencies, recalls = _execute_at_concurrency(
+    latencies, recalls, _elapsed = _execute_at_concurrency(
         backend, np.zeros((20, 4), dtype=np.float32), [[]] * 20, 10, 4
     )
     assert backend.calls == 20

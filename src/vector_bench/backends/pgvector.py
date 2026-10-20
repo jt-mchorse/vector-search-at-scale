@@ -183,6 +183,17 @@ class PgVectorBackend:
             )
             return [(row[0], float(row[1])) for row in cur.fetchall()]
 
+    def prepare_thread(self) -> None:
+        """Open the calling thread's connection and set `hnsw.ef_search` on it (#251).
+
+        `run_under_load` calls this once on each worker thread before a level's
+        timed queries. `query` would otherwise do both lazily on each worker's
+        first call, inside the timed window, and after `release_connections`
+        (#212) that is every worker at every level.
+        """
+        check_open(self._closed, backend="PgVectorBackend", method="prepare_thread")
+        self._apply_ef_search(self._ensure_conn())
+
     def release_connections(self) -> None:
         """Close every per-thread connection; the next call reconnects lazily (#212).
 
