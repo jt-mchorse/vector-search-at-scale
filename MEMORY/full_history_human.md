@@ -2246,3 +2246,17 @@ place, beside a `grid.json` that no longer listed them. The script now removes
 cell files it did not write in this run, before it writes `grid.json`, the
 same way `load --force` clears old `c<NNN>.json` files (#182, #230). Only files
 named exactly like a grid cell are removed.
+
+## 2026-10-20: Load tests no longer time pgvector's connection setup (#251)
+
+Since #212, every concurrency level starts pgvector on fresh connections. Each
+worker opened its connection and set `hnsw.ef_search` during its first query,
+so that setup was counted in the query latency and in the throughput. Each
+worker now does this once before the timed queries start. A barrier makes sure
+every worker gets its own warm-up. The surprise was at concurrency 100. The
+slow connects had also slowed how fast new threads started, so the old c=100
+level only ever had about 50 queries in flight. With the fix it really runs
+100, and its latency goes up rather than down. Backends without the hook
+have the same shortfall. Fixing that would change what the committed stub
+numbers mean, so it is filed as #254 for JT to decide. No committed artifacts
+were regenerated.

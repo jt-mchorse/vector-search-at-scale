@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import json
 import re
+import threading
 import time
 from collections import Counter
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -168,11 +169,22 @@ def _execute_at_concurrency(
     truth: list[list[str]],
     top_k: int,
     concurrency: int,
-) -> tuple[list[float], list[float]]:
+) -> tuple[list[float], list[float], float]:
     """Drive the query phase at `concurrency` workers.
 
-    Returns ``(latencies_ms, recalls)`` in submission order so the
-    caller can correlate with the deterministic query set.
+    Returns ``(latencies_ms, recalls, elapsed_s)``: the first two in
+    submission order so the caller can correlate with the deterministic
+    query set, and the wall-clock of the timed queries alone (#251).
+
+    A backend with a callable ``prepare_thread`` has it called once on each
+    of the `concurrency` worker threads before any query is timed (#251).
+    `run_under_load` releases a pgvector backend's connections before every
+    level (#212), so without this each worker's first query opened its
+    connection and ran `SET hnsw.ef_search` inside the timed window. Measured
+    on PG 17 + pgvector 0.8.7 over TCP, 2000 x 64, 200 queries: at c=100, 53
+    of the 200 recorded latencies carried that setup (median 21.3 ms against
+    3.8 ms on a reused connection) and the cell's p95 read 28.5 ms. The setup
+    also sat inside the wall-clock `throughput_qps` divides by.
 
     `backend.query` must already be safe to call from multiple threads
     against a single ingested backend instance — the SDK adapters this
@@ -193,7 +205,38 @@ def _execute_at_concurrency(
         recall = recall_at_k(predicted, truth[idx], top_k)
         return idx, latency_ms, recall
 
+    prepare = getattr(backend, "prepare_thread", None)
+    # Every worker must be held at the barrier until all `concurrency` have
+    # prepared: a worker that finished early would otherwise take a second
+    # warm task, and the thread that never got one would pay the setup on its
+    # first timed query. Holding them also makes the executor start all
+    # `concurrency` threads (it only adds one when none is idle), so the timed
+    # phase really has that many workers.
+    barrier = threading.Barrier(concurrency)
+
+    def _warm() -> None:
+        try:
+            prepare()
+        except BaseException:
+            # Release the others now; they would otherwise wait for a party
+            # that is never coming.
+            barrier.abort()
+            raise
+        barrier.wait()
+
     with ThreadPoolExecutor(max_workers=concurrency) as pool:
+        if callable(prepare):
+            warm = [pool.submit(_warm) for _ in range(concurrency)]
+            # The failing worker's own error, not the `BrokenBarrierError` the
+            # aborted barrier hands every other one.
+            errors = [f.exception() for f in warm]
+            for err in errors:
+                if err is not None and not isinstance(err, threading.BrokenBarrierError):
+                    raise err
+            for err in errors:
+                if err is not None:
+                    raise err
+        query_start = time.perf_counter()
         futures = [pool.submit(_one_query, i) for i in range(n)]
         try:
             for fut in as_completed(futures):
@@ -207,8 +250,9 @@ def _execute_at_concurrency(
             # 5.5 s on a 50 ms stub). Only queries already running now finish.
             pool.shutdown(wait=True, cancel_futures=True)
             raise
+        elapsed_s = time.perf_counter() - query_start
 
-    return latencies_ms, recalls
+    return latencies_ms, recalls, elapsed_s
 
 
 def run_under_load(
@@ -329,13 +373,13 @@ def run_under_load(
             # Each level on fresh connections (#212): the previous level's
             # per-thread connections, and the ingest one, would otherwise hold
             # server slots for the rest of the run.
+            # The wall-clock covers the timed queries only, not the per-thread
+            # warm-up `_execute_at_concurrency` runs first (#251).
             if callable(release):
                 release()
-            query_start = time.perf_counter()
-            latencies_ms, recalls = _execute_at_concurrency(
+            latencies_ms, recalls, query_elapsed_s = _execute_at_concurrency(
                 backend, queries, truth, workload.top_k, c
             )
-            query_elapsed_s = time.perf_counter() - query_start
             # A non-positive query-phase wall-clock is a degenerate measurement
             # (a clock that didn't advance): there is no meaningful QPS. The
             # previous `else float("inf")` fabricated an infinite throughput that

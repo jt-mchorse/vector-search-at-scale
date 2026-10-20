@@ -157,6 +157,16 @@ superusers, less other clients' connections. On a stock Postgres
 (`max_connections=100`), `100` fits for a superuser, and a non-superuser role
 tops out at 97 (#212).
 
+Before a level's timed queries, each pgvector worker opens its connection and
+sets `hnsw.ef_search`, so neither is counted in the latencies or the
+throughput (#251). pgvector load runs made before that fix counted them in
+each worker's first query. At c=100 on a local PG 17 that put p95 at 28.5 ms
+when reused-connection queries had a median of 3.8 ms. The warm-up also means
+that a c=100 level now keeps 100 queries in flight. Before, slow first
+connects held it to about 50. No pgvector load run is committed under
+`results/load/`; live-backend numbers are operator-run, so re-measure any
+you hold.
+
 The committed `results/load/stub-10k/matrix.json` is a real
 in-process numpy run (10 000 corpus vectors × 64 dims × 500 queries, M-series
 Mac, Python 3.11, recall@10 = 1.0 by construction):
