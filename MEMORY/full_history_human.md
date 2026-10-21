@@ -2260,3 +2260,16 @@ level only ever had about 50 queries in flight. With the fix it really runs
 have the same shortfall. Fixing that would change what the committed stub
 numbers mean, so it is filed as #254 for JT to decide. No committed artifacts
 were regenerated.
+
+## 2026-10-21: A failed HNSW grid rerun keeps the previous grid intact (#258)
+
+`scripts/hnsw_grid.py` wrote each cell's file as soon as that cell finished,
+and wrote `grid.json` last. When a rerun into an existing directory failed
+partway through, the old `grid.json` stayed beside cells that already held the
+new run's numbers. The frontier plot reads only `grid.json`, so it drew the old
+grid while the cell files said something else. The grid now holds every cell's
+result in memory and writes the cells and `grid.json` only after the last cell
+succeeds, which is the order `load` already used. A failed run writes nothing,
+so the previous grid stays exactly as it was. The check that refuses an
+unwritable output directory before any work runs (#207) moved into the grid
+script, because the per-cell runner no longer writes the file itself.
