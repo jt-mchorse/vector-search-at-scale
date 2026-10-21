@@ -13,7 +13,7 @@ from collections.abc import Sequence
 
 import numpy as np
 
-from vector_bench.types import BackendError, check_ingest_shape, check_open
+from vector_bench.types import BackendError, check_ingest_shape, check_open, unreachable_error
 
 DEFAULT_COLLECTION = "VectorBench"
 
@@ -60,6 +60,10 @@ class WeaviateBackend:
     # drive the SDK-backed backends without a live engine. Also keeps it out
     # of the dataclass field list, so it is not a constructor argument (#133).
     _closed = False
+    # Class-level for the same reason: an `object.__new__` instance wraps
+    # nothing, and `except ()` matches no exception (#256).
+    _transport_errors: tuple[type[BaseException], ...] = ()
+    _target = "?"
 
     def __init__(
         self,
@@ -86,27 +90,71 @@ class WeaviateBackend:
             raise BackendError(
                 "WeaviateBackend requires the `weaviate` extra: pip install -e '.[weaviate]' from the vector-search-at-scale checkout"
             ) from e
+        from weaviate.exceptions import (  # type: ignore
+            WeaviateConnectionError,
+            WeaviateGRPCUnavailableError,
+            WeaviateStartUpError,
+            WeaviateTimeoutError,
+        )
+
         self._weaviate = weaviate
         self._wvcc = wvcc
         host = host or os.environ.get("WEAVIATE_HOST")
         if not host:
             raise BackendError("WeaviateBackend: pass host or set WEAVIATE_HOST")
-        self._client = weaviate.connect_to_custom(
-            http_host=host,
-            http_port=http_port,
-            http_secure=False,
-            grpc_host=host,
-            grpc_port=grpc_port,
-            grpc_secure=False,
-        )
+        self._target = f"http://{host}:{http_port} (grpc :{grpc_port})"
+        # `connect_to_custom` connects and checks the server is ready, so an
+        # unreachable WEAVIATE_HOST raised the SDK's own exception here, inside
+        # `make_backend`, past the `BackendError` arm `_make_backend_or_none`
+        # gives every other setup error: a traceback at exit 1 (#256). These
+        # are the classes it raises for a server it cannot reach or that is not
+        # up (HTTP refused, gRPC port unavailable, readiness check failed or
+        # timed out). The connection and timeout errors are also what a server
+        # lost mid-run raises from `ingest` and `query`.
+        self._transport_errors = (WeaviateConnectionError, WeaviateTimeoutError)
+        try:
+            self._client = weaviate.connect_to_custom(
+                http_host=host,
+                http_port=http_port,
+                http_secure=False,
+                grpc_host=host,
+                grpc_port=grpc_port,
+                grpc_secure=False,
+            )
+        except (
+            WeaviateConnectionError,
+            WeaviateGRPCUnavailableError,
+            WeaviateStartUpError,
+            WeaviateTimeoutError,
+        ) as e:
+            raise self._unreachable(e) from e
         self._collection_name = collection
         self._hnsw_max_connections = hnsw_max_connections
         self._hnsw_ef_construction = hnsw_ef_construction
         self._hnsw_ef = hnsw_ef
 
+    def _unreachable(self, e: BaseException) -> BackendError:
+        return unreachable_error("WeaviateBackend", self._target, e)
+
+    @contextlib.contextmanager
+    def _wrap_transport_errors(self):
+        """Re-raise the client's connection errors as `BackendError` (#256).
+
+        For a server lost after construction: `run`, `load` and the grid
+        report a `BackendError` as `error:` at exit 2 (#209).
+        """
+        try:
+            yield
+        except self._transport_errors as e:
+            raise self._unreachable(e) from e
+
     def ingest(self, vectors: np.ndarray, ids: Sequence[str]) -> None:
         check_open(self._closed, backend="WeaviateBackend", method="ingest")
         check_ingest_shape(vectors, ids)
+        with self._wrap_transport_errors():
+            self._ingest(vectors, ids)
+
+    def _ingest(self, vectors: np.ndarray, ids: Sequence[str]) -> None:
         wvcc = self._wvcc
         if self._client.collections.exists(self._collection_name):
             self._client.collections.delete(self._collection_name)
@@ -147,9 +195,10 @@ class WeaviateBackend:
     def query(self, vector: np.ndarray, k: int) -> list[tuple[str, float]]:
         check_open(self._closed, backend="WeaviateBackend", method="query")
         coll = self._client.collections.get(self._collection_name)
-        res = coll.query.near_vector(
-            near_vector=vector.tolist(), limit=k, return_metadata=["distance"]
-        )
+        with self._wrap_transport_errors():
+            res = coll.query.near_vector(
+                near_vector=vector.tolist(), limit=k, return_metadata=["distance"]
+            )
         out: list[tuple[str, float]] = []
         for obj in res.objects:
             orig_id = obj.properties.get("orig_id")

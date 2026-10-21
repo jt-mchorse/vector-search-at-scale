@@ -15,6 +15,7 @@ exceptions.
 from __future__ import annotations
 
 import math
+import re
 from collections.abc import Sequence
 from typing import Protocol, runtime_checkable
 
@@ -82,6 +83,39 @@ class BackendError(RuntimeError):
     Distinct from `ValueError` (which is for caller mistakes) so the
     harness can decide whether to retry or surface as a hard failure.
     """
+
+
+_URI_PASSWORD = re.compile(r"(://[^/@\s:]*:)([^/\s]*)@")
+_KV_PASSWORD = re.compile(r"(\bpassword\s*=\s*)('(?:[^'\\]|\\.)*'|[^\s&]+)", re.IGNORECASE)
+
+
+def redact_target(target: str) -> str:
+    """Return a DSN or URL with any password replaced by ``***`` (#256).
+
+    An adapter names the server it could not connect to in its `BackendError`,
+    and the CLI prints that message, so a password in `PGVECTOR_DSN` (URI form
+    ``postgresql://user:pw@host/db``, ``?password=pw``, or libpq's
+    ``password=pw`` keyword form) or in a URL's userinfo must not reach stderr.
+    """
+    return _KV_PASSWORD.sub(r"\1***", _URI_PASSWORD.sub(r"\1***@", target))
+
+
+def unreachable_error(backend: str, target: str, cause: BaseException) -> BackendError:
+    """The `BackendError` an adapter raises when it cannot connect (#256).
+
+    Names the backend and the target with any password redacted, and folds the
+    SDK's message onto one line: weaviate's spans two (it ends "Is Weaviate
+    running and reachable at ...?"), and the CLI prints one `error:` line.
+    A password the target carries is scrubbed from that message too, in case
+    the SDK echoes part of the DSN back (psycopg does for a malformed one).
+    """
+    detail = " ".join(str(cause).split()) or type(cause).__name__
+    secrets = [m.group(2) for m in _URI_PASSWORD.finditer(target)]
+    secrets += [m.group(2).strip("'") for m in _KV_PASSWORD.finditer(target)]
+    for secret in secrets:
+        if secret:
+            detail = detail.replace(secret, "***")
+    return BackendError(f"{backend}: could not connect to {redact_target(target)}: {detail}")
 
 
 def check_ingest_shape(vectors: np.ndarray, ids: Sequence[str]) -> None:
