@@ -27,6 +27,7 @@ from typing import Any
 
 from vector_bench.comparison import render_comparison, render_exact
 from vector_bench.io_utils import loads_json
+from vector_bench.types import is_valid_number
 
 #: Decimal places the recall has always been published at in the knee sentence.
 #: Passed explicitly rather than defaulted inside `render_comparison`, so this
@@ -39,6 +40,18 @@ _RECALL_PLACES = 3
 # `pareto_frontier` compare them, `recommended_defaults` picks the knee off them,
 # and `_print_table` formats them into the published Pareto-frontier table.
 _NUMERIC_CELL_FIELDS = ("mean_recall_at_k", "p50_ms", "p95_ms")
+
+#: Each numeric cell field's upper bound, for `is_valid_number` (#257). The
+#: rule is the writer's own: `BenchmarkResult.__post_init__` refuses a
+#: `mean_recall_at_k` outside [0, 1] and `LatencyStats.__post_init__` a negative
+#: `p50_ms`/`p95_ms`, both through that predicate. The reader checked type and
+#: finiteness only, so a hand-edited `mean_recall_at_k: 9.7` was tabulated and
+#: published as the recommended default at exit 0.
+_CELL_FIELD_MAXIMUM: dict[str, float | None] = {
+    "mean_recall_at_k": 1.0,
+    "p50_ms": None,
+    "p95_ms": None,
+}
 
 
 def _require_finite_number(value: Any, field: str) -> float:
@@ -69,6 +82,19 @@ def _require_finite_number(value: Any, field: str) -> float:
     if not math.isfinite(value):
         raise ValueError(f"{field} must be finite; got {value!r}")
     return float(value)
+
+
+def _require_cell_domain(value: Any, field: str, label: str) -> None:
+    """Reject a grid cell value its writer could not have produced (#257).
+
+    `_require_finite_number` runs first, so the type and finiteness messages
+    stay its own; this adds the range half with the writer's predicate.
+    """
+    _require_finite_number(value, label)
+    maximum = _CELL_FIELD_MAXIMUM[field]
+    if not is_valid_number(value, maximum=maximum):
+        domain = ">= 0" if maximum is None else f"in [0, {maximum:g}]"
+        raise ValueError(f"{label} must be {domain}; got {value!r}")
 
 
 #: The `workload` keys the default chart title reads, besides `top_k` (#226).
@@ -123,7 +149,7 @@ def _validate_cells(grid: dict) -> None:
         for field in _NUMERIC_CELL_FIELDS:
             if field not in cell:
                 raise ValueError(f"grid cell {i} is missing required numeric field {field!r}")
-            _require_finite_number(cell[field], f"grid cell {i} {field}")
+            _require_cell_domain(cell[field], field, f"grid cell {i} {field}")
         # `render` keys the frontier by `run_id` (a set, so it must be hashable),
         # and the table and the knee line print the three knobs. None of them was
         # checked, so a missing one was a `KeyError` at exit 1 -- after the PNG
@@ -134,6 +160,11 @@ def _validate_cells(grid: dict) -> None:
             value = cell.get(field)
             if not isinstance(value, int) or isinstance(value, bool):
                 raise ValueError(f"grid cell {i} {field} must be an int; got {value!r}")
+            # Every backend's HNSW bounds refuse a knob below 1 before the grid
+            # runs (`hnsw_grid._HNSW_BOUNDS`), so `M: 0` can only be a hand edit,
+            # and the knee line would recommend it (#257).
+            if value < 1:
+                raise ValueError(f"grid cell {i} {field} must be >= 1; got {value!r}")
     # One cell per `run_id` (#247). `render` colours a cell red when its
     # `run_id` is in the frontier's set, so a dominated cell sharing one with a
     # frontier cell was drawn as a frontier point at exit 0 while the table
@@ -287,10 +318,13 @@ def main(argv: list[str] | None = None) -> int:
     # Checked *first*: it costs nothing, so the operator isn't made to wait on a
     # file read, cell validation and a chart render to be told the flag is wrong.
     # The domain is `mean_recall_at_k`'s own, stated by
-    # `BenchmarkResult.__post_init__` and re-checked by `_coerce_number` on the
-    # read path — the asymmetry this closes is that a NaN *in the grid JSON*
-    # already exited 2 ("would render as `nan` in the published table") while a
-    # NaN *on the command line* silently changed the recommendation.
+    # `BenchmarkResult.__post_init__` and re-checked on the read path by
+    # `_require_cell_domain` in `_validate_cells`. This comment used to name a
+    # `_coerce_number` that never existed, and the read path checked finiteness
+    # only, so a recall of 9.7 *in the grid JSON* was published as the
+    # recommended default (#257). The asymmetry this flag guard closes is that a
+    # NaN in the grid already exited 2 while a NaN *on the command line*
+    # silently changed the recommendation.
     if not math.isfinite(args.recall_floor) or not (0.0 <= args.recall_floor <= 1.0):
         sys.stderr.write(
             f"--recall-floor must be a finite number in [0, 1]; got {args.recall_floor!r} — "
