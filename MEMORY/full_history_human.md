@@ -2273,3 +2273,17 @@ succeeds, which is the order `load` already used. A failed run writes nothing,
 so the previous grid stays exactly as it was. The check that refuses an
 unwritable output directory before any work runs (#207) moved into the grid
 script, because the per-cell runner no longer writes the file itself.
+
+## 2026-10-21: The HNSW frontier plot refuses out-of-range grid cells (#257)
+
+`scripts/plot_hnsw_frontier.py` checked that each grid cell's recall and
+latencies were finite numbers, but not that they were in range. A hand-edited
+`grid.json` with a recall of 9.7 was printed in the table and published as the
+recommended default, with exit 0. Negative recall, negative latencies and a
+knob of 0 got through the same way. The comment that claimed a read-path
+check named `_coerce_number`, a function that never existed. Each cell is now
+checked with the same rule the writer uses (`is_valid_number`, as
+`BenchmarkResult` and `LatencyStats` call it), and the knobs must be at least
+1. A bad cell exits 2. One test runs the same values through the reader and
+the writer, so their ranges cannot drift apart again. Another test checks that
+the function the comment names really exists.

@@ -2713,3 +2713,22 @@ context_for_next_session:
   - "A_FAILURE_DURING_THE_FINAL_DUMPS_CAN_STILL_LEAVE_A_PARTIAL_WRITE_same_window_as_dump_load_matrix_json_not_filed"
 followups: []
 ---
+
+---
+session: 2026-10-21T07:36Z
+issue: 257
+branch: session/2026-10-21-0736-issue-257
+focus: PLOT_HNSW_FRONTIER_CHECKED_CELL_TYPE_AND_FINITENESS_BUT_NOT_RANGE_SO_A_RECALL_OF_9_7_WAS_PUBLISHED_AS_THE_RECOMMENDED_DEFAULT_AND_ITS_COMMENT_CITED_A_COERCE_NUMBER_THAT_NEVER_EXISTED
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 51
+  suite: "3.11 [dev,plot,qdrant] 1431 passed / 1 skipped; ruff check + format clean"
+decisions_made: []
+measured: "main @ 7378977: cell recall 9.7 -> rc 0 'Recommended defaults ... M=16 ... recall=9.700'; recall -0.1, p50 -3, p95 -2, M 0 all rc 0. Branch: each rc 2 'has an invalid grid cell: ...'; valid grid unchanged (knee M=32). Revert 18 of 51 new cases red (8 out-of-domain arms, 9 parity rows, the comment lock); 33 green controls (endpoints, valid knee, agreeing parity rows, probe coverage)."
+context_for_next_session:
+  - "THE_READ_PATH_RANGE_CHECK_IS_require_cell_domain_CALLING_is_valid_number_the_119_comment_and_memory_entry_naming_coerce_number_were_wrong_and_no_lock_inspected_both_sources"
+  - "KNOBS_ON_READ_ARE_ONLY_FLOORED_AT_1_every_HNSW_BOUNDS_row_refuses_0_per_backend_upper_bounds_are_not_rechecked_on_read"
+  - "GIT_WORKTREE_ADD_B_RACED_A_SIBLING_AGENT_ON_DOT_GIT_CONFIG_LOCK_the_branch_was_created_but_no_worktree_rerun_worktree_add_without_b"
+followups: []
+---
