@@ -2695,3 +2695,21 @@ context_for_next_session:
 followups:
   - "#254 hook-less backends (stub/hnsw-sim/qdrant/weaviate) under-deliver c; committed stub-10k c=100 ran ~34 in flight; JT decision on regenerating"
 ---
+
+---
+session: 2026-10-21T07:36Z
+issue: 258
+branch: session/2026-10-21-0736-issue-258
+focus: HNSW_GRID_A_RERUN_THAT_FAILED_MID_GRID_LEFT_THE_PREVIOUS_GRID_JSON_BESIDE_CELLS_THE_NEW_RUN_HAD_ALREADY_OVERWRITTEN
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 6
+  suite: "3.11 [dev,plot,qdrant] 1380 -> 1386 passed / 1 skipped; ruff check + format clean"
+decisions_made: []
+measured: "main @ 7378977: --M 8,16 --seed 1 then --seed 2 with M16's query raising BackendError -> rc 2, grid.json seed 1, M8_efc50_efs16.json seed 2 (recall 0.97 vs grid's 0.93). Branch: rc 2, grid.json and both cells seed 1, byte-identical to run 1. Revert 3 of 6 new arms red (3 controls green by design); dropping the per-cell check_writable for a bare mkdir turns the unwritable-path control red."
+context_for_next_session:
+  - "RUN_GRID_NOW_RUNS_CELLS_WITH_WRITE_JSON_FALSE_AND_DUMPS_ALL_AFTER_THE_LAST_SO_IT_OWNS_THE_207_PRE_FLIGHT_check_writable_per_cell_after_make_backend"
+  - "A_FAILURE_DURING_THE_FINAL_DUMPS_CAN_STILL_LEAVE_A_PARTIAL_WRITE_same_window_as_dump_load_matrix_json_not_filed"
+followups: []
+---

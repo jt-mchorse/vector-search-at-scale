@@ -50,8 +50,8 @@ from vector_bench.backends.qdrant import (  # noqa: E402
 from vector_bench.backends.weaviate import (  # noqa: E402
     validate_hnsw_params as validate_weaviate_hnsw,
 )
-from vector_bench.harness import Workload, run_benchmark  # noqa: E402
-from vector_bench.io_utils import atomic_write_text  # noqa: E402
+from vector_bench.harness import Workload, dump_benchmark_json, run_benchmark  # noqa: E402
+from vector_bench.io_utils import atomic_write_text, check_writable  # noqa: E402
 from vector_bench.types import BackendError  # noqa: E402
 
 #: Each backend's own argument names for the grid's three HNSW knobs, and
@@ -137,7 +137,8 @@ def run_grid(
     """Run the grid, returning the aggregated `grid.json` payload.
 
     Side effect: writes one BenchmarkResult JSON per cell under `out_dir/`
-    plus `grid.json` summarizing the full grid.
+    plus `grid.json` summarizing the full grid -- all of them after the last
+    cell succeeds, so a failed run writes nothing (#258).
     """
     # Distinct values per axis, before anything runs or is written (#169). A
     # repeated value gives two cells one `run_id`, so the second run overwrote
@@ -181,7 +182,7 @@ def run_grid(
         corpus_check(n_vectors, dim)
 
     cells: list[dict] = []
-    written: set[str] = set()
+    results = []
     for M, efc, efs in itertools.product(M_values, ef_construction_values, ef_search_values):
         run_id = f"M{M}_efc{efc}_efs{efs}"
         kwargs = _backend_kwargs(backend_name, M=M, efc=efc, efs=efs, seed=seed)
@@ -199,10 +200,16 @@ def run_grid(
             # run/load do (#209, #252).
             raise ValueError(str(exc)) from exc
         # Created after the backend is built, not before (#197): a refused
-        # setup used to leave an empty `--out-dir` behind.
-        out_dir.mkdir(parents=True, exist_ok=True)
-        result = run_benchmark(backend, workload, run_id=run_id, results_dir=out_dir, force=True)
-        written.add(f"{run_id}.json")
+        # setup used to leave an empty `--out-dir` behind. `check_writable`
+        # creates it, and refuses an unwritable cell path before the workload
+        # runs, as `run_benchmark` did when it wrote the cell (#207).
+        check_writable(out_dir / f"{run_id}.json")
+        # Not written here (#258): a later cell's failure left this cell's new
+        # numbers beside the previous run's `grid.json`, which the frontier
+        # plotted. Every cell is written below, once all of them have run --
+        # `run_under_load`'s order for `c<NNN>.json` + `matrix.json`.
+        result = run_benchmark(backend, workload, run_id=run_id, write_json=False)
+        results.append(result)
         cells.append(
             {
                 "run_id": run_id,
@@ -237,6 +244,9 @@ def run_grid(
         },
         "cells": cells,
     }
+    for result in results:
+        dump_benchmark_json(out_dir / f"{result.run_id}.json", result=result, force=True)
+    written = {f"{result.run_id}.json" for result in results}
     # A rerun into the same `--out-dir` replaces the grid, so the previous grid's
     # cells go too (#252). They stayed: `--M 8,16` then `--M 8` left
     # `M16_*.json` beside a `grid.json` that no longer listed it -- the grid's
