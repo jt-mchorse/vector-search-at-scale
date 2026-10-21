@@ -2287,3 +2287,18 @@ checked with the same rule the writer uses (`is_valid_number`, as
 1. A bad cell exits 2. One test runs the same values through the reader and
 the writer, so their ranges cannot drift apart again. Another test checks that
 the function the comment names really exists.
+
+## 2026-10-21: An unreachable database server is a one-line error, not a traceback (#256)
+
+If `QDRANT_URL`, `WEAVIATE_HOST` or `PGVECTOR_DSN` was set but the server could
+not be reached (wrong host or port, a DSN typo, the server down), `vector-bench
+run`, `load` and the HNSW grid script crashed with the client library's own
+traceback at exit 1. The grid also left an empty output directory behind. Each
+adapter now turns those connection errors into the repo's `BackendError`. The
+message names the target with any password replaced by `***`, so the commands
+print one `error:` line and exit 2, the same as for an unset URL. Qdrant's
+client does not connect when it is created, and pgvector used to connect only
+at the first insert, so both now contact the server in their constructor. That
+is what keeps the grid from creating its output directory first. Two mid-run
+cases are still unwrapped: a pgvector statement failing on an open connection,
+and a Weaviate query losing gRPC.

@@ -15,7 +15,7 @@ from collections.abc import Sequence
 
 import numpy as np
 
-from vector_bench.types import BackendError, check_ingest_shape, check_open
+from vector_bench.types import BackendError, check_ingest_shape, check_open, unreachable_error
 
 TABLE_NAME = "vector_bench"
 
@@ -113,11 +113,27 @@ class PgVectorBackend:
         # (40) under a cell labelled with this backend's value.
         self._ef_search_set: set[int] = set()
         self._dim: int | None = None
+        # Connect now, not at the first `ingest` (#256). An unreachable
+        # PGVECTOR_DSN raised psycopg's own OperationalError there: a traceback
+        # at exit 1, after the grid had created `--out-dir`. Raised from
+        # `make_backend` it is a setup error, reported like an unset DSN. This
+        # thread's connection is the one `ingest` would open anyway.
+        self._ensure_conn()
 
     def _ensure_conn(self):
         conn = getattr(self._local, "conn", None)
         if conn is None:
-            conn = self._psycopg.connect(self._conninfo)
+            # Every connection this adapter opens comes through here: the
+            # constructor's, and each load worker's after `release_connections`.
+            # Any psycopg error from `connect` is a setup problem: an
+            # `OperationalError` for a server it cannot reach or that refused
+            # the session (auth, unknown database), a `ProgrammingError` for a
+            # malformed DSN. The message names the DSN with its password
+            # redacted (#256).
+            try:
+                conn = self._psycopg.connect(self._conninfo)
+            except self._psycopg.Error as e:
+                raise unreachable_error("PgVectorBackend", self._conninfo, e) from e
             with self._conns_lock:
                 self._conns.append(conn)
             self._local.conn = conn

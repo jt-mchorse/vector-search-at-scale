@@ -15,7 +15,7 @@ from collections.abc import Sequence
 
 import numpy as np
 
-from vector_bench.types import BackendError, check_ingest_shape, check_open
+from vector_bench.types import BackendError, check_ingest_shape, check_open, unreachable_error
 
 DEFAULT_COLLECTION = "vector_bench"
 
@@ -114,6 +114,10 @@ class QdrantBackend:
     # drive the SDK-backed backends without a live engine. Also keeps it out
     # of the dataclass field list, so it is not a constructor argument (#133).
     _closed = False
+    # Class-level for the same reason: an `object.__new__` instance wraps
+    # nothing, and `except ()` matches no exception (#256).
+    _transport_errors: tuple[type[BaseException], ...] = ()
+    _target = "?"
 
     def __init__(
         self,
@@ -134,19 +138,63 @@ class QdrantBackend:
             raise BackendError(
                 "QdrantBackend requires the `qdrant` extra: pip install -e '.[qdrant]' from the vector-search-at-scale checkout"
             ) from e
+        from qdrant_client.http.exceptions import (  # type: ignore
+            ResponseHandlingException,
+            UnexpectedResponse,
+        )
+
         self._qmodels = qmodels
         url = url or os.environ.get("QDRANT_URL")
         if not url:
             raise BackendError("QdrantBackend: pass url or set QDRANT_URL")
+        # The client's transport error (#256): qdrant-client wraps every httpx
+        # failure -- connection refused, DNS, a timeout -- in this one class, so
+        # it is what an unreachable or lost server raises from any call.
+        self._transport_errors = (ResponseHandlingException,)
+        self._target = url
         self._client = QdrantClient(url=url)
+        # `QdrantClient(url=...)` does not connect: an unreachable QDRANT_URL
+        # surfaced at the first `ingest` call as the SDK's own traceback at
+        # exit 1, after the grid had created `--out-dir` (#256). One cheap call
+        # here makes it a setup error, raised from `make_backend` like an unset
+        # QDRANT_URL. A non-2xx answer (`UnexpectedResponse`: a URL that reaches
+        # some other HTTP server, or an auth failure) is the same misconfigured
+        # target, so the probe catches it too; later calls catch transport
+        # errors only, leaving a server-side refusal to its own message.
+        try:
+            self._client.get_collections()
+        except (ResponseHandlingException, UnexpectedResponse) as e:
+            with contextlib.suppress(Exception):
+                self._client.close()
+            raise self._unreachable(e) from e
         self._collection = collection
         self._hnsw_m = hnsw_m
         self._hnsw_ef_construct = hnsw_ef_construct
         self._hnsw_ef = hnsw_ef
 
+    def _unreachable(self, e: BaseException) -> BackendError:
+        return unreachable_error("QdrantBackend", self._target, e)
+
+    @contextlib.contextmanager
+    def _wrap_transport_errors(self):
+        """Re-raise the client's transport error as `BackendError` (#256).
+
+        For a server lost after construction: `run`, `load` and the grid
+        report a `BackendError` as `error:` at exit 2 (#209), while the raw
+        `ResponseHandlingException` escaped as a traceback at exit 1.
+        """
+        try:
+            yield
+        except self._transport_errors as e:
+            raise self._unreachable(e) from e
+
     def ingest(self, vectors: np.ndarray, ids: Sequence[str]) -> None:
         check_open(self._closed, backend="QdrantBackend", method="ingest")
         check_ingest_shape(vectors, ids)
+        with self._wrap_transport_errors():
+            self._ingest(vectors, ids)
+
+    def _ingest(self, vectors: np.ndarray, ids: Sequence[str]) -> None:
         q = self._qmodels
         dim = int(vectors.shape[1])
         # Below the indexing threshold Qdrant never builds an index (#209):
@@ -234,13 +282,14 @@ class QdrantBackend:
         # hit. `query_points` (the Universal Query API) exists from 1.10, the
         # floor this extra pins, and returns the same scored points under
         # `.points`.
-        response = self._client.query_points(
-            collection_name=self._collection,
-            query=vector.tolist(),
-            limit=k,
-            search_params=q.SearchParams(hnsw_ef=self._hnsw_ef),
-            with_payload=True,
-        )
+        with self._wrap_transport_errors():
+            response = self._client.query_points(
+                collection_name=self._collection,
+                query=vector.tolist(),
+                limit=k,
+                search_params=q.SearchParams(hnsw_ef=self._hnsw_ef),
+                with_payload=True,
+            )
         results = response.points
         out: list[tuple[str, float]] = []
         for r in results:
