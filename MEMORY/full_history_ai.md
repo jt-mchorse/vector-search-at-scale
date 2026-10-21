@@ -2732,3 +2732,22 @@ context_for_next_session:
   - "GIT_WORKTREE_ADD_B_RACED_A_SIBLING_AGENT_ON_DOT_GIT_CONFIG_LOCK_the_branch_was_created_but_no_worktree_rerun_worktree_add_without_b"
 followups: []
 ---
+
+---
+session: 2026-10-21T07:36Z
+issue: 256
+branch: session/2026-10-21-0736-issue-256
+focus: AN_UNREACHABLE_QDRANT_WEAVIATE_PGVECTOR_SERVER_ESCAPED_AS_THE_SDKS_OWN_TRACEBACK_AT_EXIT_1_FROM_RUN_LOAD_AND_HNSW_GRID_AND_THE_GRID_LEFT_AN_EMPTY_OUT_DIR
+phase: shipped
+delta:
+  files_changed: 5
+  tests_added: 31
+  suite: "3.11 [dev,plot,qdrant] 1380 -> 1411 passed / 1 skipped; ruff check + format clean"
+decisions_made: []
+measured: "main @ 7378977, nothing on 127.0.0.1:9/:8080: run/load/grid rc=1 for all three backends (qdrant ResponseHandlingException, weaviate WeaviateConnectionError, psycopg OperationalError; PGVECTOR_DSN=nonsense -> ProgrammingError), grid left --out-dir for qdrant + pgvector. Branch: rc=2, one 'error: <Backend>: could not connect to <target, password ***>: <detail>' line, no out-dir. Revert 29 of 31 new arms red (2 controls green); dropping only the constructor probe/connect leaves 11 red incl. both grid no-out-dir arms."
+context_for_next_session:
+  - "QDRANT_CLIENT_URL_CONSTRUCTOR_DOES_NOT_CONNECT_a_setup_error_needs_a_probe_call_or_the_grid_mkdirs_before_it_surfaces"
+  - "AN_IMPORTORSKIP_ARM_FOR_AN_EXTRA_CI_DOES_NOT_INSTALL_IS_REFUSED_BY_test_importorskip_modules_are_installable_use_a_stand_in_module"
+  - "DEFERRED_pgvector_OperationalError_from_execute_on_an_open_connection_and_weaviate_WeaviateQueryError_on_grpc_loss_are_still_unwrapped_mid_run"
+followups: []
+---
