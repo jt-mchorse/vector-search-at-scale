@@ -2396,7 +2396,7 @@ context_for_next_session:
   - GRID_ROW_DEFERRED_add_weaviate_to_hnsw_grid_HNSW_BOUNDS_once_PR_223_merges_until_then_the_ctor_stops_the_grid_at_the_first_bad_cell
   - WEAVIATE_ef_LT_1_IS_NOT_AN_ERROR_IT_IS_A_MODE_dynamic_ef_so_a_server_side_accept_is_not_a_bounds_proof
   - WEAVIATE_flatSearchCutoff_IS_FILTERED_ONLY_the_219_qdrant_full_scan_class_does_not_apply
-followups: [hnsw_grid weaviate _HNSW_BOUNDS row after #223]
+followups: ["hnsw_grid weaviate _HNSW_BOUNDS row after #223"]
 ---
 
 ---
@@ -2416,7 +2416,7 @@ context_for_next_session:
   - THE_223_NOTE_SAID_WEAVIATE_IS_THE_MISSING_ROW_THE_DEFAULT_BACKEND_WAS_ALSO_MISSING_a_ctor_check_is_not_a_grid_precheck_when_the_ctor_runs_per_cell
   - SINGLE_VALUED_AXIS_TESTS_CANNOT_SEE_A_PER_CELL_CHECK_the_bad_cell_is_cell_1
   - WEAVIATE_ROW_STILL_PENDING_on_PR_225
-followups: [weaviate _HNSW_BOUNDS row after #225 merges]
+followups: ["weaviate _HNSW_BOUNDS row after #225 merges"]
 ---
 
 ---
@@ -2458,6 +2458,7 @@ followups: []
 ---
 
 ---
+session: 2026-10-14T07:40Z
 duration_min: 15   # computed: issue 231 filed ~07:27Z, plan comment ~07:29Z, commit ~07:45Z
 issue: 231
 branch: session/2026-10-14-0729-issue-230
