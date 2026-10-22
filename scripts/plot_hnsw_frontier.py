@@ -29,6 +29,16 @@ from vector_bench.comparison import render_comparison, render_exact
 from vector_bench.io_utils import loads_json
 from vector_bench.types import is_valid_number
 
+# The writer's own per-backend HNSW bounds (#266), imported rather than copied
+# so a bound added to the grid's pre-flight is checked here too. `hnsw_grid.py`
+# sits beside this script; a test that loads this file by path has no
+# `scripts/` on `sys.path`, so it is put there.
+_SCRIPTS_DIR = str(Path(__file__).resolve().parent)
+if _SCRIPTS_DIR not in sys.path:
+    sys.path.insert(0, _SCRIPTS_DIR)
+
+from hnsw_grid import _HNSW_BOUNDS  # noqa: E402
+
 #: Decimal places the recall has always been published at in the knee sentence.
 #: Passed explicitly rather than defaulted inside `render_comparison`, so this
 #: script's width stays this script's business (#150, D-014). The *floor* was
@@ -165,6 +175,7 @@ def _validate_cells(grid: dict) -> None:
             # and the knee line would recommend it (#257).
             if value < 1:
                 raise ValueError(f"grid cell {i} {field} must be >= 1; got {value!r}")
+    _validate_cell_knobs_for_backend(grid)
     # One cell per `run_id` (#247). `render` colours a cell red when its
     # `run_id` is in the frontier's set, so a dominated cell sharing one with a
     # frontier cell was drawn as a frontier point at exit 0 while the table
@@ -174,6 +185,38 @@ def _validate_cells(grid: dict) -> None:
     repeated = sorted({r for r in run_ids if run_ids.count(r) > 1})
     if repeated:
         raise ValueError(f"run_id values {repeated} appear more than once in the cells")
+
+
+def _validate_cell_knobs_for_backend(grid: dict) -> None:
+    """Run the grid's own backend bounds over every cell's knobs, as the writer did (#266).
+
+    The floor of 1 above is the one bound every backend shares. Each backend's
+    upper and relative bounds were not rechecked on read, so a pgvector cell
+    hand-edited to `M=5000, ef_search=99999` was published as the recommended
+    default at exit 0, though `hnsw_grid.py` refuses M > 100, ef_search > 1000
+    and ef_construction < 2 * M before any pgvector cell runs. Every grid that
+    `hnsw_grid.py` writes records `backend`, and only a backend with a
+    `_HNSW_BOUNDS` row can be written. A grid with no `backend` key keeps the
+    floor alone: nothing names the bounds it was run under.
+    """
+    if "backend" not in grid:
+        return
+    backend = grid["backend"]
+    check = _HNSW_BOUNDS.get(backend) if isinstance(backend, str) else None
+    if check is None:
+        raise ValueError(
+            f"backend {backend!r} is not one hnsw_grid.py writes; expected one of "
+            f"{sorted(_HNSW_BOUNDS)}"
+        )
+    for i, cell in enumerate(grid["cells"]):
+        M, efc, efs = cell["M"], cell["ef_construction"], cell["ef_search"]
+        try:
+            check(M, efc, efs)
+        except ValueError as exc:
+            raise ValueError(
+                f"grid cell {i} (M={M} ef_construction={efc} ef_search={efs}) is outside "
+                f"{backend}'s HNSW bounds: {exc}"
+            ) from exc
 
 
 def _dominates(a: dict, b: dict) -> bool:
