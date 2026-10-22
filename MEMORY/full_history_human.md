@@ -2302,3 +2302,20 @@ at the first insert, so both now contact the server in their constructor. That
 is what keeps the grid from creating its output directory first. Two mid-run
 cases are still unwrapped: a pgvector statement failing on an open connection,
 and a Weaviate query losing gRPC.
+
+## 2026-10-22: Every load level starts all of its workers (#254)
+
+A load level runs its queries on a thread pool of size `c`, but the pool only
+starts a new thread when no worker is idle. When queries are fast it kept
+reusing the first few threads. #251 fixed this for pgvector, whose per-thread
+warm-up holds every worker at a barrier until all `c` have started. Backends
+with no warm-up hook (stub, hnsw-sim, qdrant, weaviate) were still short: the
+stub's c=100 level ran on about 50 threads with 30 to 37 queries in flight,
+and the cell still said 100. The barrier now runs for every backend, with
+nothing to do when there is no hook, so the stub's c=100 reaches 100 in flight.
+The tests count the workers alive when the first timed query starts. That count
+is fixed by the barrier, unlike peak in-flight, which very short queries cannot
+hold at `c` even on a correct pool. The committed `stub-10k` c=100 cell and the
+README row that quotes it were measured the old way. Whether to regenerate or
+label them is JT's call, so #254 stays open. The c=1 cell, the one the cost
+table reads, is unaffected.

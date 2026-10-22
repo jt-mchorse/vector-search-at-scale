@@ -2751,3 +2751,23 @@ context_for_next_session:
   - "DEFERRED_pgvector_OperationalError_from_execute_on_an_open_connection_and_weaviate_WeaviateQueryError_on_grpc_loss_are_still_unwrapped_mid_run"
 followups: []
 ---
+
+---
+session: 2026-10-22T07:16Z
+issue: 254
+branch: session/2026-10-22-0716-issue-254
+focus: A_LEVEL_OF_C_STARTED_ONLY_AS_MANY_THREADS_AS_THE_EXECUTOR_FOUND_NO_IDLE_WORKER_FOR_SO_HOOKLESS_BACKENDS_RAN_C100_ON_ABOUT_50_THREADS_WITH_30_TO_37_IN_FLIGHT
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 7
+  suite: "3.11 [dev,plot,qdrant] 1468 -> 1475 passed / 1 skipped; ruff check + format clean"
+decisions_made: []
+measured: "main @ b0dab3b, stub 10000x64, 500 queries, levels 1,10,100, 3 runs: c=100 peak in flight 32/37/30 on 52/50/49 threads; c=1 and c=10 full. Branch: c=100 peak 100 on 100 threads, 3/3. Stub c=100 p95 4.3-5.8 -> 7.5-11.9 ms (noisy). Revert 4 of 7 new red (hook-less workers-at-first-query c=32/64/100: 1 == c; stub per-level [1,1,1]); 3 controls green (c=1, every query runs once, queries stay on the level's workers)."
+context_for_next_session:
+  - "THE_BARRIER_NOT_THE_HOOK_STARTS_THE_C_THREADS_a_no_op_prepare_thread_runs_for_every_backend_now"
+  - "PEAK_IN_FLIGHT_IS_NOT_A_TESTABLE_GUARANTEE_sub_ms_GIL_held_queries_cannot_keep_c_in_flight_even_on_the_fixed_pool_assert_workers_alive_at_the_first_timed_query"
+  - "JT_DECISION_OPEN_on_254_regenerate_or_label_committed_results_load_stub_10k_c100_and_the_README_stub_c100_row_c001_unaffected"
+followups:
+  - "#254 stays open for the stub-10k c=100 artifact/README decision (PR #262 is Refs, not Closes)"
+---
