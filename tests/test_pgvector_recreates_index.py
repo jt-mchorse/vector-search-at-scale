@@ -52,6 +52,8 @@ def sql_log(monkeypatch: pytest.MonkeyPatch) -> list[str]:
     log: list[str] = []
     fake = types.ModuleType("psycopg")
     fake.connect = lambda conninfo: _Conn(log)  # type: ignore[attr-defined]
+    # What the adapter wraps mid-run (#264).
+    fake.OperationalError = type("OperationalError", (Exception,), {})  # type: ignore[attr-defined]
     monkeypatch.setitem(sys.modules, "psycopg", fake)
     return log
 

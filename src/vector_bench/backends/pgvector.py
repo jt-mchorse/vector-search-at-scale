@@ -60,6 +60,10 @@ class PgVectorBackend:
     # drive the SDK-backed backends without a live engine. Also keeps it out
     # of the dataclass field list, so it is not a constructor argument (#133).
     _closed = False
+    # Class-level for the same reason: an `object.__new__` instance wraps
+    # nothing, and `except ()` matches no exception (#264).
+    _transport_errors: tuple[type[BaseException], ...] = ()
+    _conninfo = "?"
 
     def __init__(
         self,
@@ -94,6 +98,12 @@ class PgVectorBackend:
         self._conninfo = conninfo or os.environ.get("PGVECTOR_DSN")
         if not self._conninfo:
             raise BackendError("PgVectorBackend: pass conninfo or set PGVECTOR_DSN")
+        # What a server lost after `connect` raises from `execute`/`commit` (#264):
+        # `AdminShutdown` (pg_terminate_backend, a fast shutdown) and the other
+        # SQLSTATE class 08/57 errors are `OperationalError` subclasses, and so is
+        # "the connection is closed" on the next call. A bad statement or value
+        # is a `ProgrammingError`/`DataError` and keeps its own type.
+        self._transport_errors = (psycopg.OperationalError,)
         self._index_method = index_method
         self._hnsw_m = hnsw_m
         self._hnsw_ef_construction = hnsw_ef_construction
@@ -139,6 +149,20 @@ class PgVectorBackend:
             self._local.conn = conn
         return conn
 
+    @contextlib.contextmanager
+    def _wrap_transport_errors(self):
+        """Re-raise psycopg's `OperationalError` as `BackendError` (#264).
+
+        #256 wrapped only `connect`; an `execute` on a connection whose server
+        went away mid-run raised `AdminShutdown` through `run`, `load` and the
+        grid as a traceback at exit 1. Reported like an unreachable server, with
+        the DSN's password redacted, so they print `error:` at exit 2 (#209).
+        """
+        try:
+            yield
+        except self._transport_errors as e:
+            raise unreachable_error("PgVectorBackend", self._conninfo, e) from e
+
     def _apply_ef_search(self, conn) -> None:
         if self._index_method != "hnsw" or id(conn) in self._ef_search_set:
             return
@@ -174,6 +198,10 @@ class PgVectorBackend:
     def ingest(self, vectors: np.ndarray, ids: Sequence[str]) -> None:
         check_open(self._closed, backend="PgVectorBackend", method="ingest")
         check_ingest_shape(vectors, ids)
+        with self._wrap_transport_errors():
+            self._ingest(vectors, ids)
+
+    def _ingest(self, vectors: np.ndarray, ids: Sequence[str]) -> None:
         dim = vectors.shape[1]
         self._dim = dim
         self._ensure_table(dim)
@@ -189,15 +217,16 @@ class PgVectorBackend:
 
     def query(self, vector: np.ndarray, k: int) -> list[tuple[str, float]]:
         check_open(self._closed, backend="PgVectorBackend", method="query")
-        conn = self._ensure_conn()
-        self._apply_ef_search(conn)
-        with conn.cursor() as cur:
-            cur.execute(
-                f"SELECT id, 1 - (embedding <=> %s::vector) FROM {TABLE_NAME} "
-                f"ORDER BY embedding <=> %s::vector LIMIT %s;",
-                (_to_pgvector_literal(vector), _to_pgvector_literal(vector), k),
-            )
-            return [(row[0], float(row[1])) for row in cur.fetchall()]
+        with self._wrap_transport_errors():
+            conn = self._ensure_conn()
+            self._apply_ef_search(conn)
+            with conn.cursor() as cur:
+                cur.execute(
+                    f"SELECT id, 1 - (embedding <=> %s::vector) FROM {TABLE_NAME} "
+                    f"ORDER BY embedding <=> %s::vector LIMIT %s;",
+                    (_to_pgvector_literal(vector), _to_pgvector_literal(vector), k),
+                )
+                return [(row[0], float(row[1])) for row in cur.fetchall()]
 
     def prepare_thread(self) -> None:
         """Open the calling thread's connection and set `hnsw.ef_search` on it (#251).
@@ -208,7 +237,8 @@ class PgVectorBackend:
         (#212) that is every worker at every level.
         """
         check_open(self._closed, backend="PgVectorBackend", method="prepare_thread")
-        self._apply_ef_search(self._ensure_conn())
+        with self._wrap_transport_errors():
+            self._apply_ef_search(self._ensure_conn())
 
     def release_connections(self) -> None:
         """Close every per-thread connection; the next call reconnects lazily (#212).
@@ -240,6 +270,10 @@ class PgVectorBackend:
         the queries run.
         """
         check_open(self._closed, backend="PgVectorBackend", method="max_query_concurrency")
+        with self._wrap_transport_errors():
+            return self._max_query_concurrency()
+
+    def _max_query_concurrency(self) -> int:
         conn = self._ensure_conn()
         with conn.cursor() as cur:
             cur.execute(
