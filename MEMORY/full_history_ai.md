@@ -2772,3 +2772,23 @@ context_for_next_session:
 followups:
   - "#254 stays open for the stub-10k c=100 artifact/README decision (PR #262 is Refs, not Closes)"
 ---
+
+---
+session: 2026-10-22T07:49Z
+issue: 264
+branch: session/2026-10-22-0749-issue-264
+focus: A_SERVER_LOST_MID_RUN_PGVECTOR_ADMINSHUTDOWN_AND_WEAVIATE_GRPC_UNAVAILABLE_ESCAPED_AS_THE_SDKS_TRACEBACK_AT_EXIT_1_256S_UNFILED_DEFERRAL
+phase: shipped
+delta:
+  files_changed: 6
+  tests_added: 14
+  suite: "3.11 [dev,plot,qdrant] 1475 -> 1489 passed / 1 skipped; ruff check + format clean"
+decisions_made: []
+measured: "main @ 2985ed0, live PG17 + pgvector 0.8.7: load --n 2000 --queries 20000 + pg_terminate_backend -> psycopg.errors.AdminShutdown traceback exit=1, empty run dir. Live weaviate 1.34.0 binary, SIGKILL after 50 queries -> WeaviateQueryError after 63.1s (context chain WeaviateRetryError -> grpc _InactiveRpcError UNAVAILABLE), not BackendError. Branch: pgvector 'error: PgVectorBackend: could not connect to ...: terminating connection due to administrator command' exit=2; weaviate BackendError after 63.1s; live missing-collection WeaviateQueryError unchanged. Revert 12 of 14 new red, 2 controls green; each control red against its over-broad neighbour (psycopg.Error / every WeaviateQueryError)."
+context_for_next_session:
+  - "WEAVIATE_GRPC_SEARCH_RAISES_WEAVIATEQUERYERROR_INSIDE_EXCEPT_WEAVIATERETRYERROR_so_the_retry_error_is___context___not___cause___walk_both"
+  - "PGVECTOR_ADAPTER_NOW_READS_psycopg_OperationalError_AT_CONSTRUCTION_a_new_stand_in_psycopg_module_must_carry_it"
+  - "DEFERRED_the_empty_run_dir_left_by_any_mid_run_BackendError_is_created_by_207s_check_writable_preflight_not_specific_to_264"
+  - "DEFERRED_weaviate_client_retries_UNAVAILABLE_for_about_63s_before_raising_SDK_Retry_4_backoff"
+followups: []
+---

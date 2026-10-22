@@ -2319,3 +2319,20 @@ hold at `c` even on a correct pool. The committed `stub-10k` c=100 cell and the
 README row that quotes it were measured the old way. Whether to regenerate or
 label them is JT's call, so #254 stays open. The c=1 cell, the one the cost
 table reads, is unaffected.
+
+## 2026-10-22: A database server lost mid-run is a one-line error, not a traceback (#264)
+
+#256 handled a server that cannot be reached at startup. A server lost
+partway through a run still crashed `vector-bench run`, `load` and the HNSW
+grid with the client library's traceback at exit 1. For pgvector the error
+was `AdminShutdown`, from a terminated backend or a shutdown. For Weaviate it
+was a `WeaviateQueryError`, raised after about a minute of gRPC retries. The
+pgvector adapter now wraps psycopg's `OperationalError` from every statement
+it runs in the same password-redacted `BackendError`. A bad statement keeps its
+own error type. Weaviate raises the same `WeaviateQueryError` for a query the
+server rejects, so that adapter wraps it only when the client's "gave up
+retrying" error is in its exception chain. Both cases were reproduced against
+a real Postgres and a real Weaviate binary before and after the fix. Each one
+now prints a single `error:` line and exits 2. The empty run directory left
+behind is not fixed here: the pre-flight write check from #207 creates it, for
+any mid-run failure.
