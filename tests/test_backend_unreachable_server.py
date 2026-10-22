@@ -19,6 +19,15 @@ not (and an `importorskip` arm for either would sit dormant in CI, which
 test_importorskip_modules_are_installable.py refuses), so those arms install a
 stand-in module whose classes carry the real names and the real hierarchy
 (`psycopg.OperationalError`/`ProgrammingError` under `psycopg.Error`).
+
+The last section covers a server lost AFTER a successful connect (#264).
+Measured on `main` 2985ed0 against Postgres 17 + pgvector 0.8.7 and a
+Weaviate 1.34.0 binary:
+
+    vector-bench load --backend pgvector ... + pg_terminate_backend mid-query
+      -> psycopg.errors.AdminShutdown                             exit 1
+    WeaviateBackend.query after SIGKILL of the server (63 s of gRPC retries)
+      -> weaviate.exceptions.WeaviateQueryError, chained to WeaviateRetryError
 """
 
 from __future__ import annotations
@@ -82,10 +91,13 @@ def _fake_psycopg(monkeypatch: pytest.MonkeyPatch, connect) -> types.ModuleType:
 
     class OperationalError(Error): ...
 
+    class AdminShutdown(OperationalError): ...  # psycopg.errors.AdminShutdown, SQLSTATE 57P01
+
     class ProgrammingError(Error): ...
 
     mod.Error = Error  # type: ignore[attr-defined]
     mod.OperationalError = OperationalError  # type: ignore[attr-defined]
+    mod.AdminShutdown = AdminShutdown  # type: ignore[attr-defined]
     mod.ProgrammingError = ProgrammingError  # type: ignore[attr-defined]
     mod.connect = lambda info: connect(mod, info)  # type: ignore[attr-defined]
     monkeypatch.setitem(sys.modules, "psycopg", mod)
@@ -110,6 +122,8 @@ def _fake_weaviate(monkeypatch: pytest.MonkeyPatch, connect_to_custom) -> types.
     for name in (
         "WeaviateConnectionError",
         "WeaviateGRPCUnavailableError",
+        "WeaviateQueryError",
+        "WeaviateRetryError",
         "WeaviateStartUpError",
         "WeaviateTimeoutError",
     ):
@@ -446,6 +460,221 @@ def test_weaviate_server_lost_after_construction_is_a_backend_error(
     b = WeaviateBackend(host=WEAVIATE_HOST)
     with pytest.raises(BackendError, match="could not connect to http://127.0.0.1:8080"):
         b.query(np.ones(4, dtype=np.float32), 2)
+
+
+# --- a server lost mid-run (#264) -----------------------------------------
+
+
+class _PgCursor:
+    def __init__(self, conn: _PgConn) -> None:
+        self.conn = conn
+
+    def __enter__(self) -> _PgCursor:
+        return self
+
+    def __exit__(self, *_exc: object) -> None: ...
+
+    def execute(self, sql: str, _params: object = None) -> None:
+        if self.conn.fail_on in sql:
+            raise self.conn.error
+
+    def executemany(self, sql: str, _params: object) -> None:
+        self.execute(sql)
+
+    def fetchone(self) -> tuple:
+        # max_query_concurrency: max_connections, reserved slots, superuser, others
+        return (100, 3, 0, True, False, 0)
+
+    def fetchall(self) -> list:
+        return []
+
+
+class _PgConn:
+    def __init__(self, fail_on: str, error: BaseException) -> None:
+        self.fail_on = fail_on
+        self.error = error
+
+    def cursor(self) -> _PgCursor:
+        return _PgCursor(self)
+
+    def commit(self) -> None: ...
+
+    def close(self) -> None: ...
+
+
+def _psycopg_lost_on(monkeypatch: pytest.MonkeyPatch, fail_on: str, error=None) -> types.ModuleType:
+    """Connect fine; every statement containing `fail_on` raises `error` (AdminShutdown)."""
+    box: dict[str, BaseException] = {}
+
+    def connect(mod: types.ModuleType, _info: str) -> _PgConn:
+        return _PgConn(fail_on, box["error"])
+
+    mod = _fake_psycopg(monkeypatch, connect)
+    box["error"] = (
+        error(mod)
+        if error
+        else mod.AdminShutdown(  # type: ignore[attr-defined]
+            "terminating connection due to administrator command"
+        )
+    )
+    return mod
+
+
+def _weaviate_lost_on_query(monkeypatch: pytest.MonkeyPatch, *, retried: bool = True):
+    """A client whose `near_vector` raises the way weaviate-client 4.24 does for a lost server.
+
+    `grpc_search` catches the `WeaviateRetryError` `_Retry` raised after the
+    last `UNAVAILABLE` and raises `WeaviateQueryError` inside that `except`, so
+    the retry error is the query error's `__context__`, not its `__cause__`.
+    With `retried=False` the query error stands alone, as for a query the
+    server rejects ("could not find class ... in schema").
+    """
+
+    def near_vector(**_kw: object) -> object:
+        if not retried:
+            raise exc.WeaviateQueryError("could not find class VectorBench in schema")  # type: ignore[attr-defined]
+        try:
+            try:
+                raise ConnectionError("StatusCode.UNAVAILABLE: failed to connect to all addresses")
+            except ConnectionError as rpc:
+                raise exc.WeaviateRetryError("failed after 5 retries") from rpc  # type: ignore[attr-defined]
+        except exc.WeaviateRetryError as retry:  # type: ignore[attr-defined]
+            raise exc.WeaviateQueryError(f"GRPC search failed: {retry}")  # type: ignore[attr-defined]  # noqa: B904
+
+    coll = types.SimpleNamespace(query=types.SimpleNamespace(near_vector=near_vector))
+    client = types.SimpleNamespace(
+        collections=types.SimpleNamespace(get=lambda _name: coll), close=lambda: None
+    )
+    exc = _fake_weaviate(monkeypatch, lambda _exc, **_kw: client)
+    from vector_bench.backends.weaviate import WeaviateBackend
+
+    # The stand-in config module has no `Configure`; the ingest path is not
+    # what this covers, so it succeeds without touching the client.
+    monkeypatch.setattr(WeaviateBackend, "_ingest", lambda self, vectors, ids: None)
+    return exc
+
+
+@pytest.fixture
+def lost_mid_query(monkeypatch: pytest.MonkeyPatch):
+    """Construct and ingest fine; the server is gone by the first timed query."""
+    monkeypatch.setenv("WEAVIATE_HOST", WEAVIATE_HOST)
+    monkeypatch.setenv("PGVECTOR_DSN", PG_DSN)
+
+    def install(backend: str) -> None:
+        if backend == "pgvector":
+            _psycopg_lost_on(monkeypatch, "SELECT id")
+        else:
+            _weaviate_lost_on_query(monkeypatch)
+
+    return install
+
+
+LOST_BACKENDS = ["pgvector", "weaviate"]
+
+
+@pytest.mark.parametrize("backend", LOST_BACKENDS)
+@pytest.mark.parametrize("command", ["run", "load"])
+def test_a_server_lost_mid_query_is_exit_2_with_one_error_line(
+    lost_mid_query, backend: str, command: str, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    lost_mid_query(backend)
+    levels = ["--concurrency", "1,2"] if command == "load" else []
+    rc = cli.main(
+        [command, "--backend", backend, *SIZE, *levels, "--run-id", "lost"]
+        + ["--results-dir", str(tmp_path)]
+    )
+    line = _one_error_line(capsys.readouterr().err)
+    assert rc == 2
+    expected = {"pgvector": "administrator command", "weaviate": "failed after 5 retries"}
+    assert expected[backend] in line
+
+
+@pytest.mark.parametrize("backend", LOST_BACKENDS)
+def test_the_grid_on_a_server_lost_mid_query_is_exit_2(
+    lost_mid_query, backend: str, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    lost_mid_query(backend)
+    rc = hnsw_grid.main(
+        [
+            *("--n-vectors", "60", "--n-queries", "5", "--dim", "64", "--top-k", "5"),
+            *("--M", "16", "--ef-construction", "64", "--ef-search", "40"),
+            *("--backend", backend, "--out-dir", str(tmp_path / "grid")),
+        ]
+    )
+    _one_error_line(capsys.readouterr().err)
+    assert rc == 2
+
+
+# Each public call that executes SQL, and the statement it reaches first.
+PG_CALLS = {
+    "ingest": ("CREATE EXTENSION", lambda b: b.ingest(np.ones((3, 4)), ["a", "b", "c"])),
+    "query": ("SELECT id", lambda b: b.query(np.ones(4), 2)),
+    "prepare_thread": ("SET hnsw.ef_search", lambda b: b.prepare_thread()),
+    "max_query_concurrency": ("max_connections", lambda b: b.max_query_concurrency()),
+}
+
+
+@pytest.mark.parametrize("call", list(PG_CALLS))
+def test_pgvector_operational_error_from_any_statement_is_a_redacted_backend_error(
+    monkeypatch: pytest.MonkeyPatch, call: str
+) -> None:
+    fail_on, invoke = PG_CALLS[call]
+    psycopg = _psycopg_lost_on(monkeypatch, fail_on)
+    from vector_bench.backends.pgvector import PgVectorBackend
+
+    b = PgVectorBackend(conninfo=PG_DSN)
+    with pytest.raises(BackendError, match="administrator command") as ei:
+        invoke(b)
+    assert isinstance(ei.value.__cause__, psycopg.AdminShutdown)  # type: ignore[attr-defined]
+    assert "postgresql://bench:***@127.0.0.1:9/bench" in str(ei.value)
+    assert PASSWORD not in str(ei.value)
+
+
+def test_pgvector_the_closed_connection_after_a_loss_is_a_backend_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # psycopg raises a plain OperationalError("the connection is closed") for
+    # every call on a connection it has already seen die.
+    _psycopg_lost_on(
+        monkeypatch, "SELECT id", lambda mod: mod.OperationalError("the connection is closed")
+    )
+    from vector_bench.backends.pgvector import PgVectorBackend
+
+    with pytest.raises(BackendError, match="the connection is closed"):
+        PgVectorBackend(conninfo=PG_DSN).query(np.ones(4), 2)
+
+
+def test_pgvector_a_rejected_statement_keeps_its_own_type(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Control: a `ProgrammingError` (bad SQL, a missing table) is not a lost server."""
+    psycopg = _psycopg_lost_on(
+        monkeypatch,
+        "SELECT id",
+        lambda mod: mod.ProgrammingError('relation "vector_bench" does not exist'),
+    )
+    from vector_bench.backends.pgvector import PgVectorBackend
+
+    with pytest.raises(psycopg.ProgrammingError):  # type: ignore[attr-defined]
+        PgVectorBackend(conninfo=PG_DSN).query(np.ones(4), 2)
+
+
+def test_weaviate_query_error_after_exhausted_grpc_retries_is_a_backend_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    exc = _weaviate_lost_on_query(monkeypatch)
+    from vector_bench.backends.weaviate import WeaviateBackend
+
+    with pytest.raises(BackendError, match="could not connect to http://127.0.0.1:8080") as ei:
+        WeaviateBackend(host=WEAVIATE_HOST).query(np.ones(4, dtype=np.float32), 2)
+    assert isinstance(ei.value.__cause__, exc.WeaviateQueryError)  # type: ignore[attr-defined]
+
+
+def test_weaviate_a_rejected_query_keeps_its_own_type(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Control: a `WeaviateQueryError` with no retry in its chain is the server's answer."""
+    exc = _weaviate_lost_on_query(monkeypatch, retried=False)
+    from vector_bench.backends.weaviate import WeaviateBackend
+
+    with pytest.raises(exc.WeaviateQueryError, match="could not find class"):  # type: ignore[attr-defined]
+        WeaviateBackend(host=WEAVIATE_HOST).query(np.ones(4, dtype=np.float32), 2)
 
 
 # --- redaction -------------------------------------------------------------

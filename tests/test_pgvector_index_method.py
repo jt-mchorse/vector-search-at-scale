@@ -51,9 +51,12 @@ class _Conn:
 @pytest.fixture
 def sql_log(monkeypatch: pytest.MonkeyPatch) -> list[str]:
     log: list[str] = []
-    monkeypatch.setitem(
-        sys.modules, "psycopg", types.SimpleNamespace(connect=lambda _info: _Conn(log))
+    fake = types.SimpleNamespace(
+        connect=lambda _info: _Conn(log),
+        # What the adapter wraps mid-run (#264).
+        OperationalError=type("OperationalError", (Exception,), {}),
     )
+    monkeypatch.setitem(sys.modules, "psycopg", fake)
     return log
 
 

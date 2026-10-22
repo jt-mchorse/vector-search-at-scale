@@ -63,6 +63,8 @@ class WeaviateBackend:
     # Class-level for the same reason: an `object.__new__` instance wraps
     # nothing, and `except ()` matches no exception (#256).
     _transport_errors: tuple[type[BaseException], ...] = ()
+    _query_errors: tuple[type[BaseException], ...] = ()
+    _retry_errors: tuple[type[BaseException], ...] = ()
     _target = "?"
 
     def __init__(
@@ -93,6 +95,8 @@ class WeaviateBackend:
         from weaviate.exceptions import (  # type: ignore
             WeaviateConnectionError,
             WeaviateGRPCUnavailableError,
+            WeaviateQueryError,
+            WeaviateRetryError,
             WeaviateStartUpError,
             WeaviateTimeoutError,
         )
@@ -112,6 +116,13 @@ class WeaviateBackend:
         # timed out). The connection and timeout errors are also what a server
         # lost mid-run raises from `ingest` and `query`.
         self._transport_errors = (WeaviateConnectionError, WeaviateTimeoutError)
+        # A server lost mid-QUERY raises neither (#264). The gRPC search retries
+        # `UNAVAILABLE` with backoff (about 63 s against weaviate-client 4.24),
+        # then raises `WeaviateRetryError`, which `grpc_search` re-raises as a
+        # `WeaviateQueryError` -- the class a rejected query raises too. The
+        # retry error in the chain is what tells them apart.
+        self._query_errors = (WeaviateQueryError,)
+        self._retry_errors = (WeaviateRetryError,)
         try:
             self._client = weaviate.connect_to_custom(
                 http_host=host,
@@ -141,12 +152,29 @@ class WeaviateBackend:
         """Re-raise the client's connection errors as `BackendError` (#256).
 
         For a server lost after construction: `run`, `load` and the grid
-        report a `BackendError` as `error:` at exit 2 (#209).
+        report a `BackendError` as `error:` at exit 2 (#209). A query error
+        is wrapped only when the client gave up retrying a lost gRPC channel
+        (#264); one the server answered keeps its own type.
         """
         try:
             yield
         except self._transport_errors as e:
             raise self._unreachable(e) from e
+        except self._query_errors as e:
+            if not self._retries_exhausted(e):
+                raise
+            raise self._unreachable(e) from e
+
+    def _retries_exhausted(self, e: BaseException) -> bool:
+        """True when `e` was raised after the client gave up retrying gRPC `UNAVAILABLE` (#264)."""
+        seen: set[int] = set()
+        link: BaseException | None = e
+        while link is not None and id(link) not in seen:
+            if isinstance(link, self._retry_errors):
+                return True
+            seen.add(id(link))
+            link = link.__cause__ or link.__context__
+        return False
 
     def ingest(self, vectors: np.ndarray, ids: Sequence[str]) -> None:
         check_open(self._closed, backend="WeaviateBackend", method="ingest")

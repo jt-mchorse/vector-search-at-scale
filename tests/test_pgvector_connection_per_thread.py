@@ -72,7 +72,11 @@ def conns(monkeypatch: pytest.MonkeyPatch) -> list[_Conn]:
         with lock:
             return _Conn(registry)
 
-    monkeypatch.setitem(sys.modules, "psycopg", types.SimpleNamespace(connect=connect))
+    # `OperationalError` is what the adapter wraps mid-run (#264).
+    fake = types.SimpleNamespace(
+        connect=connect, OperationalError=type("OperationalError", (Exception,), {})
+    )
+    monkeypatch.setitem(sys.modules, "psycopg", fake)
     return registry
 
 
