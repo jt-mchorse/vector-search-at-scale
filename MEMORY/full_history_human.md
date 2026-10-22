@@ -2336,3 +2336,18 @@ a real Postgres and a real Weaviate binary before and after the fix. Each one
 now prints a single `error:` line and exits 2. The empty run directory left
 behind is not fixed here: the pre-flight write check from #207 creates it, for
 any mid-run failure.
+
+## 2026-10-22: The HNSW frontier plot checks each cell against its backend's limits (#266)
+
+#257 made `scripts/plot_hnsw_frontier.py` refuse a knob below 1, the only
+limit all four backends share. Each backend's own limits were not checked on
+read. A real pgvector grid with one cell hand-edited to `M=5000,
+ef_search=99999` got that cell published as the recommended default at exit
+0, although pgvector allows M up to 100 and ef_search up to 1000. The grid
+writer refuses such a cell before anything runs. The plot script now reads
+the grid's `backend` and runs the writer's own check table
+(`hnsw_grid._HNSW_BOUNDS`) over every cell. The table is imported, not
+copied, so the two cannot drift apart. A cell outside the limits exits 2 with
+the cell and the limit it broke. A backend name the grid writer would never
+record is refused too. A grid with no `backend` key is checked against the
+floor of 1 only, as before.

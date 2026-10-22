@@ -2792,3 +2792,21 @@ context_for_next_session:
   - "DEFERRED_weaviate_client_retries_UNAVAILABLE_for_about_63s_before_raising_SDK_Retry_4_backoff"
 followups: []
 ---
+
+---
+session: 2026-10-22T08:02Z
+issue: 266
+branch: session/2026-10-22-0802-issue-266
+focus: PLOT_HNSW_FRONTIER_FLOORED_KNOBS_AT_1_ON_READ_ONLY_SO_A_HAND_EDITED_PGVECTOR_CELL_M5000_EFS99999_WAS_THE_RECOMMENDED_DEFAULT_257S_UNFILED_GAP
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 20
+  suite: "3.11 [dev,plot,qdrant] 1475 -> 1495 passed / 1 skipped; ruff check + format clean"
+decisions_made: []
+measured: "main @ 2985ed0, real pgvector grid (PG17 + pgvector 0.8.7, 2000x32, M 8,16 x efc 64 x efs 40,100), fastest cell edited to M=5000 efs=99999: exit 0, knee 'M=5000 ef_construction=64 ef_search=99999'. Branch: exit 2 'grid cell 0 (...) is outside pgvector's HNSW bounds: pgvector hnsw_m must be an int in [2, 100]; got 5000'; unedited grid stdout identical. Revert 13 of 20 new red, 7 controls green."
+context_for_next_session:
+  - "PLOT_HNSW_FRONTIER_IMPORTS_hnsw_grid__HNSW_BOUNDS_by_putting_scripts_dir_on_sys_path_not_a_copy"
+  - "A_GRID_WITHOUT_backend_STAYS_FLOOR_ONLY_the_226_reader_tests_treat_it_as_valid_an_unknown_backend_value_is_refused"
+followups: []
+---
