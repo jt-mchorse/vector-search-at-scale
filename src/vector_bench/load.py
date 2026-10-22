@@ -163,6 +163,10 @@ class LoadMatrix:
         return self.to_dict()
 
 
+def _no_thread_setup() -> None:
+    """The warm-up hook for a backend that defines no `prepare_thread` (#254)."""
+
+
 def _execute_at_concurrency(
     backend: Backend,
     queries: np.ndarray,
@@ -186,6 +190,13 @@ def _execute_at_concurrency(
     3.8 ms on a reused connection) and the cell's p95 read 28.5 ms. The setup
     also sat inside the wall-clock `throughput_qps` divides by.
 
+    A backend without the hook gets the same barrier-held warm-up with nothing
+    to run on it (#254), so every level starts all `concurrency` workers. The
+    executor only adds a thread when none is idle, so fast queries recycled
+    the first few: measured on stub, 10 000 x 64, 500 queries, c=100 ran on
+    about 50 threads and peaked at 30 to 37 queries in flight while the cell
+    recorded `concurrency=100`.
+
     `backend.query` must already be safe to call from multiple threads
     against a single ingested backend instance — the SDK adapters this
     ships against (pgvector with one psycopg connection per worker thread,
@@ -206,6 +217,10 @@ def _execute_at_concurrency(
         return idx, latency_ms, recall
 
     prepare = getattr(backend, "prepare_thread", None)
+    if not callable(prepare):
+        # Still held at the barrier below: it is the barrier, not the hook,
+        # that makes the executor start `concurrency` threads (#254).
+        prepare = _no_thread_setup
     # Every worker must be held at the barrier until all `concurrency` have
     # prepared: a worker that finished early would otherwise take a second
     # warm task, and the thread that never got one would pay the setup on its
@@ -225,17 +240,16 @@ def _execute_at_concurrency(
         barrier.wait()
 
     with ThreadPoolExecutor(max_workers=concurrency) as pool:
-        if callable(prepare):
-            warm = [pool.submit(_warm) for _ in range(concurrency)]
-            # The failing worker's own error, not the `BrokenBarrierError` the
-            # aborted barrier hands every other one.
-            errors = [f.exception() for f in warm]
-            for err in errors:
-                if err is not None and not isinstance(err, threading.BrokenBarrierError):
-                    raise err
-            for err in errors:
-                if err is not None:
-                    raise err
+        warm = [pool.submit(_warm) for _ in range(concurrency)]
+        # The failing worker's own error, not the `BrokenBarrierError` the
+        # aborted barrier hands every other one.
+        errors = [f.exception() for f in warm]
+        for err in errors:
+            if err is not None and not isinstance(err, threading.BrokenBarrierError):
+                raise err
+        for err in errors:
+            if err is not None:
+                raise err
         query_start = time.perf_counter()
         futures = [pool.submit(_one_query, i) for i in range(n)]
         try:
