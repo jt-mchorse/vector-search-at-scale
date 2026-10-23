@@ -26,18 +26,20 @@ from pathlib import Path
 from typing import Any
 
 from vector_bench.comparison import render_comparison, render_exact
+from vector_bench.harness import Workload
 from vector_bench.io_utils import loads_json
 from vector_bench.types import is_valid_number
 
-# The writer's own per-backend HNSW bounds (#266), imported rather than copied
-# so a bound added to the grid's pre-flight is checked here too. `hnsw_grid.py`
+# The writer's own per-backend HNSW bounds (#266) and corpus floors (#271),
+# imported rather than copied so a bound added to the grid's pre-flight is
+# checked here too. `hnsw_grid.py`
 # sits beside this script; a test that loads this file by path has no
 # `scripts/` on `sys.path`, so it is put there.
 _SCRIPTS_DIR = str(Path(__file__).resolve().parent)
 if _SCRIPTS_DIR not in sys.path:
     sys.path.insert(0, _SCRIPTS_DIR)
 
-from hnsw_grid import _HNSW_BOUNDS  # noqa: E402
+from hnsw_grid import _CORPUS_BOUNDS, _HNSW_BOUNDS  # noqa: E402
 
 #: Decimal places the recall has always been published at in the knee sentence.
 #: Passed explicitly rather than defaulted inside `render_comparison`, so this
@@ -143,6 +145,43 @@ def _validate_grid_shape(grid: Any, *, default_title: bool = True) -> None:
                 f"its `workload` is missing {', '.join(missing)}, which the chart title "
                 "reads (pass --title to supply your own)"
             )
+
+
+#: The `workload` keys `hnsw_grid.py` builds its `Workload` from (#271).
+_WORKLOAD_FIELDS = ("n_vectors", "dim", "n_queries", "top_k")
+
+
+def _validate_workload(grid: dict) -> None:
+    """Rebuild the grid's `Workload` and apply its backend's corpus floor, as the writer did (#271).
+
+    #266 rechecked each cell's knobs against `_HNSW_BOUNDS`, but not the grid's
+    other pre-flight table, `_CORPUS_BOUNDS`, nor the workload itself: a grid
+    hand-edited to `backend: "qdrant"`, `n_vectors: 30` was rendered at exit 0,
+    though `hnsw_grid.py` refuses that corpus as one Qdrant answers by
+    brute-force scan (#245), and so were `n_vectors: -3`, `dim: 0` and
+    `top_k > n_vectors`, which `Workload.__post_init__` refuses on write.
+
+    Only a complete workload is rebuilt. Under `--title` the shape guard asks
+    for `top_k` alone (#226), and inventing values for the absent counts would
+    be checking a workload nobody ran.
+    """
+    workload = grid["workload"]  # a dict with `top_k`: `_validate_grid_shape` ran first
+    if not all(k in workload for k in _WORKLOAD_FIELDS):
+        return
+    kwargs = {k: workload[k] for k in _WORKLOAD_FIELDS}
+    if "seed" in workload:
+        kwargs["seed"] = workload["seed"]
+    try:
+        Workload(**kwargs)
+    except ValueError as exc:
+        raise ValueError(f"its `workload` is not one hnsw_grid.py writes: {exc}") from exc
+    backend = grid.get("backend")
+    corpus_check = _CORPUS_BOUNDS.get(backend) if isinstance(backend, str) else None
+    if corpus_check is not None:
+        try:
+            corpus_check(workload["n_vectors"], workload["dim"])
+        except ValueError as exc:
+            raise ValueError(f"its `workload` is outside {backend}'s corpus floor: {exc}") from exc
 
 
 def _validate_cells(grid: dict) -> None:
@@ -403,6 +442,7 @@ def main(argv: list[str] | None = None) -> int:
     # (#109/#110). A malformed value is bad input -> clean exit 2.
     try:
         _validate_grid_shape(grid, default_title=args.title is None)
+        _validate_workload(grid)
     except ValueError as exc:
         sys.stderr.write(f"{args.grid_json} is not a valid grid: {exc}\n")
         return 2
