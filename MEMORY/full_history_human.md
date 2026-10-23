@@ -2351,3 +2351,19 @@ copied, so the two cannot drift apart. A cell outside the limits exits 2 with
 the cell and the limit it broke. A backend name the grid writer would never
 record is refused too. A grid with no `backend` key is checked against the
 floor of 1 only, as before.
+
+## 2026-10-23: Each pgvector load worker runs one untimed search before the timer starts (#265)
+
+#251's warm-up opened each worker's connection and set `hnsw.ef_search`. Each
+worker still gets a new Postgres server process at every level, and that
+process's first real search pays a one-off cold start. On a local PG 17
+(2000 × 64) the first query took 1.44 ms against about 0.3 ms afterwards, so
+every worker's first timed query was slow. `prepare_thread` now runs one
+search with the same statement the timed queries use, after the SET. The
+issue suggested a cheaper pair of statements: a zero-row table read and a
+vector cast. Measured, they only brought the first query to 0.55-0.80 ms.
+Only a real index search warms the HNSW scan. Over 300 queries the c=50 p95
+fell from 10-12 ms to 8-9 ms and throughput rose by about a quarter. c=1 did
+not change. The warm-up is skipped before anything has been ingested. The
+issue thought the committed pgvector load results needed regenerating, but
+none are committed: `results/load/` holds only the stub run.
