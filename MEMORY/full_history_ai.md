@@ -2829,3 +2829,21 @@ context_for_next_session:
   - "PGVECTOR_query_AND_prepare_thread_SHARE_module_level__search_a_stand_in_cursor_must_accept_SELECT_id_during_prepare_thread_after_ingest"
 followups: []
 ---
+
+---
+session: 2026-10-23T07:53Z
+issue: 271
+branch: session/2026-10-23-0800-issue-271
+focus: PLOT_HNSW_FRONTIER_CHECKED__HNSW_BOUNDS_BUT_NOT__CORPUS_BOUNDS_OR_THE_WORKLOAD_SO_A_QDRANT_30_VECTOR_OR_NON_POSITIVE_WORKLOAD_GRID_RENDERED_AT_EXIT_0_266S_SIBLING
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 14
+  suite: "3.11 [dev,plot,qdrant] 1517 -> 1531 passed / 1 skipped; ruff check + format clean"
+decisions_made: []
+measured: "main @ 42d6736, real hnsw-sim grid (2000x64, M 8,16 x efc 64 x efs 16,64) hand-edited: backend qdrant + n_vectors 30, n_vectors -3, dim 0, n_queries 0, n_vectors 5 < top_k 10, seed -1 all exit 0 with PNG + table; writer refuses the qdrant one at exit 2. Branch: each exit 2 'is not a valid grid: its `workload` ...' naming the field; unedited grid exit 0. Revert 10 of 14 new red, 4 controls green."
+context_for_next_session:
+  - "PLOT_HNSW_FRONTIER_NOW_IMPORTS_BOTH__HNSW_BOUNDS_AND__CORPUS_BOUNDS_FROM_hnsw_grid_and_rebuilds_Workload_from_grid_workload"
+  - "A_TITLE_ONLY_WORKLOAD_WITH_JUST_top_k_226_IS_NOT_REBUILT_no_values_are_invented_for_absent_counts"
+followups: []
+---

@@ -2367,3 +2367,17 @@ fell from 10-12 ms to 8-9 ms and throughput rose by about a quarter. c=1 did
 not change. The warm-up is skipped before anything has been ingested. The
 issue thought the committed pgvector load results needed regenerating, but
 none are committed: `results/load/` holds only the stub run.
+
+## 2026-10-23: The HNSW frontier plot rechecks the grid's workload and Qdrant's corpus floor (#271)
+
+#266 made the plot script recheck each cell's knobs against the grid writer's
+own limits. It did not recheck the grid's other limit, Qdrant's 10 KiB corpus
+floor (#245), and it did not look at the workload at all. A real grid
+hand-edited to say `backend: qdrant` with 30 vectors was charted and
+tabulated at exit 0, although the grid writer refuses those flags. The same
+happened with a negative vector count, a zero dimension or query count, and
+`top_k` larger than the corpus. The plot script now rebuilds the grid's
+`Workload`, which runs the writer's own checks, and applies the imported
+corpus-floor table. A bad grid exits 2 naming the field, before any chart is
+drawn. A grid whose workload has only `top_k` (allowed under `--title` since
+#226) is not rebuilt, because that would mean inventing the missing counts.
