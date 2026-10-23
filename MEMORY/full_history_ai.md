@@ -2810,3 +2810,22 @@ context_for_next_session:
   - "A_GRID_WITHOUT_backend_STAYS_FLOOR_ONLY_the_226_reader_tests_treat_it_as_valid_an_unknown_backend_value_is_refused"
 followups: []
 ---
+
+---
+session: 2026-10-23T07:18Z
+issue: 265
+branch: session/2026-10-23-0735-issue-265
+focus: PGVECTOR_PREPARE_THREAD_LEFT_EACH_FRESH_SERVER_PROCESS_FIRST_SEARCH_COLD_SO_EVERY_WORKERS_FIRST_TIMED_QUERY_PAID_IT_251S_WARM_UP_GAP
+phase: shipped
+delta:
+  files_changed: 3
+  tests_added: 8
+  suite: "3.11 [dev,plot,qdrant] 1509 -> 1517 passed / 1 skipped; ruff check + format clean"
+decisions_made: []
+measured: "main @ a7b07c1, scratch PG 17.6 + pgvector 0.8.7 on the Mac, 2000x64 k=10, 30 loops release+prepare+query x3: first 1.44/1.80/1.40 ms vs 0.33/0.28 after. Issue's fix shape (LIMIT 0 + '[1]'::vector) left first at 0.55-0.80; the query statement itself 0.27-0.36. run_under_load 300q medians of 5, 3 alternating repeats: c=50 p95 10.06/11.30/12.28 -> 9.34/7.96/8.57, qps ~6100 -> ~7700; c=10 p99 3.7-4.4 -> 2.5-2.7; c=1 unchanged. Revert 6 of 8 new red, 2 controls green; the before-ingest control red against the unguarded-warm-up neighbour."
+context_for_next_session:
+  - "ONLY_A_REAL_INDEX_ORDERED_SEARCH_WARMS_THE_HNSW_SCAN_relcache_and_type_cast_warm_ups_leave_about_half_the_cold_start"
+  - "ISSUE_265_PREMISE_ABOUT_COMMITTED_PGVECTOR_LOAD_RESULTS_WAS_FALSE_results_load_holds_only_stub_10k_no_regen_followup_filed"
+  - "PGVECTOR_query_AND_prepare_thread_SHARE_module_level__search_a_stand_in_cursor_must_accept_SELECT_id_during_prepare_thread_after_ingest"
+followups: []
+---

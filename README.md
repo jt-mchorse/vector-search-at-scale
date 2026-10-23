@@ -163,7 +163,11 @@ throughput (#251). pgvector load runs made before that fix counted them in
 each worker's first query. At c=100 on a local PG 17 that put p95 at 28.5 ms
 when reused-connection queries had a median of 3.8 ms. The warm-up also means
 that a c=100 level now keeps 100 queries in flight. Before, slow first
-connects held it to about 50. No pgvector load run is committed under
+connects held it to about 50. The worker also runs one untimed search, the
+same statement as a timed query, because a new server process's first search
+pays a one-off cold start (#265). On a local PG 17 at 2000 × 64 that took the
+first query from 1.44 ms to about 0.3 ms, and the c=50 p95 over 300 queries
+from 10.1-12.3 ms to 8.0-9.3 ms. No pgvector load run is committed under
 `results/load/`; live-backend numbers are operator-run, so re-measure any
 you hold.
 

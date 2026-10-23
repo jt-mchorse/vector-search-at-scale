@@ -220,25 +220,33 @@ class PgVectorBackend:
         with self._wrap_transport_errors():
             conn = self._ensure_conn()
             self._apply_ef_search(conn)
-            with conn.cursor() as cur:
-                cur.execute(
-                    f"SELECT id, 1 - (embedding <=> %s::vector) FROM {TABLE_NAME} "
-                    f"ORDER BY embedding <=> %s::vector LIMIT %s;",
-                    (_to_pgvector_literal(vector), _to_pgvector_literal(vector), k),
-                )
-                return [(row[0], float(row[1])) for row in cur.fetchall()]
+            return _search(conn, vector, k)
 
     def prepare_thread(self) -> None:
-        """Open the calling thread's connection and set `hnsw.ef_search` on it (#251).
+        """Open the calling thread's connection, set `hnsw.ef_search`, run one query (#251, #265).
 
         `run_under_load` calls this once on each worker thread before a level's
-        timed queries. `query` would otherwise do both lazily on each worker's
-        first call, inside the timed window, and after `release_connections`
-        (#212) that is every worker at every level.
+        timed queries. `query` would otherwise do all three lazily on each
+        worker's first call, inside the timed window, and after
+        `release_connections` (#212) that is every worker at every level.
+
+        The untimed query is the one `query` sends (#265). A new server process
+        pays a one-off cost on its first real search: loading the vector type,
+        the table and index relcache, the HNSW scan. Measured on PG 17 +
+        pgvector 0.8.7, 2000 x 64, k=10: the first query after connect + SET
+        took 1.44 ms against 0.33 ms for the second. `SELECT 1 FROM vector_bench
+        LIMIT 0` plus `SELECT '[1]'::vector` left it at 0.55-0.80 ms; this
+        statement brings it to 0.27-0.36 ms. Skipped before this instance has
+        ingested: there is no dim to build the vector from, and the table may
+        not exist yet.
         """
         check_open(self._closed, backend="PgVectorBackend", method="prepare_thread")
         with self._wrap_transport_errors():
-            self._apply_ef_search(self._ensure_conn())
+            conn = self._ensure_conn()
+            self._apply_ef_search(conn)
+            if self._dim is not None:
+                # All ones, not zeros: a zero vector has no cosine distance.
+                _search(conn, np.ones(self._dim, dtype=np.float32), 1)
 
     def release_connections(self) -> None:
         """Close every per-thread connection; the next call reconnects lazily (#212).
@@ -304,6 +312,19 @@ class PgVectorBackend:
         # (#133). `close()` stays idempotent: a second call re-runs the
         # already-safe teardown above and re-sets a flag that is already True.
         self._closed = True
+
+
+def _search(conn, vector: np.ndarray, k: int) -> list[tuple[str, float]]:
+    # Shared by `query` and `prepare_thread`'s warm-up, so the warm-up runs the
+    # exact statement the timed queries will (#265).
+    literal = _to_pgvector_literal(vector)
+    with conn.cursor() as cur:
+        cur.execute(
+            f"SELECT id, 1 - (embedding <=> %s::vector) FROM {TABLE_NAME} "
+            f"ORDER BY embedding <=> %s::vector LIMIT %s;",
+            (literal, literal, k),
+        )
+        return [(row[0], float(row[1])) for row in cur.fetchall()]
 
 
 def _to_pgvector_literal(vec: np.ndarray) -> str:
