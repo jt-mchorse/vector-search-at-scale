@@ -523,6 +523,20 @@ def run_benchmark(
                 "backend's ingest timing (a no-op or sub-resolution clock)"
             )
 
+        # Untimed, after ingest and before the first timed query (#270). #269
+        # gave pgvector's `prepare_thread` the warm-up search a new server
+        # process needs (#265), but only `run_under_load` called it, so every
+        # `run` and every hnsw_grid cell (a new backend and connection each)
+        # timed that cold first search. Measured on PG 17 + pgvector 0.8.7,
+        # 2000 x 64: the first query was the run's max in 5 of 5 runs, 1.39 ms
+        # against a p50 of 0.30-0.40 ms, so `max_ms` read about 4x high and at
+        # 50 queries p99 did too. A backend without the hook runs as before,
+        # as in `_execute_at_concurrency`; the hook raises its own
+        # `BackendError` on a lost server (#264).
+        prepare = getattr(backend, "prepare_thread", None)
+        if callable(prepare):
+            prepare()
+
         latencies_ms: list[float] = []
         recalls: list[float] = []
         for i in range(workload.n_queries):
