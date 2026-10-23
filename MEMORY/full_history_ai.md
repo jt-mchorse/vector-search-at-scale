@@ -2847,3 +2847,21 @@ context_for_next_session:
   - "A_TITLE_ONLY_WORKLOAD_WITH_JUST_top_k_226_IS_NOT_REBUILT_no_values_are_invented_for_absent_counts"
 followups: []
 ---
+
+---
+session: 2026-10-23T07:53Z
+issue: 270
+branch: session/2026-10-23-0800-issue-270
+focus: RUN_BENCHMARK_NEVER_CALLED_PREPARE_THREAD_SO_VECTOR_BENCH_RUN_AND_EVERY_HNSW_GRID_CELL_TIMED_PGVECTORS_COLD_FIRST_SEARCH_269_FIXED_LOAD_ONLY
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 7
+  suite: "3.11 [dev,plot,qdrant] 1517 -> 1524 passed / 1 skipped; ruff check + format clean"
+decisions_made: []
+measured: "main @ 42d6736, scratch PG 17 + pgvector 0.8.7 on the Mac, run_benchmark pgvector 2000x64 k=10, medians of 5: q=200 p99 0.86 max 1.96 first 1.96 (first==max 5/5) -> p99 0.49 max 0.59 first 0.38 (0/5); q=50 p99 1.34 max 1.73 (5/5) -> p99 0.47 max 0.51 (0/5). Revert 4 of 7 new red, 3 controls green; the ingest_seconds control red against the warm-inside-the-ingest-timer neighbour."
+context_for_next_session:
+  - "RUN_BENCHMARK_CALLS_prepare_thread_AFTER_THE_INGEST_TIMER_STOPS_a_None_or_missing_hook_is_skipped_as_in__execute_at_concurrency"
+  - "NO_COMMITTED_ARTIFACT_IS_PGVECTOR_MEASURED_all_7_backend_fields_under_results_and_docs_are_stub"
+followups: []
+---

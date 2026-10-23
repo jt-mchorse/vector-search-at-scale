@@ -2381,3 +2381,17 @@ happened with a negative vector count, a zero dimension or query count, and
 corpus-floor table. A bad grid exits 2 naming the field, before any chart is
 drawn. A grid whose workload has only `top_k` (allowed under `--title` since
 #226) is not rebuilt, because that would mean inventing the missing counts.
+
+## 2026-10-23: `vector-bench run` and the HNSW grid warm the backend before timing (#270)
+
+#269's warm-up search ran only under `load`. `run_benchmark` is what
+`vector-bench run` and every `hnsw_grid.py` cell use, and it timed its first
+query right after ingest. Each grid cell builds a new backend and connection,
+so each one paid pgvector's cold first search. On a local PG 17 (2000 × 64)
+the first query was the run's slowest in 5 of 5 runs. It took about 1.4-2 ms
+against a typical 0.3-0.4 ms, so `max_ms` read 3-4x high, and at 50 queries
+p99 did too. `run_benchmark` now calls the backend's `prepare_thread` hook once,
+after the ingest timer stops and before the first timed query. Afterwards the
+first query was never the max, and p99 fell to about 0.5 ms at both sizes. A
+backend without the hook runs as before. No committed result was measured on
+pgvector, so nothing needed regenerating.
