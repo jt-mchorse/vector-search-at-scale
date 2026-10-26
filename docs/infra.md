@@ -70,7 +70,7 @@ canonical `tiers` map), update both in the same PR.
 terraform/
 ├── modules/
 │   ├── common-network/   # VPC, IGW, public subnet, optional SSH SG
-│   ├── pgvector/         # EC2 + EBS + SG (5432) + Docker pgvector/pgvector:pg16
+│   ├── pgvector/         # EC2 + EBS + SG (5432) + Docker pgvector/pgvector:0.8.7-pg16
 │   ├── qdrant/           # EC2 + EBS + SG (6333/6334) + Docker qdrant/qdrant:vX
 │   └── weaviate/         # EC2 + EBS + SG (8080/50051) + Docker weaviate:X.Y.Z
 ├── envs/
