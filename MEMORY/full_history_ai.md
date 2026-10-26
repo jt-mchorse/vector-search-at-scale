@@ -2865,3 +2865,22 @@ context_for_next_session:
   - "NO_COMMITTED_ARTIFACT_IS_PGVECTOR_MEASURED_all_7_backend_fields_under_results_and_docs_are_stub"
 followups: []
 ---
+
+---
+session: 2026-10-26T07:25Z
+issue: 274
+branch: session/2026-10-26-0725-issue-274
+focus: PGVECTOR_MODULE_IMAGE_TAG_DEFAULT_PG16_FLOATED_WITH_EACH_PGVECTOR_RELEASE_WHILE_D_004_LISTED_IT_AS_A_PIN
+phase: shipped
+delta:
+  files_changed: 6
+  tests_added: 16
+  suite: "3.11 [dev,plot,qdrant] 1538 -> 1554 passed / 1 skipped; ruff check + format clean; terraform fmt + validate clean"
+decisions_made: []
+measured: "Docker Hub API 2026-10-26 07:25Z: pg16 and 0.8.7-pg16 both sha256:7b822b0aac60 (2026-10-01); 0.8.6-pg16 ccc6e83d (08-13), 0.8.5-pg16 1d533553 (07-08), 0.8.4-pg16 ad2e1840 (06-30) each distinct. Default pinned to 0.8.7-pg16. Revert 1 of 16 new red (pgvector default), 15 controls green (qdrant/weaviate defaults, enumeration, override scan, pre-18 major, 10-row rule table)."
+context_for_next_session:
+  - "D_004_CARRIES_A_DATED_correction_2026_10_26_FIELD_NOT_A_NEW_DECISION_so_the_README_and_architecture_D_range_locks_are_untouched"
+  - "IMAGE_TAG_LOCK_ENUMERATES_MODULES_BY_TFTPL_CONTAINING_docker_run_AND_image_tag_a_new_engine_module_must_be_added_to_its_expected_set"
+  - "PGVECTOR_TAG_MUST_KEEP_PG_MAJOR_UNDER_18_because_the_pgdata_lock_assumes_the_pre_18_image_PGDATA"
+followups: []
+---
