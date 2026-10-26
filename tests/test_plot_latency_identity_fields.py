@@ -50,6 +50,10 @@ BAD = [
     ("cell-run_id-int", _set_cell("run_id", 5), "cell 0 run_id"),
     ("cell-run_id-dotdot", _set_cell("run_id", "../x"), "cell 0 run_id"),
     ("cell-backend-null", _set_cell("backend", None), "cell 0 backend"),
+    # A NUL passed _check_run_id and died in open() after the table printed (#278).
+    ("run_id-nul", _set_top("run_id", "a\x00b"), "run_id"),
+    ("backend-nul", _set_top("backend", "st\x00ub"), "backend"),
+    ("cell-run_id-nul", _set_cell("run_id", "a\x00b"), "cell 0 run_id"),
 ]
 
 
@@ -103,3 +107,13 @@ def test_every_writer_backend_name_loads(tmp_path: Path, backend: str) -> None:
 
     m = plot_latency._load_matrix(_edited(tmp_path, mutate))
     assert m.backend == backend
+
+
+def test_check_run_id_refuses_a_nul_for_the_writers_too() -> None:
+    # One rule for both writers and the reader (#278): the writer side could not
+    # produce a NUL through argv, but a library caller can pass one.
+    from vector_bench.harness import _check_run_id
+
+    with pytest.raises(ValueError, match="NUL"):
+        _check_run_id("a\x00b")
+    _check_run_id("stub-10k")  # control
