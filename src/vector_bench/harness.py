@@ -448,15 +448,18 @@ def _check_run_id(run_id: str) -> None:
     `load` and then failed `plot_latency`, whose chart name
     `{run_id}_{backend}_n{n}.png` names a directory that does not exist. D-007
     is "one JSON file per run_id under results/". Only a `str` is checked;
-    other types keep their existing behaviour.
+    other types keep their existing behaviour. A NUL is refused with them: no
+    path can hold one, and `plot_latency` (which applies this rule to the run_id
+    and backend it reads, #275) otherwise printed its table and then died in
+    `open()` with a traceback (#278).
     """
     if not isinstance(run_id, str):
         return
     seps = {"/", os.sep} | ({os.altsep} if os.altsep else set())
-    if run_id in ("", ".", "..") or any(sep in run_id for sep in seps):
+    if run_id in ("", ".", "..") or "\x00" in run_id or any(sep in run_id for sep in seps):
         raise ValueError(
             f"run_id must be a single path component (non-empty, not '.' or '..', "
-            f"no path separator); got {run_id!r}. Use --results-dir for a nested layout."
+            f"no path separator or NUL); got {run_id!r}. Use --results-dir for a nested layout."
         )
 
 
