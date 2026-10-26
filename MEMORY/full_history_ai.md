@@ -2902,3 +2902,21 @@ context_for_next_session:
   - "CELL_RUN_ID_BACKEND_ARE_TYPE_AND_COMPONENT_CHECKED_NOT_COMPARED_TO_THE_MATRIX_nothing_reads_the_cell_copies_for_output"
 followups: []
 ---
+
+---
+session: 2026-10-26T07:49Z
+issue: 278
+branch: session/2026-10-26-0748-issue-278
+focus: A_NUL_IN_RUN_ID_OR_BACKEND_PASSED_CHECK_RUN_ID_SO_PLOT_LATENCY_PRINTED_ITS_TABLE_THEN_DIED_IN_OPEN_AT_EXIT_1
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 4
+  suite: "1577 passed, 1 skipped (fresh py3.11 .[dev,plot,qdrant]); ruff check/format clean"
+decisions_made: []
+measured: "hunt agent on main 3657d7e: committed stub-10k matrix with run_id 'a\\x00b' -> rc 1, table on stdout, 'ValueError: embedded null byte' traceback. After: rc 2 naming the field, no table, no PNG. Revert (harness.py at origin/main, pycache cleared): 4 of 4 new red. PR #279."
+context_for_next_session:
+  - "CHECK_RUN_ID_IS_THE_ONE_RULE_FOR_BOTH_WRITERS_AND_PLOT_LATENCYS_RUN_ID_AND_BACKEND_extend_it_there_not_in_the_reader"
+  - "NOT_DONE_a_250_byte_run_id_the_writer_accepts_makes_a_chart_name_past_NAME_MAX_writer_cap_vs_reader_precheck_is_a_design_call"
+followups: []
+---

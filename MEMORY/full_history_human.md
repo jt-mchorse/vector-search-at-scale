@@ -2422,3 +2422,12 @@ The reader now applies the same rule to both fields, on the matrix and on
 every cell, and exits 2 naming the field before anything is printed or
 written. The committed stub matrix and every backend name the writer uses
 still load.
+
+## 2026-10-26 — A NUL byte in a run name is refused (#278)
+
+The run-name rule that both writers use, and that `plot_latency` now applies to
+the files it reads, accepted a NUL character. A hand-edited matrix with one in
+its run name or backend printed its table and then crashed with a traceback
+when it tried to write the chart. The rule now refuses a NUL too, so the
+script exits 2 and names the bad field before printing anything. Four new
+tests; all four fail without the fix.
