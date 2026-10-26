@@ -2884,3 +2884,21 @@ context_for_next_session:
   - "PGVECTOR_TAG_MUST_KEEP_PG_MAJOR_UNDER_18_because_the_pgdata_lock_assumes_the_pre_18_image_PGDATA"
 followups: []
 ---
+
+---
+session: 2026-10-26T07:34Z
+issue: 275
+branch: session/2026-10-26-0734-issue-275
+focus: PLOT_LATENCY_TRUSTED_RUN_ID_AND_BACKEND_FROM_MATRIX_JSON_SO_DOTDOT_RUN_ID_WROTE_THE_CHART_OUTSIDE_OUT_DIR_AND_A_NON_STR_BACKEND_WAS_A_TRACEBACK
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 19
+  suite: "3.11 [dev,plot,qdrant] 1554 -> 1573 passed / 1 skipped; ruff check + format clean"
+decisions_made: []
+measured: "main @ a3b80f5, committed stub-10k matrix edited: run_id '../escaped' exit 0 wrote <out-dir>/../escaped_stub_n10000.png; backend 5/null AttributeError exit 1; run_id 7 exit 0; cells[0].run_id 5 and cells[0].backend null exit 0. Branch: all exit 2 naming the field, 0 PNGs written; unedited exit 0. Revert 12 of 19 new red, 7 controls green (committed matrix plots, 5 writer backend names + a pipe name load)."
+context_for_next_session:
+  - "PLOT_LATENCY__check_identity_APPLIES_harness__check_run_id_TO_BACKEND_TOO_because_backend_is_half_of_the_chart_filename"
+  - "CELL_RUN_ID_BACKEND_ARE_TYPE_AND_COMPONENT_CHECKED_NOT_COMPARED_TO_THE_MATRIX_nothing_reads_the_cell_copies_for_output"
+followups: []
+---

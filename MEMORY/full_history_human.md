@@ -2409,3 +2409,16 @@ whose `image_tag` default has no version number. It also checks that the
 pgvector tag stays on a Postgres major below 18, because the data-directory
 check depends on that. The floating tag doesn't record which pgvector earlier
 runs used, but no committed result was measured on pgvector.
+
+## 2026-10-26: The latency plot refuses a run id or backend the writer can't produce (#275)
+
+`plot_latency.py` names each chart `{run_id}_{backend}_n{n}.png` using the
+values in the input `matrix.json`, and it never checked them. A hand-edited
+`run_id` of `../escaped` put the chart in the parent of `--out-dir` without
+an error. A numeric `run_id` charted normally. A numeric or null `backend`
+crashed with a traceback. The writer refuses all of these: since #199 a run
+id must be a single path component, and the backend is always a name string.
+The reader now applies the same rule to both fields, on the matrix and on
+every cell, and exits 2 naming the field before anything is printed or
+written. The committed stub matrix and every backend name the writer uses
+still load.
