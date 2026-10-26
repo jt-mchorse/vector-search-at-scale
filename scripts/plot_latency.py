@@ -35,7 +35,7 @@ from typing import Any
 REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT / "src"))
 
-from vector_bench.harness import LatencyStats, Workload  # noqa: E402
+from vector_bench.harness import LatencyStats, Workload, _check_run_id  # noqa: E402
 from vector_bench.io_utils import loads_json  # noqa: E402
 from vector_bench.load import LoadCell, LoadMatrix, render_table  # noqa: E402
 
@@ -56,8 +56,32 @@ def _reject_bool_numeric(value: Any, field: str) -> Any:
     return value
 
 
+def _check_identity(run_id: Any, backend: Any, where: str) -> None:
+    """Refuse a `run_id` / `backend` the writer cannot produce (#275).
+
+    Both go into the chart filename `{run_id}_{backend}_n{n}.png` and into the
+    table's column labels. A `run_id` of `../x` put the chart outside
+    `--out-dir` at exit 0, and a non-`str` backend reached `_escape_cell`'s
+    `.replace` as an `AttributeError` traceback. The writer runs
+    `_check_run_id` (#199) and only ever records a backend's `str` name.
+    Neither of those names has a path separator, so the backend gets the same
+    single-component rule: it is half of the same filename.
+    """
+    for field, value in (("run_id", run_id), ("backend", backend)):
+        if not isinstance(value, str):
+            raise ValueError(f"{where}{field} must be a string; got {value!r}")
+        try:
+            _check_run_id(value)
+        except ValueError as exc:
+            raise ValueError(
+                f"{where}{field} must be a single path component (non-empty, not '.' or "
+                f"'..', no path separator); got {value!r}"
+            ) from exc
+
+
 def _load_matrix(path: Path) -> LoadMatrix:
     data = loads_json(path.read_text())
+    _check_identity(data["run_id"], data["backend"], "")
     workload = Workload(**data["workload"])
     cells: list[LoadCell] = []
     # The numerics go to `LoadCell` as the file holds them, with no `int()` /
@@ -66,7 +90,8 @@ def _load_matrix(path: Path) -> LoadMatrix:
     # it as ints, as did a string `throughput_qps` -- while `LatencyStats` on the
     # same cell got its fields raw and refused a string. The writer only ever
     # emits ints and floats, so nothing it writes changes.
-    for c in data["cells"]:
+    for i, c in enumerate(data["cells"]):
+        _check_identity(c["run_id"], c["backend"], f"cell {i} ")
         cells.append(
             LoadCell(
                 run_id=c["run_id"],
