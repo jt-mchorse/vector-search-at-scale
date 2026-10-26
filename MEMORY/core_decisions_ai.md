@@ -35,6 +35,7 @@
   alternatives_rejected: [hand_managed_install, latest_floating_tags, replicated_clusters]
   reversibility: cheap
   related_issues: [#1]
+  correction_2026_10_26: pgvector_pg16_was_a_floating_tag_not_a_pin_module_default_now_0_8_7_pg16_the_tag_pg16_resolved_to_that_day_engine_version_behind_earlier_pg16_runs_unrecoverable_274
   superseded_by: null
 
 - id: D-005

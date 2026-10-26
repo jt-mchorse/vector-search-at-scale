@@ -55,6 +55,8 @@ Strategic decisions for this repo, with reasoning. Append-only — superseded de
 
 **Related issues:** #1
 
+**Correction (2026-10-26, #274):** `pgvector/pgvector:pg16` was not a pin. That tag follows the newest pgvector release. Docker Hub lists `0.8.4-pg16`, `0.8.5-pg16`, `0.8.6-pg16` and `0.8.7-pg16`, pushed between June and October 2026 and each with its own digest. On 2026-10-26 `pg16` had the same digest as `0.8.7-pg16`, so the module now defaults to `pgvector/pgvector:0.8.7-pg16`. Which pgvector version earlier `pg16` runs used can't be recovered from the tag. The decision itself stands; only the pgvector tag listed above was wrong. A test (`tests/test_terraform_image_tag_pinned.py`) now refuses any module `image_tag` default that lacks a version number.
+
 ## D-005 — Backend is a Protocol with `ingest` + `query`, lazy SDK imports per extra (2026-05-15)
 **Decision:** `vector_bench.types.Backend` is a runtime-checkable Protocol with `name`, `ingest(vectors, ids)`, `query(vector, k)`, and `close()`. Each real engine adapter (`pgvector`, `qdrant`, `weaviate`) lives in its own module under `src/vector_bench/backends/` and lazy-imports its SDK, with a clear `BackendError` message pointing at the missing pip extra.
 

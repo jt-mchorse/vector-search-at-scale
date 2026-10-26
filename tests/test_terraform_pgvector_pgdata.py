@@ -25,7 +25,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 TEMPLATE = REPO_ROOT / "terraform" / "modules" / "pgvector" / "user_data.sh.tftpl"
 
 # The `postgres` image's `ENV PGDATA` for the majors before 18 (the module
-# pins `pg16`, D-004).
+# pins `0.8.7-pg16`, D-004, #274).
 IMAGE_DEFAULT_PGDATA = "/var/lib/postgresql/data"
 
 _MOUNT = re.compile(r'^mount\s+"\$\$\{DATA_DEV\}"\s+(\S+)\s*$', re.MULTILINE)

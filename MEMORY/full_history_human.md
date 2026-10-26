@@ -2395,3 +2395,17 @@ after the ingest timer stops and before the first timed query. Afterwards the
 first query was never the max, and p99 fell to about 0.5 ms at both sizes. A
 backend without the hook runs as before. No committed result was measured on
 pgvector, so nothing needed regenerating.
+
+## 2026-10-26: The pgvector image is pinned to a version (#274)
+
+D-004 says every engine's Docker tag is pinned so a rerun gets the engine that
+was benchmarked, and it listed `pgvector/pgvector:pg16` as one of the pins. It
+is not a pin. `pg16` follows the newest pgvector release. On Docker Hub today
+it has the same digest as `0.8.7-pg16`, pushed on 1 October, and 0.8.4, 0.8.5
+and 0.8.6 are listed with digests of their own. The module now defaults to
+`0.8.7-pg16`, and `docs/infra.md` says so. D-004 keeps its original text with
+a dated correction note added below it. A new test refuses any engine module
+whose `image_tag` default has no version number. It also checks that the
+pgvector tag stays on a Postgres major below 18, because the data-directory
+check depends on that. The floating tag doesn't record which pgvector earlier
+runs used, but no committed result was measured on pgvector.

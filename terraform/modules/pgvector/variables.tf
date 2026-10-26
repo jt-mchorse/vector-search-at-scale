@@ -52,9 +52,9 @@ variable "key_name" {
 }
 
 variable "image_tag" {
-  description = "Docker image tag for pgvector. Pinned per D-004 so reruns are reproducible."
+  description = "Docker image tag for pgvector. Pinned per D-004 so reruns are reproducible. `pg16` floats with each pgvector release (#274); this is the tag it resolved to on 2026-10-26."
   type        = string
-  default     = "pg16"
+  default     = "0.8.7-pg16"
 }
 
 variable "postgres_password" {
