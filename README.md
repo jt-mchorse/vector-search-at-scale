@@ -72,7 +72,7 @@ make up SCALE=1m
 make output
 
 # 6. Tear it all back down. Always run this when the benchmark window closes —
-#    the 100m tier costs ~$4.47/hr (see docs/infra.md).
+#    the 100m tier costs ~$3.76/hr (see docs/infra.md).
 make down SCALE=1m
 ```
 
