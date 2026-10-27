@@ -42,14 +42,20 @@ provisioned IOPS/throughput above the 3000/125 baseline.
 
 | Tier  | EC2 (3× $/hr)              | EBS (3× $/hr)¹  | Total $/hr | $ for an 8h benchmark window |
 |-------|----------------------------|------------------|------------|-------------------------------|
-| `1m`  | 3× $0.096 = $0.288         | ~$0.05           | ~$0.34     | ~$2.70                        |
-| `10m` | 3× $0.252 = $0.756         | ~$0.27           | ~$1.03     | ~$8.20                        |
-| `100m`| 3× $1.008 = $3.024         | ~$1.45           | ~$4.47     | ~$35.80                       |
+| `1m`  | 3× $0.096 = $0.288         | ~$0.02           | ~$0.30     | ~$2.44                        |
+| `10m` | 3× $0.252 = $0.756         | ~$0.15           | ~$0.90     | ~$7.23                        |
+| `100m`| 3× $1.008 = $3.024         | ~$0.74           | ~$3.76     | ~$30.11                       |
 
 ¹ EBS hourly cost approximated from the per-GB-month list prices for gp3
 (`$0.08/GB-month` storage, `$0.005/IOPS-month` over 3000, `$0.04/MiB/s-month`
 over 125), divided by 730 hours/month. The 10m and 100m tiers also pay for
 provisioned-above-baseline IOPS and throughput.
+
+Every cell above is `vector_bench.cost.monthly_cost` over the tiers
+`scripts/cost_table.py` parses from `terraform/envs/benchmark/main.tf`, priced
+with the `vector_bench.prices` snapshot, times three instances, divided by 730
+hours, rounded to the cent. `tests/test_infra_doc_cost_cells.py` recomputes
+each one the same way and fails if this table disagrees (#280).
 
 **Out of these numbers (intentionally).** Data transfer (in is free; out is
 $0.09/GB after the first 100 GiB/month), NAT gateway (we don't run one — the

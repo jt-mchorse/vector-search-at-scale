@@ -2920,3 +2920,21 @@ context_for_next_session:
   - "NOT_DONE_a_250_byte_run_id_the_writer_accepts_makes_a_chart_name_past_NAME_MAX_writer_cap_vs_reader_precheck_is_a_design_call"
 followups: []
 ---
+
+---
+session: 2026-10-27T08:04Z
+issue: 280
+branch: session/2026-10-27-0804-issue-280
+focus: INFRA_MD_EBS_TOTAL_8H_CELLS_AND_README_4_47_PER_HR_WERE_HAND_WRITTEN_IN_1_AND_DISAGREED_WITH_MONTHLY_COST_OVER_THE_TERRAFORM_TIERS
+phase: shipped
+delta:
+  files_changed: 3
+  tests_added: 17
+  suite: "3.11 [dev,plot,qdrant] 1577 -> 1594 passed / 1 skipped; ruff check + format clean"
+decisions_made: []
+measured: "main @ 75fa9e6, monthly_cost x3 /730 over parse_terraform_tiers: EBS $/hr 0.0164/0.1479/0.7397 (doc ~0.05/~0.27/~1.45), Total 0.3044/0.9039/3.7637 (doc ~0.34/~1.03/~4.47), 8h 2.4355/7.2316/30.1098 (doc ~2.70/~8.20/~35.80). Cells rewritten to cents; README ~$4.47 -> ~$3.76/hr. Revert (docs at origin/main) 10 of 17 new red; 7 controls green (tier list, 3 EC2 cells, 3 sizing rows). Price 0.08->0.10 or 100m volume 1500->1600 also red. PR #283."
+context_for_next_session:
+  - "TEST_INFRA_DOC_COST_CELLS_RECOMPUTES_INFRA_MD_FROM_THE_MODEL_a_price_or_tier_bump_must_update_infra_md_and_the_README_teardown_figure_in_the_same_PR"
+  - "IF_282_ADDS_ROOT_VOLUME_OR_IPV4_TO_COST_BREAKDOWN_the_lock_sums_storage_iops_throughput_as_EBS_and_total_usd_month_as_Total_so_a_new_line_lands_in_Total_only"
+followups: []
+---
