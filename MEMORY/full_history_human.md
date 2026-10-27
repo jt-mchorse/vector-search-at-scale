@@ -2444,3 +2444,17 @@ numbers. A new test recomputes every cell from the Terraform tiers and the
 price snapshot, so a price or sizing change that leaves the doc behind fails
 CI. The cost model itself is unchanged: whether to add the root volume and the
 public IP charge is #282, which is JT's call.
+
+## 2026-10-27 — Run names can't contain control characters or line breaks (#281)
+
+The run-name rule refused a NUL character after #278, but a newline or
+carriage return still got through. `vector-bench load` accepted a run name
+with a newline in it, created a results folder with the newline in its name,
+and exited normally. `plot_latency` then printed a latency table whose header
+was split across several lines. The rule now refuses every control character
+and both Unicode line and paragraph separators. That set comes from the Unicode
+character tables, not from a hand-written list. The same rule covers `run`,
+`load`, and the run name and backend that `plot_latency` reads. Ordinary
+names, including accented letters, CJK, spaces and pipes, still work. There are
+22 new tests, and 16 of them fail without the fix. The other six are the
+ordinary-name checks.

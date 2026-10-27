@@ -75,7 +75,7 @@ def _check_identity(run_id: Any, backend: Any, where: str) -> None:
         except ValueError as exc:
             raise ValueError(
                 f"{where}{field} must be a single path component (non-empty, not '.' or "
-                f"'..', no path separator); got {value!r}"
+                f"'..', no path separator, control character or line separator); got {value!r}"
             ) from exc
 
 
