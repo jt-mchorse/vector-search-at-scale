@@ -2431,3 +2431,16 @@ its run name or backend printed its table and then crashed with a traceback
 when it tried to write the chart. The rule now refuses a NUL too, so the
 script exits 2 and names the bad field before printing anything. Four new
 tests; all four fail without the fix.
+
+## 2026-10-27 — The infra cost table now matches the cost model (#280)
+
+The per-tier cost table in `docs/infra.md` and the README's "the 100m tier costs
+~$4.47/hr" were written by hand in the first PR and never checked against the
+repo's own cost model. Running the model on the tiers that Terraform deploys
+gives a 100m storage cost of $0.74/hr, not $1.45, and a total of $3.76/hr, not
+$4.47. An 8-hour window at 100m costs about $30, not $36. The smaller tiers were
+over-stated the same way. The table and the README now carry the model's
+numbers. A new test recomputes every cell from the Terraform tiers and the
+price snapshot, so a price or sizing change that leaves the doc behind fails
+CI. The cost model itself is unchanged: whether to add the root volume and the
+public IP charge is #282, which is JT's call.
