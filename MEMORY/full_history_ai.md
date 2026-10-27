@@ -2938,3 +2938,22 @@ context_for_next_session:
   - "IF_282_ADDS_ROOT_VOLUME_OR_IPV4_TO_COST_BREAKDOWN_the_lock_sums_storage_iops_throughput_as_EBS_and_total_usd_month_as_Total_so_a_new_line_lands_in_Total_only"
 followups: []
 ---
+
+---
+session: 2026-10-27T08:10Z
+issue: 281
+branch: session/2026-10-27-0810-issue-281
+focus: CHECK_RUN_ID_REFUSED_NUL_ONLY_SO_A_NEWLINE_OR_CR_RUN_ID_PASSED_RUN_AND_LOAD_AND_SPLIT_PLOT_LATENCYS_TABLE_HEADER
+phase: shipped
+delta:
+  files_changed: 3
+  tests_added: 22
+  suite: "3.11 [dev,plot,qdrant] 1577 -> 1599 passed / 1 skipped; ruff check + format clean"
+decisions_made: []
+measured: "main @ 75fa9e6: load --run-id 'base\\nline' rc 0 into a dir named with the newline; run --run-id 'r\\rx' rc 0; plot_latency rc 0, header row over 4 physical lines. After: load rc 2, plot_latency rc 2 on the pre-fix matrix, no table, no PNG. Refused set = unicodedata Cc+Zl+Zp (67 code points); every splitlines() break over all 1114112 code points is inside it. Revert 16 of 22 new red (6 printable controls green); newline-only wrong fix 8 red. PR #284."
+context_for_next_session:
+  - "CHECK_RUN_ID_REFUSES_CATEGORIES_Cc_Zl_Zp_VIA__REFUSED_RUN_ID_CATEGORIES_error_text_keeps_NUL_so_the_278_match_NUL_test_still_holds"
+  - "NOT_DONE_Cf_format_chars_bidi_override_zero_width_still_pass_they_do_not_break_lines_widening_is_a_separate_call"
+  - "NOT_DONE_load__escape_cell_still_passes_newlines_unreachable_from_the_CLI_now_but_a_library_LoadMatrix_can_carry_one"
+followups: []
+---
