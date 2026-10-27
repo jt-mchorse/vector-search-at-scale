@@ -29,6 +29,7 @@ import copy
 import json
 import os
 import time
+import unicodedata
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -437,6 +438,11 @@ def dump_benchmark_json(
     return out_path
 
 
+#: Unicode general categories `_check_run_id` refuses anywhere in a run_id (#281):
+#: Cc (C0/C1 controls, NUL and the newlines among them), Zl (U+2028), Zp (U+2029).
+_REFUSED_RUN_ID_CATEGORIES: frozenset[str] = frozenset({"Cc", "Zl", "Zp"})
+
+
 def _check_run_id(run_id: str) -> None:
     """Refuse a `run_id` that is not exactly one path component (#199).
 
@@ -452,14 +458,30 @@ def _check_run_id(run_id: str) -> None:
     path can hold one, and `plot_latency` (which applies this rule to the run_id
     and backend it reads, #275) otherwise printed its table and then died in
     `open()` with a traceback (#278).
+
+    NUL was one member of a class (#281). `--run-id "$(printf 'base\nline')"`
+    passed `load` at exit 0 into a directory named with the newline, and
+    `plot_latency` then split its markdown header row over four physical lines,
+    also at exit 0; `\r` did the same through `run`. The refused set is now every
+    code point in Unicode category Cc (U+0000-U+001F and U+007F-U+009F: NUL, tab,
+    `\n`, `\r`, `\v`, `\f`, U+001C-U+001E, U+0085) plus Zl and Zp (U+2028,
+    U+2029), taken from `unicodedata` rather than listed by hand. That is a
+    superset of every character `str.splitlines()` breaks on, which
+    `tests/test_run_id_control_characters.py` checks by searching the whole
+    code-point space.
     """
     if not isinstance(run_id, str):
         return
     seps = {"/", os.sep} | ({os.altsep} if os.altsep else set())
-    if run_id in ("", ".", "..") or "\x00" in run_id or any(sep in run_id for sep in seps):
+    if (
+        run_id in ("", ".", "..")
+        or any(unicodedata.category(ch) in _REFUSED_RUN_ID_CATEGORIES for ch in run_id)
+        or any(sep in run_id for sep in seps)
+    ):
         raise ValueError(
             f"run_id must be a single path component (non-empty, not '.' or '..', "
-            f"no path separator or NUL); got {run_id!r}. Use --results-dir for a nested layout."
+            f"no path separator, NUL or other control character, or line separator); got {run_id!r}. "
+            "Use --results-dir for a nested layout."
         )
 
 
