@@ -47,6 +47,7 @@ import json
 import math
 import re
 import sys
+import unicodedata
 from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
@@ -438,7 +439,20 @@ def _shown(path: Path) -> str:
     filesystem that accepted the name (ext4) -- a traceback rather than the
     OSError the write seam handles (#174).
     """
-    return str(path).encode("utf-8", "surrogateescape").decode("utf-8", "backslashreplace")
+    text = str(path).encode("utf-8", "surrogateescape").decode("utf-8", "backslashreplace")
+    # A line break in the path split its table row in the published
+    # `docs/cost_per_query.md` (#288, the surface #281 did not list: it refused
+    # control characters in `run_id`, while `--results-dir` and `--load-results`
+    # are unchecked). A path is real, so it is shown, not refused: every control
+    # character and line/paragraph separator as a visible escape, the way the
+    # undecodable byte above is.
+    return "".join(_escaped(ch) for ch in text)
+
+
+def _escaped(ch: str) -> str:
+    if unicodedata.category(ch) in ("Cc", "Zl", "Zp"):
+        return ch.encode("unicode_escape").decode("ascii")
+    return ch
 
 
 def render_markdown(
