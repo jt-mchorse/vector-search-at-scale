@@ -2975,3 +2975,20 @@ context_for_next_session:
   - "OPEN_FROM_THE_SAME_HUNT_plot_latency_labels_collide_for_same_run_id_backend_different_n_and_a_newline_in_results_dir_splits_the_cost_table_row_and_infra_md_sizing_claim_not_yet_filed"
 followups: []
 ---
+
+---
+session: 2026-10-28T08:24Z
+issue: 288
+branch: session/2026-10-28-0824-issue-288
+focus: A_NEWLINE_IN_A_RESULTS_PATH_SPLIT_A_ROW_OF_THE_PUBLISHED_COST_TABLE_SHOWN_NOW_AS_AN_ESCAPE
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 12
+  suite: "1643 passed 10 skipped; ruff clean; --dry reproduces docs/cost_per_query.md"
+decisions_made: []
+measured: "hunt agent on b5ac830: --results-dir with LF -> source cell split across two lines of cost_per_query.md, rc 0. After: _shown escapes Cc/Zl/Zp; 8 break shapes give whole rows. Revert 8 red / 4 green."
+context_for_next_session:
+  - "_shown_IS_THE_ONE_PATH_TO_REPORT_TEXT_RENDERER_it_escapes_undecodable_bytes_and_control_characters"
+followups: []
+---
