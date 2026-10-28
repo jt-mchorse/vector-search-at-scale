@@ -86,7 +86,37 @@ class BackendError(RuntimeError):
 
 
 _URI_PASSWORD = re.compile(r"(://[^/@\s:]*:)([^/\s]*)@")
-_KV_PASSWORD = re.compile(r"(\bpassword\s*=\s*)('(?:[^'\\]|\\.)*'|[^\s&]+)", re.IGNORECASE)
+# The two libpq forms end a value differently (#285). In a URI's query string
+# `&` separates parameters (a literal one is `%26`); in the keyword form `&` is
+# an ordinary character and an unquoted value runs to unescaped whitespace, with
+# `\` escaping the next character. One pattern for both, `[^\s&]+`, printed
+# `password=***&TopS3cret`. `sslpassword` (the client key's passphrase) is a
+# secret too, and `\bpassword` never matched inside it.
+_URI_QUERY_PASSWORD = re.compile(r"([?&](?:ssl)?password=)([^&#\s]*)", re.IGNORECASE)
+_KV_PASSWORD = re.compile(
+    r"((?<![\w])(?:ssl)?password\s*=\s*)('(?:[^'\\]|\\.)*'|(?:\\.|[^\s\\])+)", re.IGNORECASE
+)
+
+
+def _is_uri(target: str) -> bool:
+    return "://" in target
+
+
+def _secrets(target: str) -> list[str]:
+    """Every password `target` carries: as written, as meant, and as `repr` shows it."""
+    if _is_uri(target):
+        found = [m.group(2) for m in _URI_PASSWORD.finditer(target)]
+        found += [m.group(2) for m in _URI_QUERY_PASSWORD.finditer(target)]
+    else:
+        found = []
+        for m in _KV_PASSWORD.finditer(target):
+            raw = m.group(2)
+            inner = raw[1:-1] if raw.startswith("'") else raw
+            found += [raw, inner, re.sub(r"\\(.)", r"\1", inner)]
+    # An SDK may quote the conninfo back with `repr` (psycopg's malformed-DSN
+    # message does), which doubles a backslash, so that spelling goes too.
+    found += [repr(s)[1:-1] for s in found]
+    return [s for s in dict.fromkeys(found) if s]
 
 
 def redact_target(target: str) -> str:
@@ -95,9 +125,12 @@ def redact_target(target: str) -> str:
     An adapter names the server it could not connect to in its `BackendError`,
     and the CLI prints that message, so a password in `PGVECTOR_DSN` (URI form
     ``postgresql://user:pw@host/db``, ``?password=pw``, or libpq's
-    ``password=pw`` keyword form) or in a URL's userinfo must not reach stderr.
+    ``password=pw`` keyword form) or in a URL's userinfo must not reach stderr,
+    and neither may an ``sslpassword`` (#285).
     """
-    return _KV_PASSWORD.sub(r"\1***", _URI_PASSWORD.sub(r"\1***@", target))
+    if _is_uri(target):
+        return _URI_QUERY_PASSWORD.sub(r"\1***", _URI_PASSWORD.sub(r"\1***@", target))
+    return _KV_PASSWORD.sub(r"\1***", target)
 
 
 def unreachable_error(backend: str, target: str, cause: BaseException) -> BackendError:
@@ -110,11 +143,9 @@ def unreachable_error(backend: str, target: str, cause: BaseException) -> Backen
     the SDK echoes part of the DSN back (psycopg does for a malformed one).
     """
     detail = " ".join(str(cause).split()) or type(cause).__name__
-    secrets = [m.group(2) for m in _URI_PASSWORD.finditer(target)]
-    secrets += [m.group(2).strip("'") for m in _KV_PASSWORD.finditer(target)]
-    for secret in secrets:
-        if secret:
-            detail = detail.replace(secret, "***")
+    # Longest first, so a secret that contains another is replaced whole.
+    for secret in sorted(_secrets(target), key=len, reverse=True):
+        detail = detail.replace(secret, "***")
     return BackendError(f"{backend}: could not connect to {redact_target(target)}: {detail}")
 
 
