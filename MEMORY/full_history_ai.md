@@ -2992,3 +2992,20 @@ context_for_next_session:
   - "_shown_IS_THE_ONE_PATH_TO_REPORT_TEXT_RENDERER_it_escapes_undecodable_bytes_and_control_characters"
 followups: []
 ---
+
+---
+session: 2026-10-28T08:26Z
+issue: 287
+branch: session/2026-10-28-0825-issue-287
+focus: SAME_RUN_ID_AND_BACKEND_AT_TWO_SCALES_PASSED_THE_CHART_COLLISION_GUARD_AND_GOT_IDENTICAL_TABLE_LABELS_NOW_N_IS_ADDED
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 4
+  suite: "1635 passed 10 skipped; ruff clean"
+decisions_made: []
+measured: "stub run_id baseline at n=200/400 -> plot_latency header stub @ baseline x2 rc 0; after n=200 / n=400. #123 labels byte-identical. Revert 3 red / 1 green."
+context_for_next_session:
+  - "COLUMN_LABELS_NOW_GO_BACKEND_THEN_RUN_ID_THEN_N_matching_what_the_chart_filename_carries"
+followups: []
+---

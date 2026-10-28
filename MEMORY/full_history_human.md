@@ -2474,3 +2474,10 @@ The cost table names the folder each throughput number came from. A folder
 whose name contained a line break split that table row in two in the
 published page. Such characters are now shown as visible escapes (`\\n`),
 the way an unreadable byte already was. The committed page is unchanged.
+
+## 2026-10-28 — Latency tables tell two sizes of one run apart (#287)
+
+Running the same benchmark name at two dataset sizes produced a latency table
+whose columns had identical names, so a reader could not tell which column
+was which size. When the name repeats, the column now also says the size
+(`n=200`, `n=400`). Every existing table is unchanged.
