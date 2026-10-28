@@ -344,6 +344,11 @@ def test_qdrant_server_side_refusal_after_construction_keeps_its_own_type(
         (PG_DSN, "postgresql://bench:***@127.0.0.1:9/bench"),
         (f"host=127.0.0.1 port=9 password={PASSWORD} user=bench", "password=***"),
         (f"postgresql://127.0.0.1:9/bench?password={PASSWORD}", "?password=***"),
+        # #285: each of these printed the secret, or the part after `&`/`\ `.
+        (f"host=127.0.0.1 port=9 password=Ab&{PASSWORD} user=bench", "password=*** user"),
+        (f"host=127.0.0.1 port=9 password=a\\ {PASSWORD} user=bench", "password=*** user"),
+        (f"host=127.0.0.1 port=9 sslpassword={PASSWORD} user=bench", "sslpassword=***"),
+        (f"postgresql://127.0.0.1:9/bench?sslpassword={PASSWORD}", "?sslpassword=***"),
     ],
 )
 def test_pgvector_raises_backend_error_at_construction_with_the_password_redacted(
