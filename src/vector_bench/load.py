@@ -512,12 +512,22 @@ def _column_labels(matrices: list[LoadMatrix]) -> list[str]:
     that is ambiguous today.
     """
     counts = Counter(m.backend for m in matrices)
-    return [
-        f"{_escape_cell(m.backend)} @ {_escape_cell(m.run_id)}"
-        if counts[m.backend] > 1
-        else _escape_cell(m.backend)
-        for m in matrices
-    ]
+    # One run_id at two scales -- a baseline at 10k and at 100k, each in its own
+    # results dir -- repeats `backend @ run_id` too (#287). `plot_latency`'s
+    # collision guard keys on the chart filename, which carries `n_vectors`, so
+    # both inputs passed it and published identically labelled columns. `n` is
+    # added only for that case, so every label above stays as it was.
+    run_counts = Counter((m.backend, m.run_id) for m in matrices)
+    labels = []
+    for m in matrices:
+        if counts[m.backend] == 1:
+            labels.append(_escape_cell(m.backend))
+            continue
+        label = f"{_escape_cell(m.backend)} @ {_escape_cell(m.run_id)}"
+        if run_counts[m.backend, m.run_id] > 1:
+            label += f" n={m.workload.n_vectors}"
+        labels.append(label)
+    return labels
 
 
 def _escape_cell(value: str) -> str:
