@@ -2957,3 +2957,21 @@ context_for_next_session:
   - "NOT_DONE_load__escape_cell_still_passes_newlines_unreachable_from_the_CLI_now_but_a_library_LoadMatrix_can_carry_one"
 followups: []
 ---
+
+---
+session: 2026-10-28T08:15Z
+issue: 285
+branch: session/2026-10-28-0815-issue-285
+focus: REDACT_TARGET_LEAKED_A_KEYWORD_FORM_PASSWORD_WITH_AMPERSAND_OR_AN_ESCAPED_SPACE_AND_EVERY_SSLPASSWORD
+phase: shipped
+delta:
+  files_changed: 3
+  tests_added: 24
+  suite: "1631 passed 10 skipped; ruff clean"
+decisions_made: []
+measured: "origin/main b5ac830 redact_target: password=Ab&TopS3cret -> ***&TopS3cret; password=a\\ bsecret -> *** bsecret; sslpassword (keyword and ?query) unredacted. After: all ***, passwordless/user=password/passfile/qdrant URL unchanged. unreachable_error scrubs raw, unescaped and repr spellings (repr doubles a backslash; caught by my own echo test). Revert 13 red / 49 green. PR #286."
+context_for_next_session:
+  - "TWO_LIBPQ_GRAMMARS_END_A_VALUE_DIFFERENTLY_URI_QUERY_AT_AMPERSAND_KEYWORD_AT_UNESCAPED_WHITESPACE_redaction_branches_on_scheme"
+  - "OPEN_FROM_THE_SAME_HUNT_plot_latency_labels_collide_for_same_run_id_backend_different_n_and_a_newline_in_results_dir_splits_the_cost_table_row_and_infra_md_sizing_claim_not_yet_filed"
+followups: []
+---

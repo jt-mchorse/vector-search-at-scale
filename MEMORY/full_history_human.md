@@ -2458,3 +2458,12 @@ character tables, not from a hand-written list. The same rule covers `run`,
 names, including accented letters, CJK, spaces and pipes, still work. There are
 22 new tests, and 16 of them fail without the fix. The other six are the
 ordinary-name checks.
+
+## 2026-10-28 — Database passwords no longer leak into error messages (#285)
+
+When the benchmark cannot reach Postgres, it prints the connection string
+with the password hidden. The hiding missed three cases: a password containing
+`&`, a password with an escaped space, and the separate `sslpassword` setting.
+In each case part or all of the secret was printed. The two connection-string
+styles are now handled separately, and the error text the database driver
+echoes back is scrubbed of the password in every spelling it can take. PR #286.
