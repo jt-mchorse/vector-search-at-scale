@@ -2467,3 +2467,10 @@ with the password hidden. The hiding missed three cases: a password containing
 In each case part or all of the secret was printed. The two connection-string
 styles are now handled separately, and the error text the database driver
 echoes back is scrubbed of the password in every spelling it can take. PR #286.
+
+## 2026-10-28 — A line break in a results folder name no longer breaks the cost table (#288)
+
+The cost table names the folder each throughput number came from. A folder
+whose name contained a line break split that table row in two in the
+published page. Such characters are now shown as visible escapes (`\\n`),
+the way an unreadable byte already was. The committed page is unchanged.
