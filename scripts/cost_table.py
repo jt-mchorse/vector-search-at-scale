@@ -176,11 +176,13 @@ def load_throughput_qps(results_dir: Path) -> float:
             f"expected {c01_path} to exist for the cost table: the concurrency-1 "
             f"cell of a load run. Produce it with the load harness, keeping "
             f"concurrency 1 in the run (the default `--concurrency 1,10,100` does): "
-            f"`vector-bench load --backend <backend> --n <N> --run-id <run_id> "
-            f"--results-dir <dir>` writes `<dir>/<run_id>/c001.json`."
+            f"`vector-bench load --backend <backend> --n <N> --dim {TIER_DIM} "
+            f"--run-id <run_id> --results-dir <dir>` writes `<dir>/<run_id>/c001.json`."
             # It named `python -m vector_bench.load`, which has no __main__ and
             # exits 0 having written nothing; and a run without concurrency 1
-            # writes no c001.json at all (#176).
+            # writes no c001.json at all (#176). `--dim` comes from TIER_DIM:
+            # `load` defaults to 64, so a run made from a hint without it was
+            # always marked "measured at dim=64, not 384" (#297).
         )
     # The cell must belong to this run (#182): a `load --force` rerun without
     # concurrency 1 used to leave the previous run's `c001.json` in place, and
