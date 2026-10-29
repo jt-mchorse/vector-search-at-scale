@@ -96,22 +96,25 @@ vector-bench run --backend stub \
 ```
 
 Real-backend flow (assumes `make up SCALE=1m` is up and the operator has
-set the per-engine env vars):
+set the per-engine env vars). The tiers are sized for 384-dim vectors. At
+another `--dim`, re-derive the RAM budget from
+[`docs/infra.md`](docs/infra.md#per-tier-sizing) first: 768-dim doubles
+the 1m index to 4.3–7.2 GiB on the tier's 8 GiB instance.
 
 ```bash
 pip install -e '.[pgvector,qdrant,weaviate]'
 # Example values for all three variables are in .env.example.
 
 PGVECTOR_DSN=postgresql://... \
-  vector-bench run --backend pgvector --n 1000000 --dim 768 \
+  vector-bench run --backend pgvector --n 1000000 --dim 384 \
                    --queries 200 --top-k 10 --run-id pgvector-1m-001
 
 QDRANT_URL=http://... \
-  vector-bench run --backend qdrant   --n 1000000 --dim 768 \
+  vector-bench run --backend qdrant   --n 1000000 --dim 384 \
                    --queries 200 --top-k 10 --run-id qdrant-1m-001
 
 WEAVIATE_HOST=... \
-  vector-bench run --backend weaviate --n 1000000 --dim 768 \
+  vector-bench run --backend weaviate --n 1000000 --dim 384 \
                    --queries 200 --top-k 10 --run-id weaviate-1m-001
 ```
 

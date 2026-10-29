@@ -2481,3 +2481,16 @@ Running the same benchmark name at two dataset sizes produced a latency table
 whose columns had identical names, so a reader could not tell which column
 was which size. When the name repeats, the column now also says the size
 (`n=200`, `n=400`). Every existing table is unchanged.
+
+## 2026-10-29 — The infra doc's sizing claims now follow its own formula (#292)
+
+`docs/infra.md` said the 1m and 10m tiers "fit comfortably in RAM" and that
+the disks leave "2–3× headroom". By the doc's own formula, the 10m index is
+21.5–35.8 GiB on a 32 GiB machine. That fits at the low end of the range and
+spills at the high end. The disks leave 4–23× room, not 2–3×. The raw-size
+column was also in decimal GB under a GiB label. The section now has a table
+of index size, RAM, a fits / borderline / no verdict and disk ratio for each
+tier. A test recomputes every cell from the Terraform tiers. The README's
+real-backend example now uses the 384 dimensions the tiers are sized for,
+with a note on what 768 costs. Nothing was resized; that's #282's question.
+PR #293.

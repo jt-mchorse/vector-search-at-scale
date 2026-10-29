@@ -3009,3 +3009,21 @@ context_for_next_session:
   - "COLUMN_LABELS_NOW_GO_BACKEND_THEN_RUN_ID_THEN_N_matching_what_the_chart_filename_carries"
 followups: []
 ---
+
+---
+session: 2026-10-29T07:39Z
+issue: 292
+branch: session/2026-10-29-0733-issue-292
+focus: INFRA_MD_SAID_10M_FITS_COMFORTABLY_AND_2_3X_EBS_HEADROOM_ITS_OWN_FORMULA_GIVES_21_5_TO_35_8_GIB_ON_32_AND_4_2_TO_23_3X
+phase: shipped
+delta:
+  files_changed: 3
+  tests_added: 26
+  suite: "3.11 [dev,plot,qdrant] 1656 -> 1682 passed / 1 skipped; ruff check + format clean"
+decisions_made: []
+measured: "main @ 12e210b, raw=N*384*4/2^30 and index 1.5-2.5x over parse_terraform_tiers + snapshot memory_gib: 1m 2.1-3.6 on 8 (fits) EBS/index 14.0-23.3x; 10m 21.5-35.8 on 32 (borderline, crossover 2.24x) 5.6-9.3x; 100m 214.6-357.6 on 128 (no) 4.2-7.0x. Raw column was decimal GB (~1.5/~15/~150 'GiB' vs 1.43/14.3/143). README real-backend --dim 768 -> 384. Revert (docs+README at origin/main) 23 of 26 red (13 table-absent, 10 stale claims), 3 vCPU/RAM column controls green; 8 single-value mutations each red. PR #293."
+context_for_next_session:
+  - "TEST_INFRA_DOC_SIZING_CLAIMS_READS_DIM_AND_THE_INDEX_RANGE_FROM_INFRA_MD_PROSE_and_RAM_FROM_THE_PRICE_SNAPSHOT_a_tier_resize_must_update_the_sizing_table_and_the_fits_verdict_in_the_same_PR"
+  - "THE_1_5_TO_2_5X_FACTOR_IS_READ_AS_THE_WHOLE_IN_RAM_FOOTPRINT_VECTORS_INCLUDED_the_issue_body_768_figure_7_2_to_10_added_raw_on_top"
+followups: []
+---
