@@ -45,7 +45,7 @@ def _seed(dest: Path, *, backend: str, n_vectors: object = None, workload: objec
     if workload is not None:
         payload["workload"] = workload
     elif n_vectors is not None:
-        payload["workload"] = {"n_vectors": n_vectors, "dim": 64, "n_queries": 50}
+        payload["workload"] = {"n_vectors": n_vectors, "dim": 384, "n_queries": 50}
     (dest / "c001.json").write_text(json.dumps(payload), encoding="utf-8")
     return dest
 

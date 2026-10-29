@@ -18,7 +18,9 @@ real-backend example also ran `--dim 768` on the 1m tier, which the doc says is 
 for 384-dim.
 
 These tests recompute every sizing cell and classification from main.tf, the price
-snapshot's `memory_gib`, and the doc's own constants. A tier resize, a price-table
+snapshot's `memory_gib`, and the doc's own constants. The dimension is
+`scripts/cost_table.TIER_DIM`, which the cost table also compares a run's
+`workload.dim` to (#295); the doc must state that same number. A tier resize, a price-table
 RAM change, or a doc edit that disagrees fails here.
 """
 
@@ -38,6 +40,7 @@ if str(_REPO_ROOT) not in sys.path:
 from scripts.cost_table import (  # noqa: E402
     DEFAULT_TFVARS_PATH,
     SCALE_TIERS,
+    TIER_DIM,
     parse_terraform_tiers,
 )
 from vector_bench.prices import aws_us_east_1_snapshot  # noqa: E402
@@ -61,6 +64,14 @@ def _doc_dim() -> int:
     return int(dim)
 
 
+def test_doc_states_the_dimension_the_cost_table_checks() -> None:
+    """One number for "the tiers are sized for 384-dim" (#295): the sizing model
+    below and `cost_table`'s `workload.dim` check both use `TIER_DIM`, and the
+    doc's prose must agree with it."""
+    assert _doc_dim() == TIER_DIM
+    assert f"With `dim = {TIER_DIM}`" in _doc()
+
+
 def _doc_index_factor() -> tuple[float, float]:
     """The doc's HNSW-index-over-raw range, read from its own prose."""
     m = re.search(r"HNSW indexes typically run \*\*(\d+(?:\.\d+)?)–(\d+(?:\.\d+)?)×\*\*", _doc())
@@ -71,7 +82,7 @@ def _doc_index_factor() -> tuple[float, float]:
 def _model() -> dict[str, dict[str, float]]:
     tiers = parse_terraform_tiers(DEFAULT_TFVARS_PATH.read_text(encoding="utf-8"))
     prices = aws_us_east_1_snapshot()
-    dim = _doc_dim()
+    dim = TIER_DIM
     lo_f, hi_f = _doc_index_factor()
     out: dict[str, dict[str, float]] = {}
     for name in SCALE_TIERS:
@@ -137,13 +148,13 @@ def test_sizing_claims_table_lists_exactly_the_terraform_tiers() -> None:
 def test_per_vector_raw_payload_matches_formula() -> None:
     m = re.search(r"that's `(\d+(?:\.\d+)?)\s+KiB/vector`", _doc())
     assert m
-    assert float(m.group(1)) == _doc_dim() * _FLOAT32_BYTES / _KIB
+    assert float(m.group(1)) == TIER_DIM * _FLOAT32_BYTES / _KIB
 
 
 def test_per_million_raw_payload_matches_formula() -> None:
     m = re.search(r"~(\d+(?:\.\d+)?) GiB per million vectors", _doc())
     assert m
-    assert _matches_as_written(m.group(1), 10**6 * _doc_dim() * _FLOAT32_BYTES / _GIB)
+    assert _matches_as_written(m.group(1), 10**6 * TIER_DIM * _FLOAT32_BYTES / _GIB)
 
 
 @pytest.mark.parametrize("tier", SCALE_TIERS)
@@ -242,7 +253,7 @@ def test_readme_real_backend_example_uses_the_sized_dimension() -> None:
     runs = re.findall(r"--backend (\w+)\s+--n (\d+) --dim (\d+)", block)
     assert {b for b, _, _ in runs} == {"pgvector", "qdrant", "weaviate"}
     for backend, n, dim in runs:
-        assert int(dim) == _doc_dim(), f"{backend} example runs --dim {dim} on the {tier} tier"
+        assert int(dim) == TIER_DIM, f"{backend} example runs --dim {dim} on the {tier} tier"
         assert int(n) <= _TIER_VECTORS[tier]
 
 
