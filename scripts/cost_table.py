@@ -28,8 +28,10 @@ Modes:
   operator points at their real load-test results dir for a specific
   tier and that row uses the measured qps. The marker comes from the
   file (#144): `(real)` for the engine it was measured on, "measured
-  on X, not Y" for the other two. Mix-and-match — overridden tiers use
-  their files, the rest stay on the `--run-id` defaults.
+  on X, not Y" for the other two. A run whose `workload.n_vectors` is
+  not the tier's own count says so in the same marker (#291):
+  `(real, measured at n=1,000, not 100m)`. Mix-and-match — overridden
+  tiers use their files, the rest stay on the `--run-id` defaults.
 - `--dry` / `--no-dry` **has no effect** (#156). It selected the marker
   before #144 made provenance a property of the data; it is still
   accepted so the documented `--dry` commands keep working, and
@@ -79,6 +81,11 @@ ENGINES: tuple[str, ...] = ("pgvector", "qdrant", "weaviate")
 
 # Scale tiers ordered for human reading; the Terraform locals key these.
 SCALE_TIERS: tuple[str, ...] = ("1m", "10m", "100m")
+
+# The corpus size each tier is named for and sized for (docs/infra.md: 1x10^6,
+# 10x10^6, 100x10^6 vectors). A measurement is that tier's only when its
+# `workload.n_vectors` is this count (#291).
+TIER_N_VECTORS: dict[str, int] = {"1m": 1_000_000, "10m": 10_000_000, "100m": 100_000_000}
 
 
 # ----------------------------------------------------------------------
@@ -228,7 +235,50 @@ def load_throughput_backend(results_dir: Path) -> str | None:
     return backend if isinstance(backend, str) else None
 
 
-def _provenance_marker(backend: str | None, engine: str) -> str:
+def load_n_vectors(results_dir: Path) -> int | None:
+    """The corpus size `c001.json` was measured at, or ``None`` if it does not say.
+
+    The cost table read `throughput_qps` and `backend` and never this field, so
+    a run at *any* scale was published as the tier's measurement (#291).
+    Measured with a real local pgvector run at ``--n 1000``::
+
+        | 100m | pgvector | r6i.4xlarge | ... | 4497.1 | $0.0000000775 | ... (real) |
+
+    The load harness always writes ``workload.n_vectors``; ``None`` is a file
+    that does not record it, and the marker says so rather than guessing. A
+    value that is there but is not an integer is refused, as `throughput_qps`
+    is (#243): `bool` subclasses `int`, and a string is not a count.
+    """
+    payload = loads_json((results_dir / "c001.json").read_text(encoding="utf-8"))
+    workload = payload.get("workload")
+    if workload is None:
+        return None
+    if not isinstance(workload, dict):
+        raise ValueError(f"workload must be a JSON object; got {type(workload).__name__}")
+    n_vectors = workload.get("n_vectors")
+    if n_vectors is None:
+        return None
+    if isinstance(n_vectors, bool) or not isinstance(n_vectors, int):
+        raise ValueError(
+            f"workload.n_vectors must be an integer; got {type(n_vectors).__name__} {n_vectors!r}"
+        )
+    return n_vectors
+
+
+def _scale_note(tier: str, n_vectors: int | None) -> str | None:
+    """What the marker must add when the run was not measured at *tier*'s scale.
+
+    ``None`` when ``n_vectors`` is the tier's own count, so a run measured at
+    the tier's scale keeps the marker it always had.
+    """
+    if n_vectors is None:
+        return "scale unrecorded"
+    if n_vectors != TIER_N_VECTORS[tier]:
+        return f"measured at n={n_vectors:,}, not {tier}"
+    return None
+
+
+def _provenance_marker(backend: str | None, engine: str, scale_note: str | None = None) -> str:
     """What this row's throughput number is, for *this* engine.
 
     The marker used to be a property of the *tier* — ``(real)`` when
@@ -244,6 +294,13 @@ def _provenance_marker(backend: str | None, engine: str) -> str:
       shipped table already said, so the published artifact is unchanged
     - the file records no backend at all -> says so, rather than guessing
 
+    ``scale_note`` (from `_scale_note`) is added to the two markers that name an
+    engine (#291): ``(real, measured at n=1,000, not 100m)``. Those are the rows
+    that claim to be a measurement, so they are the rows a 1,000-vector run
+    must not pass for a 100M one. ``(simulated)`` and ``(provenance
+    unrecorded)`` already say the row is no engine's measurement of the tier;
+    they are unchanged, which keeps the committed stub-10k table byte-identical.
+
     **The marker comes from the data, not from a CLI flag.** It used to be
     ``(real)`` whenever ``--load-results`` supplied the file and ``(simulated)``
     only under ``--dry``, so the same stub measurement was marked
@@ -257,10 +314,15 @@ def _provenance_marker(backend: str | None, engine: str) -> str:
     if backend is None:
         return "(provenance unrecorded)"
     if backend == engine:
-        return "(real)"
-    if backend in ENGINES:
-        return f"(measured on {backend}, not {engine})"
-    return "(simulated)"
+        label = "real"
+    elif backend in ENGINES:
+        label = f"measured on {backend}, not {engine}"
+    else:
+        return "(simulated)"
+    if scale_note is not None:
+        # `;` after a borrowed label, which already holds a comma.
+        label += f"; {scale_note}" if backend != engine else f", {scale_note}"
+    return f"({label})"
 
 
 # ----------------------------------------------------------------------
@@ -461,6 +523,7 @@ def render_markdown(
     prices: PriceTable,
     qps_source: dict[tuple[str, str], str],
     qps_backend: dict[tuple[str, str], str | None] | None = None,
+    qps_n_vectors: dict[tuple[str, str], int | None] | None = None,
     results_dir_display: str = "results/load",
 ) -> str:
     """Render the per-tier table + assumptions block.
@@ -474,6 +537,9 @@ def render_markdown(
     tier carried the same number from the same file — the limitation #145
     removed. `uniform_source()` builds the per-tier-everywhere form for callers
     that want it.
+
+    `qps_n_vectors` is the same key's ``workload.n_vectors`` (#291). An entry
+    that is absent reads as unrecorded, as an absent `qps_backend` entry does.
     """
     rows_list = list(rows)
     lines = [
@@ -536,7 +602,12 @@ def render_markdown(
         # `run_matrix._render_summary` (chunking-strategies-lab #100), applied here (#76).
         # The marker is computed per row, because "real" is a property of the
         # (tier, engine) pair rather than of the tier (#144).
-        marker = _provenance_marker((qps_backend or {}).get((r.scale_tier, r.engine)), r.engine)
+        key = (r.scale_tier, r.engine)
+        marker = _provenance_marker(
+            (qps_backend or {}).get(key),
+            r.engine,
+            _scale_note(r.scale_tier, (qps_n_vectors or {}).get(key)),
+        )
         source_cell = f"{qps_source.get((r.scale_tier, r.engine), '—')} {marker}".strip().replace(
             "|", "\\|"
         )
@@ -663,6 +734,7 @@ class _Measurement:
     directory: Path
     qps: float
     backend: str | None
+    n_vectors: int | None = None
 
     @property
     def engine(self) -> str | None:
@@ -779,7 +851,8 @@ def main(argv: list[str] | None = None) -> int:
             "Per-tier override: read that tier's `c001.json` from <PATH> instead of "
             f"the default --run-id directory. TIER must be one of {{{', '.join(SCALE_TIERS)}}}. "
             "Repeatable; each invocation adds one mapping. The row's marker comes "
-            "from the file: `(real)` for the engine it was measured on."
+            "from the file: `(real)` for the engine it was measured on, and it says "
+            "so when the run's workload.n_vectors is not the tier's count."
         ),
     )
     p.add_argument(
@@ -827,6 +900,7 @@ def main(argv: list[str] | None = None) -> int:
         qps_by_tier_engine: dict[tuple[str, str], float] = {}
         qps_source: dict[tuple[str, str], str] = {}
         qps_backend: dict[tuple[str, str], str | None] = {}
+        qps_n_vectors: dict[tuple[str, str], int | None] = {}
         results_dir = Path(args.results_dir)
 
         def _read(directory: Path) -> _Measurement:
@@ -834,6 +908,7 @@ def main(argv: list[str] | None = None) -> int:
                 directory=directory,
                 qps=load_throughput_qps(directory),
                 backend=load_throughput_backend(directory),
+                n_vectors=load_n_vectors(directory),
             )
 
         def _display(directory: Path) -> str:
@@ -864,6 +939,7 @@ def main(argv: list[str] | None = None) -> int:
                 qps_by_tier_engine[tier, engine] = measurement.qps
                 qps_source[tier, engine] = _display(measurement.directory)
                 qps_backend[tier, engine] = measurement.backend
+                qps_n_vectors[tier, engine] = measurement.n_vectors
     except FileNotFoundError as exc:
         print(str(exc), file=sys.stderr)
         return 2
@@ -957,6 +1033,7 @@ def main(argv: list[str] | None = None) -> int:
         prices=prices,
         qps_source=qps_source,
         qps_backend=qps_backend,
+        qps_n_vectors=qps_n_vectors,
         results_dir_display=(
             "results/load"
             if results_dir.resolve() == DEFAULT_RESULTS_DIR.resolve()

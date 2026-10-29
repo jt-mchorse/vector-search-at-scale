@@ -164,7 +164,14 @@ embeds the same numbers and is locked to the scripts by
   engine that produced it, `(measured on <other>, not <this>)` for a
   borrowed number, `(simulated)` for a non-engine backend like the
   committed `stub` run, `(provenance unrecorded)` when the file does not
-  say. `--dry` / `--no-dry` now has **no effect** at all — nothing reads
+  say. The two markers that name an engine also carry the run's scale
+  when it is not the tier's (#291): the file's `workload.n_vectors` is
+  compared to the tier's count (1,000,000 / 10,000,000 / 100,000,000),
+  so a 1,000-vector laptop run passed as `100m=` reads
+  `(real, measured at n=1,000, not 100m)` rather than `(real)`, and a
+  file with no count reads `scale unrecorded`. `(simulated)` rows are
+  unchanged; they already claim no engine's measurement of the tier.
+  `--dry` / `--no-dry` now has **no effect** at all — nothing reads
   it — and is kept only so the documented `--dry` commands still work;
   `--no-dry` says so on stderr (#156, D-016). This paragraph used to claim
   `--dry` "still selects *which* inputs are used", which was false.
