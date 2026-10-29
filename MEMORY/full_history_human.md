@@ -2506,3 +2506,16 @@ they differ, the row says so, for example
 rows and the committed page are unchanged. Comparing the vector dimension is
 left for later, because the docs do not yet agree on which dimension the
 tiers are sized for (#292). PR #294.
+
+## 2026-10-29 — The cost table also checks the vector dimension (#295)
+
+The cost table started checking a real load-test result's vector count in
+#291. It still didn't check the vector dimension. So a run at the right
+count but at 768 dimensions was published as the tier's real cost per
+query, even though the tiers are sized for 384 and a 768-dimension index is
+about twice as large. The table now reads the run's dimension too. When it
+isn't 384, the row says so, for example
+`(real, measured at dim=768, not 384)`. A dimension that isn't a whole
+number is refused. The number 384 is now defined once, in the cost table
+script, and the infra-doc test checks the doc against it. The committed page
+is unchanged. PR #296.

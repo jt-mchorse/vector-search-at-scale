@@ -169,7 +169,10 @@ embeds the same numbers and is locked to the scripts by
   compared to the tier's count (1,000,000 / 10,000,000 / 100,000,000),
   so a 1,000-vector laptop run passed as `100m=` reads
   `(real, measured at n=1,000, not 100m)` rather than `(real)`, and a
-  file with no count reads `scale unrecorded`. `(simulated)` rows are
+  file with no count reads `scale unrecorded`. The file's `workload.dim`
+  is compared the same way to the 384 the tiers are sized for (#295), so
+  a 768-dim run at the right count reads
+  `(real, measured at dim=768, not 384)`. `(simulated)` rows are
   unchanged; they already claim no engine's measurement of the tier.
   `--dry` / `--no-dry` now has **no effect** at all — nothing reads
   it — and is kept only so the documented `--dry` commands still work;

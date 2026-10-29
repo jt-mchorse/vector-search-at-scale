@@ -101,6 +101,7 @@ def test_a_non_utf8_results_dir_is_shown_escaped(
     monkeypatch.setattr(ct, "load_throughput_qps", lambda d: 1000.0)
     monkeypatch.setattr(ct, "load_throughput_backend", lambda d: None)
     monkeypatch.setattr(ct, "load_n_vectors", lambda d: None)
+    monkeypatch.setattr(ct, "load_dim", lambda d: None)
     monkeypatch.setattr(ct, "atomic_write_text", capture)
     odd = tmp_path / "load\udcff"
     assert main(["--dry", "--results-dir", str(odd), "--out", str(tmp_path / "c.md")]) == 0

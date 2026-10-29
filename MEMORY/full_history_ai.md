@@ -3045,3 +3045,21 @@ context_for_next_session:
   - "NOT_DONE_dim_is_not_compared_infra_md_says_384_README_runs_the_1m_tier_at_768_and_292_is_reworking_that_prose_settle_the_tiers_dim_first"
 followups: []
 ---
+
+---
+session: 2026-10-29T07:54Z
+issue: 295
+branch: session/2026-10-29-0746-issue-295
+focus: COST_TABLE_LOAD_RESULTS_CHECKED_N_VECTORS_SINCE_291_BUT_NOT_DIM_SO_A_768_DIM_RUN_WAS_THE_1M_TIERS_REAL_NUMBER_NOW_LABELLED_IN_THE_MARKER
+phase: shipped
+delta:
+  files_changed: 6
+  tests_added: 17
+  suite: "3.11 [dev,plot,qdrant] 1707 -> 1724 passed / 1 skipped; ruff check + format clean; --dry reproduces docs/cost_per_query.md (cmp identical)"
+decisions_made: []
+measured: "origin/main 73fa067, fixture c001 pgvector n_vectors=1000000 dim=768 as 1m=: pgvector row (real), rc 0; dim '768' string accepted. After: (real, measured at dim=768, not 384); borrowed (measured on pgvector, not qdrant; measured at dim=768, not 384); wrong-type dim rc 2. Revert 12 of 16 red, 4 controls green; sizing test errors at collection on revert (imports TIER_DIM), doc 384->768 mutation turns its new lock red. PR #296."
+context_for_next_session:
+  - "TIER_DIM_IN_SCRIPTS_COST_TABLE_IS_THE_ONE_384_test_infra_doc_sizing_claims_sizes_from_it_and_locks_infra_md_states_it_notes_join_with_semicolon_count_then_dim"
+  - "SCALE_UNRECORDED_WINS_WHEN_N_VECTORS_IS_ABSENT_dim_unrecorded_only_appears_beside_a_recorded_count"
+followups: []
+---

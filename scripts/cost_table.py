@@ -30,7 +30,9 @@ Modes:
   file (#144): `(real)` for the engine it was measured on, "measured
   on X, not Y" for the other two. A run whose `workload.n_vectors` is
   not the tier's own count says so in the same marker (#291):
-  `(real, measured at n=1,000, not 100m)`. Mix-and-match — overridden
+  `(real, measured at n=1,000, not 100m)`, and so does one whose
+  `workload.dim` is not the `TIER_DIM` the tiers are sized for (#295):
+  `(real, measured at dim=768, not 384)`. Mix-and-match — overridden
   tiers use their files, the rest stay on the `--run-id` defaults.
 - `--dry` / `--no-dry` **has no effect** (#156). It selected the marker
   before #144 made provenance a property of the data; it is still
@@ -86,6 +88,13 @@ SCALE_TIERS: tuple[str, ...] = ("1m", "10m", "100m")
 # 10x10^6, 100x10^6 vectors). A measurement is that tier's only when its
 # `workload.n_vectors` is this count (#291).
 TIER_N_VECTORS: dict[str, int] = {"1m": 1_000_000, "10m": 10_000_000, "100m": 100_000_000}
+
+# The embedding dimension every tier's RAM and EBS are sized for (docs/infra.md:
+# "assuming **384-dimensional float32**"). A run at the tier's N but another dim
+# is not the tier's measurement either: 768-dim doubles the index (#295).
+# tests/test_infra_doc_sizing_claims.py sizes the tiers from this constant and
+# locks that infra.md states it, so the doc and this check share one number.
+TIER_DIM = 384
 
 
 # ----------------------------------------------------------------------
@@ -265,17 +274,48 @@ def load_n_vectors(results_dir: Path) -> int | None:
     return n_vectors
 
 
-def _scale_note(tier: str, n_vectors: int | None) -> str | None:
+def load_dim(results_dir: Path) -> int | None:
+    """The embedding dimension `c001.json` was measured at, or ``None`` if it does not say.
+
+    `load_n_vectors`'s sibling (#295). #291 compared the run's count to the
+    tier's and left the dimension out, so ``--n 1000000 --dim 768`` passed as
+    ``1m=`` was published as the 1m tier's ``(real)`` $/query on an index twice
+    the size the tier was sized for. Same refusals as `load_n_vectors`: a
+    non-object ``workload`` and a non-integer ``dim`` (``bool`` included) raise.
+    """
+    payload = loads_json((results_dir / "c001.json").read_text(encoding="utf-8"))
+    workload = payload.get("workload")
+    if workload is None:
+        return None
+    if not isinstance(workload, dict):
+        raise ValueError(f"workload must be a JSON object; got {type(workload).__name__}")
+    dim = workload.get("dim")
+    if dim is None:
+        return None
+    if isinstance(dim, bool) or not isinstance(dim, int):
+        raise ValueError(f"workload.dim must be an integer; got {type(dim).__name__} {dim!r}")
+    return dim
+
+
+def _scale_note(tier: str, n_vectors: int | None, dim: int | None = TIER_DIM) -> str | None:
     """What the marker must add when the run was not measured at *tier*'s scale.
 
-    ``None`` when ``n_vectors`` is the tier's own count, so a run measured at
-    the tier's scale keeps the marker it always had.
+    ``None`` when ``n_vectors`` is the tier's own count and ``dim`` is
+    `TIER_DIM`, so a run measured at the tier's shape keeps the marker it always
+    had. Each axis that is off adds its own note (#291 the count, #295 the
+    dimension), joined by ``;``. A file with no count reads ``scale unrecorded``
+    whatever its dimension; one with a count and no dimension says so too.
     """
     if n_vectors is None:
         return "scale unrecorded"
+    notes: list[str] = []
     if n_vectors != TIER_N_VECTORS[tier]:
-        return f"measured at n={n_vectors:,}, not {tier}"
-    return None
+        notes.append(f"measured at n={n_vectors:,}, not {tier}")
+    if dim is None:
+        notes.append("dim unrecorded")
+    elif dim != TIER_DIM:
+        notes.append(f"measured at dim={dim}, not {TIER_DIM}")
+    return "; ".join(notes) or None
 
 
 def _provenance_marker(backend: str | None, engine: str, scale_note: str | None = None) -> str:
@@ -295,7 +335,8 @@ def _provenance_marker(backend: str | None, engine: str, scale_note: str | None 
     - the file records no backend at all -> says so, rather than guessing
 
     ``scale_note`` (from `_scale_note`) is added to the two markers that name an
-    engine (#291): ``(real, measured at n=1,000, not 100m)``. Those are the rows
+    engine (#291, #295): ``(real, measured at n=1,000, not 100m)``,
+    ``(real, measured at dim=768, not 384)``. Those are the rows
     that claim to be a measurement, so they are the rows a 1,000-vector run
     must not pass for a 100M one. ``(simulated)`` and ``(provenance
     unrecorded)`` already say the row is no engine's measurement of the tier;
@@ -524,6 +565,7 @@ def render_markdown(
     qps_source: dict[tuple[str, str], str],
     qps_backend: dict[tuple[str, str], str | None] | None = None,
     qps_n_vectors: dict[tuple[str, str], int | None] | None = None,
+    qps_dim: dict[tuple[str, str], int | None] | None = None,
     results_dir_display: str = "results/load",
 ) -> str:
     """Render the per-tier table + assumptions block.
@@ -540,6 +582,7 @@ def render_markdown(
 
     `qps_n_vectors` is the same key's ``workload.n_vectors`` (#291). An entry
     that is absent reads as unrecorded, as an absent `qps_backend` entry does.
+    `qps_dim` is its ``workload.dim`` (#295), read the same way.
     """
     rows_list = list(rows)
     lines = [
@@ -606,7 +649,7 @@ def render_markdown(
         marker = _provenance_marker(
             (qps_backend or {}).get(key),
             r.engine,
-            _scale_note(r.scale_tier, (qps_n_vectors or {}).get(key)),
+            _scale_note(r.scale_tier, (qps_n_vectors or {}).get(key), (qps_dim or {}).get(key)),
         )
         source_cell = f"{qps_source.get((r.scale_tier, r.engine), '—')} {marker}".strip().replace(
             "|", "\\|"
@@ -735,6 +778,7 @@ class _Measurement:
     qps: float
     backend: str | None
     n_vectors: int | None = None
+    dim: int | None = None
 
     @property
     def engine(self) -> str | None:
@@ -852,7 +896,8 @@ def main(argv: list[str] | None = None) -> int:
             f"the default --run-id directory. TIER must be one of {{{', '.join(SCALE_TIERS)}}}. "
             "Repeatable; each invocation adds one mapping. The row's marker comes "
             "from the file: `(real)` for the engine it was measured on, and it says "
-            "so when the run's workload.n_vectors is not the tier's count."
+            "so when the run's workload.n_vectors is not the tier's count or its "
+            f"workload.dim is not {TIER_DIM}."
         ),
     )
     p.add_argument(
@@ -901,6 +946,7 @@ def main(argv: list[str] | None = None) -> int:
         qps_source: dict[tuple[str, str], str] = {}
         qps_backend: dict[tuple[str, str], str | None] = {}
         qps_n_vectors: dict[tuple[str, str], int | None] = {}
+        qps_dim: dict[tuple[str, str], int | None] = {}
         results_dir = Path(args.results_dir)
 
         def _read(directory: Path) -> _Measurement:
@@ -909,6 +955,7 @@ def main(argv: list[str] | None = None) -> int:
                 qps=load_throughput_qps(directory),
                 backend=load_throughput_backend(directory),
                 n_vectors=load_n_vectors(directory),
+                dim=load_dim(directory),
             )
 
         def _display(directory: Path) -> str:
@@ -940,6 +987,7 @@ def main(argv: list[str] | None = None) -> int:
                 qps_source[tier, engine] = _display(measurement.directory)
                 qps_backend[tier, engine] = measurement.backend
                 qps_n_vectors[tier, engine] = measurement.n_vectors
+                qps_dim[tier, engine] = measurement.dim
     except FileNotFoundError as exc:
         print(str(exc), file=sys.stderr)
         return 2
@@ -1034,6 +1082,7 @@ def main(argv: list[str] | None = None) -> int:
         qps_source=qps_source,
         qps_backend=qps_backend,
         qps_n_vectors=qps_n_vectors,
+        qps_dim=qps_dim,
         results_dir_display=(
             "results/load"
             if results_dir.resolve() == DEFAULT_RESULTS_DIR.resolve()
