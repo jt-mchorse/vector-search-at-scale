@@ -20,20 +20,38 @@ negligible cost.
 
 | Tier  | Vectors  | Raw vector bytes | EC2 type    | vCPU | RAM    | EBS gp3 |
 |-------|----------|------------------|-------------|------|--------|---------|
-| `1m`  | 1×10⁶    | ~1.5 GiB         | `m6i.large` | 2    | 8 GiB  | 50 GiB  |
-| `10m` | 10×10⁶   | ~15 GiB          | `r6i.xlarge`| 4    | 32 GiB | 200 GiB |
-| `100m`| 100×10⁶  | ~150 GiB         | `r6i.4xlarge`| 16  | 128 GiB| 1500 GiB|
+| `1m`  | 1×10⁶    | ~1.43 GiB        | `m6i.large` | 2    | 8 GiB  | 50 GiB  |
+| `10m` | 10×10⁶   | ~14.3 GiB        | `r6i.xlarge`| 4    | 32 GiB | 200 GiB |
+| `100m`| 100×10⁶  | ~143 GiB         | `r6i.4xlarge`| 16  | 128 GiB| 1500 GiB|
 
 **Sizing assumptions.**
-- Raw vector bytes = `N × dim × 4` (float32). With `dim = 384` that's `~1.5
-  KiB/vector` for the raw payload.
-- HNSW indexes typically run **1.5–2.5×** the raw payload in RAM (graph + IDs +
-  per-layer pointers). The 1m / 10m tiers fit comfortably in RAM; 100m
-  intentionally does *not* — it's the on-disk-index regime, which is what we
-  actually want to measure for the largest tier (the interesting question at
-  100m is "how badly does each engine degrade when the index spills").
-- EBS sizing leaves 2–3× headroom over the on-disk index for restores,
-  snapshots, and per-engine bookkeeping.
+- Raw vector bytes = `N × dim × 4` (float32). With `dim = 384` that's `1.5
+  KiB/vector` for the raw payload, or ~1.43 GiB per million vectors.
+- HNSW indexes typically run **1.5–2.5×** the raw payload in RAM (vectors +
+  graph + IDs + per-layer pointers). The table below applies that range to
+  each tier's RAM and EBS volume. The 1m tier fits in RAM across the whole
+  range. The 10m tier is **borderline**: it fits up to ~2.2× raw and spills
+  past its 32 GiB at the high end of the range. 100m intentionally does
+  *not* fit. It's the on-disk-index regime, which is what we actually want
+  to measure for the largest tier (the interesting question at 100m is
+  "how badly does each engine degrade when the index spills").
+- EBS sizing leaves at least 4× headroom over the on-disk index on every
+  tier, for restores, snapshots, and per-engine bookkeeping. The smallest
+  margin is 100m at the top of the range.
+
+| Tier  | HNSW index (1.5–2.5× raw) | RAM    | Fits in RAM? | EBS ÷ index |
+|-------|---------------------------|--------|--------------|-------------|
+| `1m`  | 2.1–3.6 GiB               | 8 GiB  | yes          | 14.0–23.3×  |
+| `10m` | 21.5–35.8 GiB             | 32 GiB | borderline   | 5.6–9.3×    |
+| `100m`| 214.6–357.6 GiB           | 128 GiB| no           | 4.2–7.0×    |
+
+Every cell above is the formula over the Terraform `tiers` map (instance
+RAM from the `vector_bench.prices` snapshot, volume size from
+`data_volume_gb`). "borderline" means the low end of the range fits and the
+high end does not. The figures leave out the OS and engine process, which
+also need RAM. `tests/test_infra_doc_sizing_claims.py` recomputes each one
+and fails if this section disagrees (#292). Resizing a tier is a design
+call, not a doc edit.
 
 ## Per-tier on-demand cost (us-east-1)
 
