@@ -60,10 +60,18 @@ from vector_bench.prices import aws_us_east_1_snapshot  # noqa: E402
 _COMMITTED_C001 = _REPO_ROOT / "results" / "load" / "stub-10k" / "c001.json"
 
 
-def _seed(dest: Path, *, qps: float, backend: str | None) -> Path:
-    """A `c001.json` shaped like the harness's, with *backend* controllable."""
+def _seed(dest: Path, *, qps: float, backend: str | None, n_vectors: int = 1_000_000) -> Path:
+    """A `c001.json` shaped like the harness's, with *backend* controllable.
+
+    Measured at the 1m tier's own scale by default, so the marker under test
+    here is the engine half; the scale half is #291's (test_cost_table_tier_scale).
+    """
     dest.mkdir(parents=True, exist_ok=True)
-    payload: dict[str, object] = {"throughput_qps": qps, "p95_latency_ms": 1.0}
+    payload: dict[str, object] = {
+        "throughput_qps": qps,
+        "p95_latency_ms": 1.0,
+        "workload": {"n_vectors": n_vectors, "dim": 384},
+    }
     if backend is not None:
         payload["backend"] = backend
     (dest / "c001.json").write_text(json.dumps(payload), encoding="utf-8")

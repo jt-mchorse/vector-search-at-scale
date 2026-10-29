@@ -87,7 +87,7 @@ def test_a_non_utf8_results_dir_is_shown_escaped(
     A filesystem byte that is not UTF-8 is a lone surrogate in the path, and
     writing it into the markdown raised UnicodeEncodeError -- a traceback, not
     the OSError the write seam handles -- on any filesystem that accepted the
-    name (ext4: CI); APFS refuses it first. Stub the two loaders and capture
+    name (ext4: CI); APFS refuses it first. Stub the loaders and capture
     what `main` writes, so this runs the real call site everywhere.
     """
     import scripts.cost_table as ct
@@ -100,6 +100,7 @@ def test_a_non_utf8_results_dir_is_shown_escaped(
 
     monkeypatch.setattr(ct, "load_throughput_qps", lambda d: 1000.0)
     monkeypatch.setattr(ct, "load_throughput_backend", lambda d: None)
+    monkeypatch.setattr(ct, "load_n_vectors", lambda d: None)
     monkeypatch.setattr(ct, "atomic_write_text", capture)
     odd = tmp_path / "load\udcff"
     assert main(["--dry", "--results-dir", str(odd), "--out", str(tmp_path / "c.md")]) == 0

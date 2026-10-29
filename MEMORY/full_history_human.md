@@ -2494,3 +2494,15 @@ tier. A test recomputes every cell from the Terraform tiers. The README's
 real-backend example now uses the 384 dimensions the tiers are sized for,
 with a note on what 768 costs. Nothing was resized; that's #282's question.
 PR #293.
+
+## 2026-10-29 — The cost table says when a run was not taken at the tier's size (#291)
+
+When you gave the cost table a real load-test result for a scale tier, it
+never checked how many vectors that run used. So a 1,000-vector laptop run
+could be published as the 100-million-vector tier's real cost per query. The
+table now reads the run's vector count and compares it to the tier's. When
+they differ, the row says so, for example
+`(real, measured at n=1,000, not 100m)`, rather than just `(real)`. Simulated
+rows and the committed page are unchanged. Comparing the vector dimension is
+left for later, because the docs do not yet agree on which dimension the
+tiers are sized for (#292). PR #294.

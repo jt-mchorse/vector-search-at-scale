@@ -3027,3 +3027,21 @@ context_for_next_session:
   - "THE_1_5_TO_2_5X_FACTOR_IS_READ_AS_THE_WHOLE_IN_RAM_FOOTPRINT_VECTORS_INCLUDED_the_issue_body_768_figure_7_2_to_10_added_raw_on_top"
 followups: []
 ---
+
+---
+session: 2026-10-29T07:33Z
+issue: 291
+branch: session/2026-10-29-0733-issue-291
+focus: COST_TABLE_LOAD_RESULTS_NEVER_READ_WORKLOAD_N_VECTORS_SO_A_1000_VECTOR_RUN_WAS_THE_100M_TIERS_REAL_NUMBER_NOW_LABELLED_IN_THE_MARKER
+phase: shipped
+delta:
+  files_changed: 5
+  tests_added: 25
+  suite: "3.11 [dev,plot,qdrant] 1656 -> 1681 passed / 1 skipped; ruff check + format clean; --dry reproduces docs/cost_per_query.md (cmp identical)"
+decisions_made: []
+measured: "origin/main 12e210b, fixture c001 pgvector n_vectors=1000 qps 4497.1 as 100m= and 1m=: both pgvector rows (real), rc 0. After: (real, measured at n=1,000, not 100m); borrowed rows (measured on pgvector, not qdrant; measured at n=1,000, not 100m). Revert 20 of 25 red; 5 controls green (3 diagonal tier==scale, simulated unchanged, --dry byte identity). PR #294."
+context_for_next_session:
+  - "TIER_N_VECTORS_IS_EXACT_EQUALITY_the_scale_note_rides_only_on_engine_naming_markers_simulated_and_provenance_unrecorded_rows_are_unchanged_which_is_what_keeps_the_committed_stub_10k_doc_byte_identical"
+  - "NOT_DONE_dim_is_not_compared_infra_md_says_384_README_runs_the_1m_tier_at_768_and_292_is_reworking_that_prose_settle_the_tiers_dim_first"
+followups: []
+---
