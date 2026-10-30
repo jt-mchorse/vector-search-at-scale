@@ -3100,3 +3100,23 @@ context_for_next_session:
   - "HNSW_GRID_CHECKS_GRID_JSON_INSIDE_THE_CELL_LOOP_not_before_it_so_a_refused_backend_still_leaves_no_out_dir_197"
 followups: []
 ---
+
+---
+session: 2026-10-30T07:37Z
+issue: 300
+branch: session/2026-10-30-0737-issue-300
+focus: CAPTURE_DEMO_NEXT_STOP_PRINTED_VECTOR_BENCH_RUN_BEFORE_A_LOAD_RESULTS_LINE_RUN_NEVER_WRITES_C001_NOW_PRINTS_LOAD_AT_THE_1M_TIER_SHAPE
+phase: partial
+delta:
+  files_changed: 4
+  tests_added: 2
+  suite: "3.11 [dev,plot,qdrant] 1732 -> 1734 passed / 1 skipped; ruff check + format clean"
+decisions_made: []
+measured: "origin/main 749f429: vector-bench run --backend stub --n 1000000 --dim 384 --queries 20 --run-id pg-1m -> rc 0, only results/pg-1m.json; cost_table --load-results 1m=results/load/pg-1m -> c001 missing, rc 2. After: vector-bench load --backend stub --n 2000 --dim 384 --run-id pg-1m writes results/load/pg-1m/c001.json and the printed cost_table line exits 0. Revert (demo + README) 1 of 1 new test red, 11 existing controls green; the old _LOAD_CMD regex ERRORS (shlex No closing quotation) on the new printf line. PR #302."
+context_for_next_session:
+  - "TEST_CAPTURE_DEMO_PAIRS_EVERY_PRINTED_LOAD_RESULTS_TIER_PATH_WITH_THE_NEAREST_PRINTED_PRODUCER_load_TIER_N_VECTORS_TIER_DIM_results_dir_run_id_EQUALS_PATH"
+  - "_LOAD_CMD_REGEX_STOPS_AT_QUOTE_AND_BACKSLASH_so_printf_lines_in_scripts_sh_parse_with_shlex"
+  - "ISSUE_300_PART_2_OPEN_hint_tier_exact_n_needs_load_throughput_qps_to_know_the_tier_and_two_hint_following_tests_substitute_N"
+followups:
+  - "#300 part 2: missing-c001 hint prints the tier's exact --n when --load-results TIER=PATH names it"
+---

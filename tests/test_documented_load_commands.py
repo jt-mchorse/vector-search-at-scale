@@ -32,8 +32,9 @@ from vector_bench.cli import main as cli_main  # noqa: E402
 
 # `vector-bench load` followed by at least one flag, up to the end of the code
 # span or line. A `\` line continuation is folded first, so a multi-line shell
-# example is one command.
-_LOAD_CMD = re.compile(r"vector-bench load((?: +--[^`\n]*))")
+# example is one command. A `printf '...\n'` line in a script ends at its `\n'`
+# (#300), so the escape and the closing quote are not part of the command.
+_LOAD_CMD = re.compile(r"vector-bench load((?: +--[^`\n'\\]*))")
 
 
 def _documented_files() -> list[Path]:
