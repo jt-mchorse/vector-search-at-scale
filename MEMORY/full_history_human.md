@@ -2519,3 +2519,17 @@ isn't 384, the row says so, for example
 number is refused. The number 384 is now defined once, in the cost table
 script, and the infra-doc test checks the doc against it. The committed page
 is unchanged. PR #296.
+
+## 2026-10-29 — The documented load commands now run at 384 dimensions (#297)
+
+Since #295 the cost table flags a load-test result that wasn't measured at
+the 384 dimensions the tiers are sized for. But the two places that tell you
+how to produce that result both left out `--dim`: the hint the cost table
+prints when the file is missing, and the README's latency-under-load
+command. `vector-bench load` defaults to 64 dimensions, so following either
+one gave a run the table would always flag. Both now pass `--dim 384`, and
+the hint takes the number from the same constant the check uses. A new test
+covers every documented `load` command in the README, docs and scripts. It
+also runs the hint and the README command end to end and checks that the
+cost table calls the result real. The CLI's default is unchanged; that's a
+separate decision. PR #298.

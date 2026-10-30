@@ -143,7 +143,7 @@ and #5 (cost per query) compose the harness to produce the Pareto frontier.
 
 ### Latency under load (#4)
 
-`vector-bench load --backend <b> --n <N> --concurrency 1,10,100 --run-id <id>`
+`vector-bench load --backend <b> --n <N> --dim 384 --concurrency 1,10,100 --run-id <id>`
 ingests once and queries at each concurrency level using `ThreadPoolExecutor`,
 writing one JSON per cell + a `matrix.json` summary under
 `results/load/<id>/`. `scripts/plot_latency.py` reads one or more

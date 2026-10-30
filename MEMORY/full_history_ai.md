@@ -3063,3 +3063,21 @@ context_for_next_session:
   - "SCALE_UNRECORDED_WINS_WHEN_N_VECTORS_IS_ABSENT_dim_unrecorded_only_appears_beside_a_recorded_count"
 followups: []
 ---
+
+---
+session: 2026-10-29T08:10Z
+issue: 297
+branch: session/2026-10-29-0805-issue-297
+focus: COST_TABLE_HINT_AND_README_LOAD_COMMAND_OMITTED_DIM_SO_FOLLOWING_THEM_GAVE_A_DIM_64_RUN_THE_295_MARKER_ALWAYS_FLAGGED_NOW_BOTH_PASS_TIER_DIM
+phase: shipped
+delta:
+  files_changed: 3
+  tests_added: 8
+  suite: "3.11 [dev,plot,qdrant] 1724 -> 1732 passed / 1 skipped; ruff check + format clean; --dry reproduces docs/cost_per_query.md (cmp identical)"
+decisions_made: []
+measured: "origin/main 8939659, hinted vector-bench load --backend stub --n 2000 -> c001 workload.dim 64; patched backend pgvector n_vectors 1000000 as 1m= -> (real, measured at dim=64, not 384) rc 0. After: hint and README command run end to end -> (real); without --dim control still marked. Revert 4 of 8 red, 4 controls green. PR #298."
+context_for_next_session:
+  - "TEST_DOCUMENTED_LOAD_COMMANDS_LOCKS_EVERY_FLAGGED_VECTOR_BENCH_LOAD_IN_README_DOCS_MD_SCRIPTS_SH_PLUS_THE_COST_TABLE_HINT_TO_DIM_TIER_DIM_only_README_has_one_today"
+  - "CLI_LOAD_DIM_DEFAULT_STAYS_64_changing_it_is_a_design_call_dim_64_grids_tests_qdrant_notes_depend_on_it"
+followups: []
+---
