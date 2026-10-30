@@ -204,6 +204,9 @@ def run_grid(
         # creates it, and refuses an unwritable cell path before the workload
         # runs, as `run_benchmark` did when it wrote the cell (#207).
         check_writable(out_dir / f"{run_id}.json")
+        # `grid.json` too: it is written last, so a read-only one (#299) was
+        # refused only after every cell file had been replaced.
+        check_writable(out_dir / "grid.json")
         # Not written here (#258): a later cell's failure left this cell's new
         # numbers beside the previous run's `grid.json`, which the frontier
         # plotted. Every cell is written below, once all of them have run --

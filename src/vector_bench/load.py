@@ -341,8 +341,12 @@ def run_under_load(
         )
     if write_json:
         # And that the write can happen at all (#207). The cell files share
-        # `matrix.json`'s directory, so one check covers them.
+        # `matrix.json`'s directory, but not its mode: a read-only existing
+        # `c<NNN>.json` is refused by the writer (#299), after the sweep and
+        # after the lower cells were rewritten, so each cell is checked too.
         check_writable(matrix_path)
+        for c in concurrency_levels:
+            check_writable(out_dir / f"c{c:03d}.json")
 
     # A backend that holds one connection per worker thread can only run as
     # many workers as the server will connect (#212). Asked before the ingest,

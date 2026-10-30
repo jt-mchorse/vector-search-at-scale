@@ -3081,3 +3081,22 @@ context_for_next_session:
   - "CLI_LOAD_DIM_DEFAULT_STAYS_64_changing_it_is_a_design_call_dim_64_grids_tests_qdrant_notes_depend_on_it"
 followups: []
 ---
+
+---
+session: 2026-10-30T07:32Z
+issue: 299
+branch: session/2026-10-30-0732-issue-299
+focus: ATOMIC_WRITE_TEXT_RENAMED_OVER_A_READ_ONLY_0444_TARGET_NOW_EACCES_LIKE_PATH_WRITE_TEXT_CHECK_WRITABLE_AGREES_LOAD_CELLS_AND_GRID_JSON_PREFLIGHTED
+phase: shipped
+delta:
+  files_changed: 4
+  tests_added: 13
+  suite: "3.11 [dev,plot,qdrant] 1732 -> 1745 passed / 1 skipped; ruff check + format clean"
+decisions_made: []
+measured: "origin/main 749f429 (macOS uid 502): atomic_write_text on a 0444 file -> no error, contents replaced, mode still 0444; check_writable -> no error; Path.write_text -> PermissionError(13); cost_table --dry --out <0444> rc 0 and rewritten. After: EACCES / exit 2, file byte-identical, no .tmp; run --force and load --force (0444 c004) refused before ingest; hnsw_grid 0444 grid.json exit 2 before any cell. Revert 9 of 13 red, 4 controls green (2 write_text parity, 2 writable/missing); partial revert of load.py+hnsw_grid.py 2 red. PR #301."
+context_for_next_session:
+  - "_refuse_unwritable_target_RUNS_AFTER_THE_SYMLINK_RESOLVE_IN_BOTH_ATOMIC_WRITE_TEXT_AND_CHECK_WRITABLE_root_still_writes_port_of_prompt_regression_suite_318"
+  - "LOAD_PREFLIGHT_NOW_CHECKS_EVERY_REQUESTED_C_NNN_JSON_NOT_ONLY_MATRIX_JSON_a_shared_directory_does_not_mean_a_shared_mode"
+  - "HNSW_GRID_CHECKS_GRID_JSON_INSIDE_THE_CELL_LOOP_not_before_it_so_a_refused_backend_still_leaves_no_out_dir_197"
+followups: []
+---
