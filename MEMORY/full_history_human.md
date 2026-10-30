@@ -2549,3 +2549,17 @@ any work now asks the same question. `load` now checks every cell file, not
 only `matrix.json`, and the grid script checks `grid.json` too, so a
 read-only file is refused before the workload runs, not halfway through
 writing its results. New files and writable files behave as before. PR #301.
+
+## 2026-10-30 — The capture demo's next step now produces the file the cost table reads (#300)
+
+The capture demo ends by telling you how to get real numbers: run the
+benchmark against pgvector, then run the cost table on the result. The
+first command was `vector-bench run`. That writes a single result file and
+never the load-test cell the cost table reads, so following the demo exactly
+ended in a "file not found" error. It now prints `vector-bench load` at the
+1m tier's size and 384 dimensions, which writes the file into the folder the
+next command reads from. The README said the same wrong thing about which
+command feeds cost per query, and now names `load`. A new test checks that
+every cost-table command the demo prints comes after a `load` command that
+writes the file it reads. The second part of #300, making the missing-file
+hint print the tier's exact vector count, is still open. PR #302.
