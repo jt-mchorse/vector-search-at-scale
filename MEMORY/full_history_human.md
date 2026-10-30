@@ -2533,3 +2533,19 @@ covers every documented `load` command in the README, docs and scripts. It
 also runs the hint and the README command end to end and checks that the
 cost table calls the result real. The CLI's default is unchanged; that's a
 separate decision. PR #298.
+
+## 2026-10-30 — A read-only result or output file is no longer silently overwritten (#299)
+
+Every write goes through a helper that writes a temporary file and renames
+it over the target, so an interrupted write can't leave a half-written
+file. But a rename only needs permission on the directory. So a file made
+read-only with `chmod 444` was rewritten anyway: `cost_table.py --out`
+replaced a read-only page and reported success, and `run --force` would do
+the same to a read-only result. A plain file write refuses in that case,
+and the scripts already documented a read-only path as an error with exit 2.
+The helper now checks that an existing target is writable before it starts.
+The pre-flight check that `run`, `load` and the HNSW grid do before running
+any work now asks the same question. `load` now checks every cell file, not
+only `matrix.json`, and the grid script checks `grid.json` too, so a
+read-only file is refused before the workload runs, not halfway through
+writing its results. New files and writable files behave as before. PR #301.
