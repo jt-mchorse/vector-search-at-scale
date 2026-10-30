@@ -111,7 +111,11 @@ pace
 banner "done · stub-mode harness + cost table are wired end-to-end"
 printf 'next stop for real backends:\n'
 printf '  cd terraform/envs/benchmark && terraform init && terraform apply\n'
-printf '  vector-bench run --backend pgvector --n 1000000 ...\n'
+# The producer is `load`, not `run` (#300): `run` writes results/<id>.json and
+# never the c001.json the next line reads; `load`'s default --results-dir is
+# the results/load/ that --load-results points into. --n and --dim are the 1m
+# tier's exact shape, which is what a `(real)` row requires (#291, #295).
+printf '  vector-bench load --backend pgvector --n 1000000 --dim 384 --run-id <run-dir>\n'
 # Real throughput enters through --load-results (D-016, #156): a bare
 # --results-dir still reads the default stub run, and without --out the table
 # lands on the committed docs/cost_per_query.md (#171).

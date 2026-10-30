@@ -139,7 +139,12 @@ numbers from the three live backends are pending the operator running
 `make up SCALE=1m` followed by the per-engine `vector-bench run` commands
 above** — per the project's no-fabricated-benchmarks rule, this section
 stays empty until those JSONs exist. Once they do, issue #3 (HNSW tuning)
-and #5 (cost per query) compose the harness to produce the Pareto frontier.
+composes the harness to produce the Pareto frontier. Cost per query (#5) is
+not fed by the `run` commands: `scripts/cost_table.py --load-results
+1m=results/load/<run-id>` reads the concurrency-1 cell (`c001.json`) that a
+`vector-bench load` run at the tier's `--n` and `--dim 384` writes (see
+[Latency under load](#latency-under-load-4)). A `run` result is never read
+by the cost table.
 
 ### Latency under load (#4)
 
